@@ -1,0 +1,16 @@
+{
+  "signal": "self-improvement",
+  "task": "Rewrite and merge CAPABILITIES.md into README.md",
+  "outcome": "success",
+  "patterns": [
+    "Consolidated disparate documentation files into a high-impact 'System Capabilities' section in the main README.",
+    "Used HTML tags in Markdown for centered image alignment and custom width control.",
+    "Renamed and moved provided assets to a standard 'public/assets' directory for consistency."
+  ],
+  "gotchas": [
+    "Always check the 'brain' directory for attached media files when a user provides an image in the chat."
+  ],
+  "proposals": [
+    "Prefer a single 'Source of Truth' for system features in the README over multiple small documentation files."
+  ]
+}

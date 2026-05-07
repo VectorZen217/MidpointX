@@ -4,6 +4,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import fs from "fs/promises";
 import path from "path";
 import { Scheduler } from "./scheduler";
+const PROJECT_ROOT = path.resolve(__dirname, "../../");
 
 export interface MDSkill {
   name: string;
@@ -116,12 +117,17 @@ export class PluginRegistry {
         }
 
         try {
+          const resolvedArgs = serverConfig.args?.map((arg: string) => this.resolvePath(arg));
+          const resolvedEnv = Object.fromEntries(
+            Object.entries(serverConfig.env || {}).map(([k, v]) => [k, this.resolvePath(v as string)])
+          );
+
           console.log(`🔌 [PluginRegistry] Attempting connection to global MCP server: ${serverName}`);
-          
+
           const transport = new StdioClientTransport({
             command: serverConfig.command,
-            args: serverConfig.args,
-            env: { ...process.env, ...(serverConfig.env || {}) }
+            args: resolvedArgs || serverConfig.args,
+            env: { ...process.env, ...resolvedEnv }
           });
 
           const client = new Client(
@@ -385,10 +391,15 @@ export class PluginRegistry {
             })
         };
 
+        const resolvedArgs = serverConfig.args?.map((arg: string) => this.resolvePath(arg));
+        const resolvedEnv = Object.fromEntries(
+          Object.entries(serverConfig.env || {}).map(([k, v]) => [k, this.resolvePath(v as string)])
+        );
+
         const transport = new StdioClientTransport({
           command: serverConfig.command,
-          args: serverConfig.args,
-          env: isolatedEnv
+          args: resolvedArgs || serverConfig.args,
+          env: { ...isolatedEnv, ...resolvedEnv }
         });
 
         const newClient = new Client(
@@ -423,5 +434,13 @@ export class PluginRegistry {
     }
 
     throw new Error(`Tool ${name} not found in registry. (User Context: ${userId || 'Global'})`);
+  }
+
+  private static resolvePath(p: string): string {
+    if (typeof p !== 'string') return p;
+    if (p.startsWith("./")) {
+      return path.resolve(PROJECT_ROOT, p);
+    }
+    return p;
   }
 }

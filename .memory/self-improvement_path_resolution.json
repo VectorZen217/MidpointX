@@ -1,0 +1,17 @@
+{
+  "signal": "self-improvement",
+  "task": "Remove hardcoded paths from MCP config",
+  "outcome": "success",
+  "patterns": [
+    "Used runtime path resolution in PluginRegistry.ts to enable portability.",
+    "Calculated PROJECT_ROOT relative to __dirname for robustness.",
+    "Implemented resolvePath helper to handle both args and env in MCP config."
+  ],
+  "gotchas": [
+    "Replacing strings like 'D:/Project' with './' can result in './/' if not careful with trailing slashes.",
+    "Verification of server initialization requires careful handling if the port is already in use by another instance."
+  ],
+  "proposals": [
+    "Always use relative paths in JSON configs and resolve them at runtime using a PROJECT_ROOT constant."
+  ]
+}

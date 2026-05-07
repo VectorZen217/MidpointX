@@ -13,7 +13,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "D:/MidpointX"
+        "./"
       ],
       "env": {}
     },
@@ -42,9 +42,8 @@
         "-y",
         "@piotr-agier/google-drive-mcp"
       ],
-      "env": {
-        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "D:/MidpointX/src/plugins/mcp/google_creds.json",
-        "GOOGLE_DRIVE_MCP_TOKEN_PATH": "D:/MidpointX/src/plugins/mcp/google_token.json"
+      "env": { "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "./src/plugins/mcp/google_creds.json",
+        "GOOGLE_DRIVE_MCP_TOKEN_PATH": "./src/plugins/mcp/google_token.json"
       }
     },
     "gmail": {
@@ -54,8 +53,8 @@
         "@shinzolabs/gmail-mcp"
       ],
       "env": {
-        "GMAIL_OAUTH_PATH": "D:/MidpointX/src/plugins/mcp/google_creds.json",
-        "GMAIL_CREDENTIALS_PATH": "D:/MidpointX/src/plugins/mcp/gmail_token.json",
+        "GMAIL_OAUTH_PATH": "./src/plugins/mcp/google_creds.json",
+        "GMAIL_CREDENTIALS_PATH": "./src/plugins/mcp/gmail_token.json",
         "PORT": "3005",
         "AUTH_SERVER_PORT": "3005"
       }
@@ -67,8 +66,9 @@
         "mcp-google-calendar"
       ],
       "env": {
-        "CREDENTIALS_PATH": "D:/MidpointX/src/plugins/mcp/google_creds.json",
+        "CREDENTIALS_PATH": "./src/plugins/mcp/google_creds.json",
         "PORT": "3006"
+       
       }
     }
   }

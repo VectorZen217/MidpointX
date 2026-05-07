@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./public/assets/midpointx-logo.png" alt="MidpointX Logo" width="800">
+</p>
+
 # MidpointX: The Autonomous A2A Reasoning Engine
 
 MidpointX is an advanced, local-first, stateful reasoning engine designed to deliver high-leverage architectural efficiency. Built on an innovative Action-to-Action (A2A) protocol, MidpointX transcends traditional command execution—it autonomously reasons, learns, and evolves its own logic to solve complex software engineering challenges.
@@ -47,13 +51,34 @@ graph TD
 
 ---
 
-## 🎯 Key Features
+## 🚀 System Capabilities
 
-- **Say Goodbye to Context Rot**: The built-in context governor automatically summarizes, prunes, and preserves critical "Action Echoes." This leads to a massive reduction in token overhead during extensive multi-step tasks.
-- **Zero-Configuration Portability**: MidpointX’s `EnvironmentProbe` fingerprints your OS, shell, and available binaries on boot. Drop it onto any machine, and it instantly adapts to the available toolset without manual configuration.
-- **Self-Improving Memory**: Through the Justification Protocol and Learn Actor, MidpointX constantly evaluates its performance, committing novel operational patterns to its own persistent memory as Markdown skills.
-- **Agnostic LLM Tiering**: Support for Google Generative AI (Gemini), Anthropic (Claude), OpenAI, and OpenRouter is native. Use a powerful "Expert Tier" model for strategy and a fast, economical "Worker Tier" model for filesystem operations and compaction.
-- **Unhackable Resilience**: The `invokeWithResilience` module wraps all LLM calls, seamlessly handling transient errors with exponential backoff and jitter, while surfacing deterministic faults instantly.
+### 🧠 1. Cognitive Architecture
+*   **Action-to-Action (A2A) Protocol**: Transcends traditional command execution by enabling recursive reasoning and autonomous strategy pivots.
+*   **LangGraph Actor System**: A modular loop involving **Reflection, Analysis, Action, and Learning** nodes for complex multi-step orchestration.
+*   **Cognitive Compaction**: Intelligent state management that summarizes reasoning traces and prunes history to maintain optimal performance without "context rot."
+*   **Self-Healing Resilience**: All LLM operations are wrapped in a robust recovery layer with exponential backoff and deterministic error surfacing.
+
+### 🖥️ 2. Native Desktop Automation
+*   **Precision Humanoid Control**: High-fidelity mouse movement, complex keyboard emulation, and application lifecycle management (Launch/Monitor/Kill).
+*   **Visual Historical Memory**: A rolling buffer of visual snapshots allows the agent to verify state changes and reason about historical UI transitions.
+*   **UI Element Discovery**: Advanced text-to-coordinate mapping via `VisualProbe` for interacting with legacy or non-accessible applications.
+*   **Universal Filesystem Intelligence**: Deep, cross-platform access for secure file manipulation, metadata analysis, and pattern-based searching.
+
+### 🌐 3. Web & Browser Intelligence
+*   **Isolated Session Guard**: Spawns cryptographically isolated Puppeteer instances per user, ensuring strict privacy and data separation.
+*   **Persistent Digital Identity**: Support for local browser profiles, allowing the agent to maintain secure sessions in Gmail, GitHub, and other enterprise tools.
+*   **Full-Spectrum Automation**: Expert-level navigation, form-filling, shadow DOM interaction, and custom JavaScript evaluation.
+
+### 🔌 4. Extensible Ecosystem (MCP)
+*   **Dynamic Tool Injection**: Native support for the **Model Context Protocol (MCP)**, enabling instant integration with a vast library of external servers.
+*   **MD Skills (Theorems)**: Hot-reloadeable operational patterns defined in Markdown, allowing the agent to "learn" and adapt to new workflows without code changes.
+*   **Zero-Configuration Portability**: MidpointX’s `EnvironmentProbe` fingerprints your environment on boot, automatically resolving paths and binaries for instant adaptation.
+
+### 📱 5. Multi-Channel Orchestration
+*   **Proactive Messaging**: Orchestrate complex tasks across Web, Telegram, and Discord with real-time status synchronization.
+*   **Human-in-the-Loop (HITL)**: Secure remote approval gates delivered directly to mobile devices for sensitivity-aware operations.
+*   **Voice Command Support**: Process voice notes (STT) and provide auditory feedback (TTS) for true hands-free operation.
 
 ---
 
