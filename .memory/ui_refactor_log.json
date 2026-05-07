@@ -1,0 +1,7 @@
+{
+  "signal_schema": "self-improvement",
+  "task": "Recreate Web UI to function like OpenClaw Windows interface",
+  "outcome": "Success. Refactored App.jsx into a multi-component desktop-like interface with chat, settings, and skills views.",
+  "non_obvious_patterns": "When transitioning a terminal trace to a chat interface, it is helpful to interleave the system trace messages with the user chat bubbles to maintain a chronological timeline of the agent's actions.",
+  "errors_encountered": "Vite build failed locally due to missing npm dependencies, which is expected for a fresh clone but requires manual npm install."
+}

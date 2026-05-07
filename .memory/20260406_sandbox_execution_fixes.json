@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-06T14:58:00-05:00",
+  "signal": "self-improvement",
+  "task": "Fix ActionActor Execution Sandbox Escaping and Drift",
+  "outcomes": [
+    "Replaced stub `myInternalApi` mock in `executionNodes.ts` with authentic Node `child_process.exec()` bound to `powershell.exe`.",
+    "Hardcoded `{ cwd: process.cwd() }` to the execution sandbox to prevent directory traversal and location drift between agent sessions.",
+    "Integrated a rigorous try/catch that captures `stdout` and `stderr`. Stderr is now appended securely back into the LangGraph state trace to prevent 'Silent Fails' where powershell crashes go unnoticed.",
+    "Appended explicit `CRITICAL DIRECTIVE` instructions to the `execute_system_command` schema description to enforce strictly forward-slash `/` paths inside JSON formatting to cure agent Slash Bloat."
+  ],
+  "patterns_observed": "LLMs writing commands that utilize deeply embedded string quotes inside JSON-RPC structures create compound escaping issues. Fixing parser boundaries is essential. Additionally, executing subshells without tightly binding standard IO and CWD completely desynchronizes the AI's perceived state of the world from the actual system state.",
+  "errors_encountered": "The agent hallucinates success when standard outputs aren't captured from system callbacks.",
+  "corrections_made": "Sandbox standard IO capture implementation, escape instruction tuning, and locked working directory."
+}

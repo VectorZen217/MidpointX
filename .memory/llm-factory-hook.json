@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-04-09T11:28:44-05:00",
+  "task": "Develop Multi-Model Factory architecture and upgrade Node logic to LangChain abstractions",
+  "signal": "self-improvement",
+  "outcomes": {
+    "success": true,
+    "key_patterns_discovered": [
+      "When integrating proprietary 2026 test-time compute kwargs (e.g., Anthropic's 'thinking' or Google's 'thinkingConfig'), utilizing `bind({ ...<any> })` ensures arbitrary parameter mapping to native LLM requests without breaking strict generic TS `BaseChatModel` validation bindings.",
+      "Zod schemas targeting `.withStructuredOutput` MUST have verbose `.describe()` tags on every property; without it, non-Google SDK wrappers hallucinate or omit keys during the structured extraction process."
+    ],
+    "corrections": [
+      "Addressed TS2353 and TS2589 by dynamically suppressing excessively deep LangChain Zod tool union mapping and enforcing explicit typings on factory instances."
+    ]
+  }
+}

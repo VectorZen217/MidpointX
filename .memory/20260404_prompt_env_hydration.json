@@ -1,0 +1,13 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-04-04T14:45:00-05:00",
+  "task": "Fix MidpointX Token Underutilization & ENV Hydration",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "When upgrading code or moving files, always ensure that large fundamental 'System Prompts' are not lost, as omitting them will cause the cognitive agent to default to general helpful assistant mode and drift drastically.",
+      "Ensure environment hydration (`dotenv/config`) occurs FIRST in module load order so that module-level constants relying on ENV do not revert to broken defaults (like the RAG corpus invalid fallback path)."
+    ],
+    "patterns_observed": "Input tokens plummeted to 75, directly pinpointing a missing CORE_PROMPT. Adding import dotenv/config fixes the RAG fallback 400 error."
+  }
+}

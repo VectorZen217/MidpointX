@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-04-08T17:10:00Z",
+  "task": "Migrate MidpointX to Local Plugins & MCP",
+  "signal": "self-improvement",
+  "outcomes": {
+    "success": true,
+    "key_patterns_discovered": [
+      "Vertex AI unified SDK (@@google/genai) transparently accepts local API credentials without massive refactoring.",
+      "vertexRagStore tool limits architecture portability and requires custom fallback retrieval methods.",
+      "Markdown formatting for agent core skills is superior to programmatic TypeScript injection because it cleanly separates Cognitive Guidelines (MD) from Programmatic Tool Execution (MCP)"
+    ],
+    "corrections": [
+      "Re-architected the Local Skills Plugin system to parse YAML frontmatter from .md files instead of using JS classes."
+    ]
+  }
+}

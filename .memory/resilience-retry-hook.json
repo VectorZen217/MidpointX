@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-09T12:01:30-05:00",
+  "task": "Implement p-retry exponential backoff and strict LangChain Runnable typings across all MidpointX LLM nodes",
+  "signal": "self-improvement",
+  "outcomes": {
+    "success": true,
+    "key_patterns_discovered": [
+      "p-retry's AbortError must be explicitly imported and thrown inside the inner try/catch to differentiate deterministic 4xx failures (do not retry) from transient 429/503 failures (do retry). Simply re-throwing the error passes it back into the retry loop by default.",
+      "LangChain's Runnable<BaseLanguageModelInput, AIMessageChunk, any> is the correct strict return type for a factory that returns mixed provider models (ChatAnthropic, ChatOpenAI, ChatGoogleGenerativeAI) since all extend this base Runnable contract.",
+      "Jitter randomization via randomize: true in p-retry is critical when multiple MidpointX nodes hit the same free-tier endpoint simultaneously, preventing synchronized thundering herd 429 amplification."
+    ],
+    "corrections": []
+  }
+}

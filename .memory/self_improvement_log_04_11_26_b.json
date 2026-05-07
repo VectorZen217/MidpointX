@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-04-11T12:01:00-05:00",
+  "task": "Fix Gemini 400 Bad Request Payload (Tool Binding)",
+  "outcome": "Success. Formatted PluginRegistry FunctionDeclarations exclusively as OpenAI-compliant JSON schemas wrapped in { type: 'function', function: {...} } objects.",
+  "patterns": [
+    "Langchain natively rejects raw Google FunctionDeclaration objects directly inside bindTools, raising validation errors, unless padded internally to the abstracted tool standard format."
+  ],
+  "corrections": {
+    "proposed_fix": "Mapped MCP parameters to explicit type='function' elements natively injected into bindTools.",
+    "associated_skills": ["mcp_builder"]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "user_profile": {
+    "name": "Randy W Armstrong",
+    "roles": ["AI Developer", "Network Engineering", "Automation Consultant", "Network Security Architect"],
+    "skills": ["Python", ".NET", "SD-WAN", "Agile", "JIRA", "ChatGPT", "JSON", "API integrations", "NIST", "Zero Trust", "HIPAA"],
+    "experience_level": "Senior/Lead (20+ years)",
+    "location_preference": "Remote"
+  },
+  "search_params": {
+    "keywords": [
+      "AI Agent Engineer",
+      "AI Automation Consultant",
+      "Network Security Architect Zero Trust",
+      "Senior Network Engineer SD-WAN",
+      "Python AI Developer"
+    ],
+    "locations": ["Remote", "USA"],
+    "job_boards": ["LinkedIn", "Indeed", "Greenhouse", "Lever", "Wellfound"],
+    "notification_email": "rwarmst@gmail.com",
+    "google_sheet_id": "YOUR_GOOGLE_SHEET_ID_HERE",
+    "google_creds": "service_account.json"
+  }
+}

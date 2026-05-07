@@ -1,0 +1,14 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-04-04T14:15:00-05:00",
+  "task": "Optimize MidpointX token consumption",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "When building complex autonomous loops with @google/genai and LangGraph, explicitly restrict retrieval bounds (e.g. vertexRagStore topK 1) to prevent Context Bloat.",
+      "Ensure prompt instructions explicitly enforce concise, 'State-Only' payloads in subsequent chain hops.",
+      "Always capture response.usageMetadata.promptTokenCount to track hidden financial costs."
+    ],
+    "patterns_observed": "Vertex AI unified SDK caching is critical for repeated multi-hop agent requests, effectively solving the input token bloat."
+  }
+}

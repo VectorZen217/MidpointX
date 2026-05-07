@@ -1,0 +1,25 @@
+{
+  "taskId": "phase1-identity-memory",
+  "timestamp": "2026-04-26T10:57:00Z",
+  "outcome": "SUCCESS",
+  "patternsDiscovered": [
+    {
+      "pattern": "Gemini API (Google AI) requires lowercase string types in tool parameter schemas (e.g., 'string', 'object') instead of the uppercase 'Type' enum values used by the Generative AI SDK. Using uppercase types results in a 400 Bad Request error.",
+      "fix": "Cast the tool parameter object to 'any' in the PluginRegistry to allow lowercase strings while satisfying TypeScript."
+    },
+    {
+      "pattern": "Session memory logging during the final turn of a LangGraph execution requires mapping the full actionHistory state, as the current turn's newHistoryRecord is empty when no further tool call is detected.",
+      "fix": "Updated executionNodes.ts to map state.actionHistory for tool logging on task completion."
+    },
+    {
+      "pattern": "Memory recall splitting logic using \\n(?=## \\[) can skip the first entry if it lacks a leading newline.",
+      "fix": "Updated memory.ts with a multiline regex split /\\n(?=## \\[)|^(?=## \\[)/m to handle entries at the very start of the file."
+    }
+  ],
+  "improvementsProposed": [
+    {
+      "skill": "PluginRegistry",
+      "proposal": "Formalize the conversion of MCP/builtin tool schemas to Gemini-compatible lowercase JSON schemas to prevent future 400 errors."
+    }
+  ]
+}

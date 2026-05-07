@@ -1,0 +1,7 @@
+{
+  "signal": "self-improvement",
+  "topic": "google-genai-vertex-initialization",
+  "outcome": "Resolved fatal startup crash caused by strict object schema validation.",
+  "nonObviousPattern": "When initializing the new `@google/genai` SDK using Application Default Credentials (ADC) for Vertex AI, passing `vertexai: { project: 'x', location: 'y' }` triggers a consumer API fallback logic which immediately throws an 'Authentication is not set up' error on startup. The SDK statically requires flattened properties paired with a boolean flag: `{ vertexai: true, project: 'x', location: 'y' }`.",
+  "correctionApplied": "Replaced the nested `vertexai` object with `vertexai: true` and hoisted `project` and `location` to the top level of the configuration object across all MidpointX actor nodes."
+}

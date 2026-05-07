@@ -1,0 +1,23 @@
+RANDY W ARMSTRONG
+AI Developer | Network Engineering | Automation Consultant | Network Security Architect
+
+SUMMARY
+Senior/Lead professional with over 20 years of experience in network engineering, security, and automation. Currently focusing on AI development, agentic workflows, and cloud-native security architectures.
+
+SKILLS
+Python, .NET, ChatGPT, AI Agent Frameworks, JSON, API Integrations
+SD-WAN, NIST, Zero Trust, HIPAA, Network Security
+Agile, JIRA, Project Management
+
+EXPERIENCE
+Lead Automation Consultant & Network Architect (Last 10 Years)
+- Architected and deployed enterprise-scale SD-WAN solutions.
+- Developed custom automation tools using Python and .NET.
+- Implemented Zero Trust security models for healthcare and financial sectors.
+
+Senior Network Engineer (Previous 10 Years)
+- Managed global network infrastructures.
+- Specialized in network security and high-availability systems.
+
+EDUCATION & CERTIFICATIONS
+Relevant certifications in Network Security and Cloud Architecture.

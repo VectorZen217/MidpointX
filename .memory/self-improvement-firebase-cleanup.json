@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-03T08:12:00-05:00",
+  "task": "Review and cleanup of liftover Google Cloud and Firebase dependencies.",
+  "outcome": "Success",
+  "patterns": [
+    "Identified and removed unused Firebase dependencies and initialization code from the React frontend.",
+    "Bypassed the mock Firebase authentication in App.jsx directly to the local admin profile.",
+    "Confirmed that Google Cloud and Googleapis packages are actively required for the Google Drive, Calendar, and Gmail MCP servers via auth-google.ts, so they were preserved."
+  ],
+  "errors": []
+}

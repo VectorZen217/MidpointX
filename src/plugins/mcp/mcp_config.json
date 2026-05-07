@@ -1,0 +1,75 @@
+{
+  "mcpServers": {
+    "browser": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "env": {
+        "PUPPETEER_LAUNCH_OPTIONS": "{\"userDataDir\": \"./.browser_profile\", \"headless\": false}"
+      },
+      "description": "Sandboxed Puppeteer browser for web research and scraping. DOES NOT contain user logins or cookies. Use native start commands for identity-bound tasks."
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:/MidpointX"
+      ],
+      "env": {}
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "env": {}
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
+      }
+    },
+    "notebooklm": {
+      "command": "notebooklm-mcp",
+      "args": [],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    "google-drive": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@piotr-agier/google-drive-mcp"
+      ],
+      "env": {
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "D:/MidpointX/src/plugins/mcp/google_creds.json",
+        "GOOGLE_DRIVE_MCP_TOKEN_PATH": "D:/MidpointX/src/plugins/mcp/google_token.json"
+      }
+    },
+    "gmail": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@shinzolabs/gmail-mcp"
+      ],
+      "env": {
+        "GMAIL_OAUTH_PATH": "D:/MidpointX/src/plugins/mcp/google_creds.json",
+        "GMAIL_CREDENTIALS_PATH": "D:/MidpointX/src/plugins/mcp/gmail_token.json",
+        "PORT": "3005",
+        "AUTH_SERVER_PORT": "3005"
+      }
+    },
+    "google-calendar": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-google-calendar"
+      ],
+      "env": {
+        "CREDENTIALS_PATH": "D:/MidpointX/src/plugins/mcp/google_creds.json",
+        "PORT": "3006"
+      }
+    }
+  }
+}

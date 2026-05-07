@@ -1,0 +1,15 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-04-07T19:14:00-05:00",
+  "task": "Create comprehensive README.md for MidpointX-prod",
+  "outcome": "success",
+  "patterns": [
+    "Full codebase audit required before documentation — 15 source files across 4 directories",
+    "Architecture diagram built from graph.ts edge definitions (7 nodes, 1 conditional branch)",
+    "A2A endpoint uses .invoke() (synchronous) while WebSocket uses .stream() (real-time) — important distinction for documentation",
+    "Memory system is dual-write: Firestore cold + Vertex RAG hot — both documented separately",
+    "Context Cache targets gemini-1.5-pro even though cognitive nodes use gemini-2.5-flash-lite — noted in docs"
+  ],
+  "files_created": ["README.md"],
+  "notes": "README covers: architecture diagram, execution pipeline table, project structure, prerequisites, env config, setup & install, running, Web UI usage, A2A protocol with cURL examples, all 7 core component deep dives, Docker + Cloud Run deployment, token management, self-learning memory, and troubleshooting."
+}

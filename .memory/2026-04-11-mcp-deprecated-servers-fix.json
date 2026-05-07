@@ -1,0 +1,10 @@
+{
+  "schema": "self-improvement",
+  "timestamp": "2026-04-11T14:26:00-05:00",
+  "task": "Replace deprecated MCP servers for Slack and Postgres",
+  "outcome": "Success",
+  "error": "npm warn deprecated @modelcontextprotocol/server-postgres@... and server-slack@...",
+  "resolution": "Replaced `@modelcontextprotocol/server-slack` with `slack-mcp-server` and `@modelcontextprotocol/server-postgres` with `@ahmetkca/mcp-server-postgres` inside `mcp_config.json`.",
+  "non_obvious_patterns": "The official MCP reference implementations for Slack and Postgres were deprecated due to security vulnerabilities (SQL injection in Postgres, data leakage in Slack) and archived without direct replacements under the official namespace. Active community packages must be used instead.",
+  "skill_correction": "Always verify the security and maintenance status of MCP server packages. Deprecated `@modelcontextprotocol` namespace packages like postgres and slack must be avoided in favor of audited community forks."
+}

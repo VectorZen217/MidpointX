@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-04-11T11:40:00-05:00",
+  "task": "Unconstrain AnalysisActor & ActionActor Tool Usages",
+  "outcome": "Success. MidpointX-prod execution pipeline rewritten to dynamically support MCP tools rather than defaulting strictly to executed_system_commands.",
+  "patterns": [
+    "Hardcoded prompts instructing local execution scripts caused rigid behavior, ultimately overriding specific tooling plugins loaded in memory.",
+    "Web fetching with raw 'curl' in Windows PowerShell fails immediately against modern Cloudflare/Bot-Deterrent protected APIs like Yelp."
+  ],
+  "corrections": {
+    "proposed_fix": "Modified cognitiveNodes.ts to inject mapped MCP tools onto prompt generation phase; altered executionNodes.ts to utilize .bindTools([PluginRegistry.activeTools])",
+    "associated_skills": ["THEOREM_WEB_01"]
+  }
+}

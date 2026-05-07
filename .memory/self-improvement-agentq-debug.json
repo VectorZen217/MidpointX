@@ -1,0 +1,8 @@
+{
+  "signal": "self-improvement",
+  "task": "Debug MidpointX production engine",
+  "outcomes": "Resolved npm install 404 for @nut-tree/nut-js by switching to @nut-tree-fork/nut-js. Resolved missing node-global-key-listener by adding it to package.json. Fixed typescript template literal escaping syntax errors. Gracefully handled Windows Defender AV blocking WinKeyServer.exe with process.on('uncaughtException') catching UNKNOWN and ENOENT spawn errors.",
+  "non_obvious_patterns": "node-global-key-listener spawns WinKeyServer.exe on Windows, which is frequently blocked by Application Control or antivirus software as malicious, causing synchronous or unhandled spawn UNKNOWN or ENOENT errors that crash the node process. Using process.on('uncaughtException') specifically for these error codes and syscall='spawn' prevents the whole production server from crashing when AV intervenes.",
+  "errors_encountered": "npm 404 on @nut-tree/nut-js, MODULE_NOT_FOUND node-global-key-listener, TS1127 Invalid character due to escaped backticks, spawn UNKNOWN / ENOENT for WinKeyServer.exe",
+  "proposed_fix": "Use @nut-tree-fork/nut-js instead of @nut-tree/nut-js. Always wrap node-global-key-listener usage in try-catch and supplement with process.on('uncaughtException') to handle async spawn failures from AV blocks."
+}

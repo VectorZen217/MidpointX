@@ -1,0 +1,10 @@
+{
+  "schema": "self-improvement",
+  "timestamp": "2026-04-11T15:48:25-05:00",
+  "task": "Fix Gemini schema crash on exclusiveMinimum/exclusiveMaximum properties",
+  "outcome": "Success",
+  "error": "[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/...: [400 Bad Request] Invalid JSON payload received. Unknown name 'exclusiveMaximum' / 'exclusiveMinimum'",
+  "resolution": "Added a `sanitizeGeminiSchema` function to recursively strip `exclusiveMinimum` and `exclusiveMaximum` properties from all dynamically registered MCP tool parameters prior to calling LangChain's `bindTools` in `src/nodes/executionNodes.ts`.",
+  "non_obvious_patterns": "Unlike standard OpenAI bindings, the Gemini FunctionDeclaration schema doesn't seem to currently support numeric range limiters like `exclusiveMinimum` and `exclusiveMaximum`. Since third-party MCP servers routinely define these properties on their exported tools, they cause silent execution termination if passed untrimmed.",
+  "skill_correction": "When mapping external schemas (like standard JSON-schema-compliant tools from MCP) into Gemini, always recursively trim unsupported fields like `exclusiveMinimum` and `exclusiveMaximum` out of the schema."
+}

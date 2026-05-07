@@ -1,0 +1,14 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-04-04T15:00:00-05:00",
+  "task": "Resolve ModifyActor Context Store Rejection",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "The unified SDK `@google/genai` does strictly not expose an `ai.corpora` API at the root level, unlike earlier specialized or beta SDKs for Vertex AI.",
+      "Synchronous RAG insertions using missing SDK endpoints will throw undefined property errors regardless of whether TypeScript strictness is suppressed.",
+      "Isolating alpha/beta RAG injection queries behind granular `try...catch` blocks prevents non-fatal (secondary) storage operations from crashing primary evaluation pipelines."
+    ],
+    "patterns_observed": "The node failed solely because `commitTheorem` returned false. The root cause was an uncaught exception hitting a missing SDK wrapper (`ai.corpora.documents.create`). By correctly isolating this secondary sync into a handled bypass catch, the main pipeline persists logic shifts safely to cold storage and continues."
+  }
+}

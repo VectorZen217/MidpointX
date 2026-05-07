@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-04-11T12:28:00-05:00",
+  "task": "Fix LLM Tool Hallucinations via Misleading Schema",
+  "outcome": "Success. Removed unused attributes (actionType, payload, target) from the execute_system_command tool definition, forcing the LLM to directly bind and call native MCP tools instead of wrapping them inside bash/powershell strings.",
+  "patterns": [
+    "Providing generic keys like 'actionType: API_CALL' to a local system shell tool confuses the LLM into believing that standard shell execution arrays are universal meta-executors."
+  ],
+  "corrections": {
+    "proposed_fix": "Purged actionType, target, and payload from executionNodes.ts Zod schema schema and appended standard text telling it not to fallback to shell commands forcefully.",
+    "associated_skills": ["mcp_builder"]
+  }
+}

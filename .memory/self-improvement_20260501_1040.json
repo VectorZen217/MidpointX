@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-05-01T15:42:25Z",
+  "task": "Fixing MidpointX boot and stability issues",
+  "outcome": "Success",
+  "patterns_identified": [
+    {
+      "pattern": "Cross-platform script separators in package.json",
+      "insight": "Using 'cd dir && npm script' in package.json can fail on Windows if the shell used by npm (or the user) is PowerShell. Using 'npm run script --prefix dir' is more robust and portable."
+    },
+    {
+      "pattern": "Telegram Bot Polling Conflicts",
+      "insight": "Re-initializing node-telegram-bot-api without awaiting stopPolling() can lead to overlapping polling loops and ECONNRESET errors, especially during hot-reloading development."
+    },
+    {
+      "pattern": "MCP Stdio Transport Shutdown on Windows",
+      "insight": "Python-based MCP servers often throw noisy KeyboardInterrupt tracebacks when their stdio pipes are closed abruptly. A timeout on client.close() helps the parent process continue its shutdown sequence if the child is slow to exit."
+    }
+  ],
+  "corrections_made": [
+    "Changed package.json ui script to use --prefix.",
+    "Made TelegramService.init async and awaited stopPolling.",
+    "Added 2s timeout to MCP client closure in PluginRegistry."
+  ]
+}

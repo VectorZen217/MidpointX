@@ -1,0 +1,27 @@
+{
+  "task": "Temporal Contextual Observation Implementation",
+  "outcome": "Success",
+  "patterns": [
+    {
+      "name": "Bursted Snapshot Verification",
+      "description": "Using ffmpeg to capture 3fps bursts (1-3s) instead of continuous video allows for temporal grounding without VRAM bloat.",
+      "logic": "Capture -> Diff -> Text Insight -> LLM"
+    },
+    {
+      "name": "Region-Locked Probing",
+      "description": "Scoping visual observation to the bounding box of the last interaction eliminates background noise and reduces hallucination risk.",
+      "anchor": "action.args.x, action.args.y"
+    },
+    {
+      "name": "LIFO State Pruning",
+      "description": "Immediate flushing of visual buffers after insight generation is mandatory for LangGraph checkpoint stability.",
+      "implementation": "prunedState = { visualBuffer: [] } in node output"
+    }
+  ],
+  "errors_encountered": [
+    "Syntax error in ScreenCapture.ts due to misplaced closing brace during multi-method injection."
+  ],
+  "recommendations": [
+    "Extend Visual Diff to use Structural Similarity Index (SSIM) metadata from ffmpeg for higher fidelity change detection."
+  ]
+}

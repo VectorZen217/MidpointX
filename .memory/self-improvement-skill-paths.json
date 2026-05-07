@@ -1,0 +1,12 @@
+{
+  "schema": "self-improvement",
+  "task": "MidpointX Fix Skills Deletion/Edit Paths",
+  "date": "2026-04-24",
+  "outcome": "Success",
+  "patterns": [
+    "Fixed a bug where the backend assumed skill MD files were strictly named after their UI slug.",
+    "Attached `filePath` to the `MDSkill` interface during parsing so the API can precisely target the correct underlying files when a user attempts to edit or delete."
+  ],
+  "errors": [],
+  "corrections": []
+}

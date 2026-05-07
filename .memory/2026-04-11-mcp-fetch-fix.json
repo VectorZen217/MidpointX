@@ -1,0 +1,10 @@
+{
+  "schema": "self-improvement",
+  "timestamp": "2026-04-11T14:06:05-05:00",
+  "task": "Fix MCP fetch server startup error",
+  "outcome": "Success",
+  "error": "npm error 404 Not Found - GET https://registry.npmjs.org/@modelcontextprotocol%2fserver-fetch - Not found",
+  "resolution": "Changed the fetch server configuration in src/plugins/mcp/mcp_config.json to use the Python PyPI package `mcp-server-fetch` executed via `uvx`, instead of the incorrect `npx -y @modelcontextprotocol/server-fetch` which does not exist on the NPM registry.",
+  "non_obvious_patterns": "The MCP 'fetch' server is implemented natively in Python and published to PyPI as `mcp-server-fetch`, while most other official MCP servers are written in TypeScript and published to the NPM registry under `@modelcontextprotocol/server-*`.",
+  "skill_correction": "Remember that the MCP fetch server runs via Python/uvx. The package name is `mcp-server-fetch` on PyPI, and not `@modelcontextprotocol/server-fetch`."
+}
