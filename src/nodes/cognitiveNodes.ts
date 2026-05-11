@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { MidpointXState, LogicShiftSchema, StrategicPlanSchema, StrategicPlan } from "../core/state";
+import { MidpointXState, LogicShiftSchema, StrategicPlanSchema, StrategicPlan, LogicShift } from "../core/state";
 import { 
   buildReflectPrompt,
   buildAnalyzePrompt,
@@ -13,6 +13,7 @@ import { PluginRegistry } from "../core/pluginRegistry";
 import { invokeWithResilience } from "../core/resilience";
 import { WorkspaceLoader } from "../core/workspaceLoader";
 import { MemoryManager } from "../core/memory";
+import { A2AProtocol } from "../core/protocol";
 
 /**
  * Safely extracts plain text from LangChain response content.
@@ -89,13 +90,13 @@ export async function reflectNode(state: typeof MidpointXState.State) {
     console.log(`🔮 [ReflectionActor] Injected ${memoryContext.split("##").length - 1} relevant past session(s) into context.`);
   }
 
-  return { 
+  return A2AProtocol.commit("ReflectionActor", { 
     reflectionTrace: fullContent,
     conciseIntent: conciseIntent,
     totalInputTokens: response.usage_metadata?.input_tokens || 0,
     totalOutputTokens: response.usage_metadata?.output_tokens || 0,
     internalTurns: 1
-  };
+  });
 }
 
 export async function analyzeNode(state: typeof MidpointXState.State) {
@@ -182,7 +183,7 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     console.log(`🎯 [AnalysisActor] Cited ${citedSkills.length} skill(s): ${citedSkills.join(", ")}`);
   }
 
-  return { 
+  return A2AProtocol.commit("AnalysisActor", { 
     analysisResult: response.rationale,
     strategicPlan: response.plan,
     planStatus: planStatus,
@@ -191,7 +192,7 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     totalInputTokens: 0,
     totalOutputTokens: 0,
     internalTurns: 1
-  };
+  });
 }
 
 /**
@@ -218,12 +219,12 @@ export async function summarizeNode(state: typeof MidpointXState.State) {
   const response = await invokeWithResilience(model, payload);
   const newSummary = extractText(response.content);
 
-  return {
+  return A2AProtocol.commit("SummarizeActor", {
     actionHistory: remainingHistory,
     historySummary: newSummary,
     totalInputTokens: response.usage_metadata?.input_tokens || 0,
     totalOutputTokens: response.usage_metadata?.output_tokens || 0
-  };
+  });
 }
 
 export async function learnNode(state: typeof MidpointXState.State) {
@@ -287,10 +288,10 @@ export async function learnNode(state: typeof MidpointXState.State) {
     }
   }
 
-  return { 
-    proposedShift: proposedShift,
+  return A2AProtocol.commit("LearnActor", { 
+    proposedShift: proposedShift as LogicShift | null,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     internalTurns: 1
-  };
+  });
 }

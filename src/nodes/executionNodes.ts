@@ -17,6 +17,8 @@ import { WorkspaceLoader } from "../core/workspaceLoader";
 import { MemoryManager } from "../core/memory";
 import { ScreenCapture } from "../plugins/desktop/ScreenCapture";
 import { Config } from "../core/config";
+import { A2AProtocol } from "../core/protocol";
+import { PolicyEngine } from "../core/policy";
 
 const execAsync = promisify(exec);
 
@@ -45,53 +47,24 @@ const truncateOutput = (output: string, maxLines = 40, maxChars = 2000): string 
 
 /**
  * Security: Identifies actions that could modify the system or data.
+ * Now uses the centralized PolicyEngine for "Lead Shielding".
  */
 function isDestructiveAction(toolName: string, args: any): boolean {
+  const policyViolation = PolicyEngine.evaluateAction(toolName, args);
+  
+  if (policyViolation) {
+    console.warn(`🛡️ [Security] Hard Policy Trigger: ${policyViolation}`);
+    return true; // Requires approval
+  }
+
+  // Fallback to explicit list for non-path based tools
   const destructiveTools = [
     "filesystem__delete_file",
     "mcp_GitKraken_git_push",
     "mcp_GitKraken_git_add_or_commit"
   ];
 
-  // 1. Explicitly destructive tools
-  if (destructiveTools.includes(toolName)) return true;
-
-  // 2. Sensitive System Path Protection (Phase 4 Hardening)
-  const sensitivePathPatterns = [
-    /C:[\\\/]+Windows/i,
-    /C:[\\\/]+Program Files/i,
-    /system32/i,
-    /AppData/i,
-    /\.ssh/i,
-    /\.env/i
-  ];
-
-  const argsString = JSON.stringify(args);
-  if (sensitivePathPatterns.some(pattern => pattern.test(argsString))) {
-    console.warn(`🛡️ [Security] Sensitive path access detected in ${toolName}. Requiring human approval.`);
-    return true;
-  }
-
-  // 3. Destructive Command Pattern Matching
-  if (toolName === "execute_system_command") {
-    const command = (args.command || "").toLowerCase();
-    const dangerousCommands = [
-      /\brm\s+-[rf]+/i,
-      /\bdel\b/i,
-      /\brd\b/i,
-      /\brmdir\b/i,
-      /\bformat\b/i,
-      /\breg\s+delete\b/i,
-      /npx\s+rimraf/i
-    ];
-
-    if (dangerousCommands.some(pattern => pattern.test(command))) {
-      console.warn(`🛡️ [Security] Dangerous shell command detected. Requiring human approval.`);
-      return true;
-    }
-  }
-
-  return false;
+  return destructiveTools.includes(toolName);
 }
 
 // Proxy tool for LLM to select system commands
@@ -268,13 +241,13 @@ export async function selectionActor(state: typeof MidpointXState.State) {
   if (!toolCall) {
     const outcome = extractText(response.content);
     console.log("🏁 [SelectionActor] No tool call detected. Mission concluding...");
-    return { 
+    return A2AProtocol.commit("SelectionActor", { 
       isTaskComplete: true, 
       finalOutcome: outcome && outcome.trim().length > 5 ? outcome : "Mission accomplished. All steps in the strategic plan have been verified and completed.",
       pendingAction: null,
       needsApproval: false,
       currentScreenshot
-    };
+    });
   }
 
   const isReplanRequested = toolCall?.name === "system__request_replanning";
@@ -325,18 +298,17 @@ export async function selectionActor(state: typeof MidpointXState.State) {
 
   const reasoning = extractText(response.content);
   
-  return {
+  return A2AProtocol.commit("SelectionActor", {
     pendingAction: { tool: toolCall.name, args: toolCall.args },
     reasoning: reasoning,
     needsApproval,
-    autoApproved: !needsApproval,
     approvalStatus: needsApproval ? 'pending' : 'approved',
     currentScreenshot,
     planStatus: updatedPlanStatus,
     totalInputTokens: response.usage_metadata?.input_tokens || 0,
     totalOutputTokens: response.usage_metadata?.output_tokens || 0,
     ...prunedState
-  };
+  });
 }
 
 /**
@@ -349,12 +321,12 @@ export async function executionActor(state: typeof MidpointXState.State) {
 
   // Check for Human Doorbell Rejection
   if (state.approvalStatus === 'denied') {
-    return {
+    return A2AProtocol.commit("ExecutionActor", {
       actionHistory: [...state.actionHistory, { tool: action.tool, args: action.args, result: "REJECTED BY USER" }],
       pendingAction: null,
       needsApproval: false,
       approvalStatus: null
-    };
+    });
   }
 
   console.log(`🛠️ [ExecutionActor] Running: ${action.tool}`);
@@ -364,13 +336,13 @@ export async function executionActor(state: typeof MidpointXState.State) {
     const thesis = action.args.thesis || "No thesis provided.";
     console.log(`🔄 [ExecutionActor] Re-planning triggered. Thesis: ${thesis}`);
     
-    return {
+    return A2AProtocol.commit("ExecutionActor", {
       replanCount: 1, // Will be added via reducer
       failureThesis: thesis,
       abandonedPlans: [{ plan: state.strategicPlan, thesis: thesis }],
       pendingAction: null,
       actionHistory: [...state.actionHistory, { tool: action.tool, args: action.args, result: "RE-PLANNING IN PROGRESS" }]
-    };
+    });
   }
 
   if (action.tool === "execute_system_command") {
@@ -386,7 +358,8 @@ export async function executionActor(state: typeof MidpointXState.State) {
 
     try {
       const isWindows = os.platform() === "win32";
-      const defaultShell = isWindows && !Config.USE_DOCKER_SANDBOX ? "powershell.exe" : "/bin/bash";
+      const detectedShell = state.environmentFingerprint?.capabilities?.shell || (isWindows ? "powershell.exe" : "/bin/bash");
+      const defaultShell = !Config.USE_DOCKER_SANDBOX ? detectedShell : "/bin/bash";
       
       // 3. Windows-Native Restricted Shell (Phase 4 - OpenClaw Parity)
       if (isWindows && !Config.USE_DOCKER_SANDBOX && Config.TOOL_PROFILE === "messaging") {
@@ -441,7 +414,7 @@ export async function executionActor(state: typeof MidpointXState.State) {
     }
   }
 
-  return {
+  return A2AProtocol.commit("ExecutionActor", {
     actionHistory: [...state.actionHistory, ...newHistoryRecord],
     pendingAction: null,
     needsApproval: false,
@@ -449,5 +422,5 @@ export async function executionActor(state: typeof MidpointXState.State) {
     internalTurns: 1,
     outputArtifacts: artifacts,
     temporalInsight: temporalInsight
-  };
+  });
 }

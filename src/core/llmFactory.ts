@@ -2,6 +2,7 @@ import { Config } from "./config";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatVertexAI } from "@langchain/google-vertexai";
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { AIMessageChunk } from "@langchain/core/messages";
@@ -68,6 +69,16 @@ export class LLMFactory {
           configuration: {
             baseURL: "http://localhost:11434/v1",
           }
+        });
+      }
+
+      case "vertex": {
+        return new ChatVertexAI({
+          model: modelName,
+          temperature: temperature,
+          maxOutputTokens: maxTokens,
+          project: Config.GCP_PROJECT_ID,
+          location: Config.GCP_LOCATION,
         });
       }
 

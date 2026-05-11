@@ -1,0 +1,9 @@
+{
+  "taskId": "test-task-123",
+  "userId": "user-999",
+  "status": "ACTIVE",
+  "startedAt": "2026-05-09T20:26:41.781Z",
+  "expiresAt": "2026-05-09T20:56:41.781Z",
+  "lastHeartbeat": "2026-05-09T20:26:41.782Z",
+  "stepCount": 1
+}

@@ -1,9 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import { LogicShift } from "./state";
-
-const MEMORY_DIR = path.resolve(__dirname, "../../src/workspace/memory");
-const SKILLS_STATS_PATH = path.resolve(__dirname, "../../src/plugins/skills/stats.json");
+import { PersistenceFactory } from "./persistence";
 
 /**
  * MemoryManager — handles both permanent theorem storage and rolling session memory logs.
@@ -35,10 +31,10 @@ ${shift.pattern}
 ${shift.optimization}
 `;
 
-      const skillPath = path.join(__dirname, "../../src/plugins/skills", `${shift.theoremId}.md`);
-      await fs.writeFile(skillPath, markdownContent, "utf-8");
+      const adapter = PersistenceFactory.getAdapter();
+      await adapter.saveSkill(shift.theoremId, markdownContent);
 
-      console.log(`✅ [MemoryManager] Logic permanently solidified. New MD Skill created at plugins/skills/${shift.theoremId}.md`);
+      console.log(`✅ [MemoryManager] Logic permanently solidified via PersistenceAdapter.`);
       return true;
 
     } catch (error) {
@@ -53,20 +49,17 @@ ${shift.optimization}
    */
   static async logSession(taskId: string, intent: string, outcome: string, toolsUsed: string[]): Promise<void> {
     try {
-      await fs.mkdir(MEMORY_DIR, { recursive: true });
-
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      const filePath = path.join(MEMORY_DIR, `${today}.md`);
-
       const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/Chicago" });
       const tools = toolsUsed.length > 0 ? toolsUsed.join(", ") : "none";
-      // Cap outcome length for memory efficiency
       const cappedOutcome = outcome.length > 300 ? outcome.substring(0, 300) + "..." : outcome;
 
       const entry = `\n## [${now}] ${intent.substring(0, 120)}\n**Task ID:** ${taskId}\n**Outcome:** ${cappedOutcome}\n**Tools used:** ${tools}\n`;
 
-      await fs.appendFile(filePath, entry, "utf-8");
-      console.log(`📝 [MemoryManager] Session logged to memory/${today}.md`);
+      const adapter = PersistenceFactory.getAdapter();
+      await adapter.appendLog("memory", today, entry);
+      
+      console.log(`📝 [MemoryManager] Session logged via PersistenceAdapter.`);
     } catch (err) {
       console.warn(`⚠️ [MemoryManager] Failed to log session:`, err);
     }
@@ -74,56 +67,25 @@ ${shift.optimization}
 
   /**
    * Searches the last N days of memory logs for entries relevant to the current query.
-   * Uses simple term-frequency matching — no external embeddings required.
-   * Returns a formatted string suitable for injection into a system prompt.
+   * Now delegated to the PersistenceAdapter.
    */
   static async recallRecent(query: string, maxDays: number = 7): Promise<string> {
     try {
-      await fs.mkdir(MEMORY_DIR, { recursive: true });
-
       const queryTerms = query
         .toLowerCase()
         .split(/\s+/)
-        .filter(t => t.length > 3); // Only meaningful words
+        .filter(t => t.length > 3);
 
       if (queryTerms.length === 0) return "";
 
-      const results: Array<{ score: number; entry: string; date: string }> = [];
-
-      for (let i = 0; i < maxDays; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split("T")[0];
-        const filePath = path.join(MEMORY_DIR, `${dateStr}.md`);
-
-        let content: string;
-        try {
-          content = await fs.readFile(filePath, "utf-8");
-        } catch {
-          continue; // No log for this day, skip
-        }
-
-        // Split by entry blocks (## [...] headers)
-        // Improved regex to handle the very first entry which might not have a leading newline
-        const entries = content.split(/\n(?=## \[)|^(?=## \[)/m).filter(e => e.trim().length > 10);
-
-        for (const entry of entries) {
-          const entryLower = entry.toLowerCase();
-          const score = queryTerms.reduce((acc, term) => {
-            return acc + (entryLower.includes(term) ? 1 : 0);
-          }, 0);
-
-          if (score > 0) {
-            results.push({ score, entry: entry.trim(), date: dateStr });
-          }
-        }
-      }
+      const adapter = PersistenceFactory.getAdapter();
+      const results = await adapter.searchLogs("memory", queryTerms);
 
       if (results.length === 0) return "";
 
-      // Sort by relevance, take top 3
+      // Sort by score, then date, and take top 3
       const topResults = results
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => b.score - a.score || b.date.localeCompare(a.date))
         .slice(0, 3);
 
       const formatted = topResults
@@ -144,13 +106,8 @@ ${shift.optimization}
     try {
       if (skillNames.length === 0) return;
 
-      let stats: Record<string, any> = {};
-      try {
-        const data = await fs.readFile(SKILLS_STATS_PATH, "utf-8");
-        stats = JSON.parse(data);
-      } catch (e) {
-        // File doesn't exist, will be created
-      }
+      const adapter = PersistenceFactory.getAdapter();
+      const stats = await adapter.readStats("stats");
 
       const now = new Date().toISOString();
       for (const name of skillNames) {
@@ -164,7 +121,7 @@ ${shift.optimization}
         }
       }
 
-      await fs.writeFile(SKILLS_STATS_PATH, JSON.stringify(stats, null, 2), "utf-8");
+      await adapter.saveStats("stats", stats);
       console.log(`📊 [MemoryManager] Updated metrics for ${skillNames.length} skill(s).`);
     } catch (err) {
       console.warn(`⚠️ [MemoryManager] Failed to update skill stats:`, err);
@@ -176,8 +133,8 @@ ${shift.optimization}
    */
   static async getSkillStats(): Promise<Record<string, any>> {
     try {
-      const data = await fs.readFile(SKILLS_STATS_PATH, "utf-8");
-      return JSON.parse(data);
+      const adapter = PersistenceFactory.getAdapter();
+      return await adapter.readStats("stats");
     } catch {
       return {};
     }
@@ -185,59 +142,21 @@ ${shift.optimization}
 
   /**
    * Searches the .archive/ directory for relevant theorems (Long-Term Memory).
+   * Now uses the PersistenceAdapter.
    */
   static async searchArchive(query: string): Promise<string> {
     try {
-      const skillsDir = path.resolve(__dirname, "../../src/plugins/skills");
-      const archiveDir = path.join(skillsDir, ".archive");
-      
-      try {
-        await fs.access(archiveDir);
-      } catch {
-        return ""; // No archive yet
-      }
-
       const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 3);
       if (queryTerms.length === 0) return "";
 
-      const entries = await fs.readdir(archiveDir);
-      const results: Array<{ score: number; content: string; name: string }> = [];
-
-      for (const entry of entries) {
-        // Skip hidden files/directories
-        if (entry.startsWith(".")) continue;
-
-        const filePath = path.join(archiveDir, entry);
-        const stats = await fs.stat(filePath);
-        
-        let content = "";
-        let name = entry;
-
-        if (stats.isFile() && entry.endsWith(".md")) {
-          content = await fs.readFile(filePath, "utf-8");
-          name = entry.replace(".md", "");
-        } else if (stats.isDirectory()) {
-          const skillMD = path.join(filePath, "SKILL.md");
-          try {
-            content = await fs.readFile(skillMD, "utf-8");
-          } catch { continue; }
-        } else {
-          continue;
-        }
-
-        const contentLower = content.toLowerCase();
-        const score = queryTerms.reduce((acc, term) => acc + (contentLower.includes(term) ? 1 : 0), 0);
-        
-        if (score > 0) {
-          results.push({ score, content, name });
-        }
-      }
+      const adapter = PersistenceFactory.getAdapter();
+      const results = await adapter.searchLogs(".archive", queryTerms);
 
       if (results.length === 0) return "";
 
       // Return top 2 matching theorems
       const topResults = results.sort((a, b) => b.score - a.score).slice(0, 2);
-      return topResults.map(r => `[ARCHIVED THEOREM: ${r.name}]\n${r.content}`).join("\n\n---\n\n");
+      return topResults.map(r => `[ARCHIVED THEOREM: ${r.date}]\n${r.entry}`).join("\n\n---\n\n");
     } catch (err) {
       console.warn(`⚠️ [MemoryManager] Archive search failed:`, err);
       return "";
@@ -246,44 +165,24 @@ ${shift.optimization}
 
   /**
    * Moves a skill from .archive/ back to active skills/ (Reactivation).
+   * Now uses the PersistenceAdapter.
    */
   static async reactivateSkill(skillName: string): Promise<boolean> {
     try {
-      const skillsDir = path.resolve(__dirname, "../../src/plugins/skills");
-      const archiveDir = path.join(skillsDir, ".archive");
-      
+      const adapter = PersistenceFactory.getAdapter();
       const mdFile = `${skillName}.md`;
-      const archivedMd = path.join(archiveDir, mdFile);
-      const archivedDir = path.join(archiveDir, skillName);
       
-      let source = "";
-      let dest = "";
+      // Attempt to move MD file or Directory
+      await adapter.moveSkill(`.archive/${mdFile}`, mdFile);
 
-      try {
-        await fs.access(archivedMd);
-        source = archivedMd;
-        dest = path.join(skillsDir, mdFile);
-      } catch {
-        try {
-          await fs.access(archivedDir);
-          source = archivedDir;
-          dest = path.join(skillsDir, skillName);
-        } catch {
-          console.warn(`   ⚠️ [MemoryManager] Could not find archived source for: ${skillName}`);
-          return false;
-        }
-      }
-
-      await fs.rename(source, dest);
-
-      // Reset metrics in stats.json
+      // Reset metrics
       const stats = await this.getSkillStats();
       stats[skillName] = {
         usageCount: 1, 
         successCount: 1,
         lastUsed: new Date().toISOString()
       };
-      await fs.writeFile(SKILLS_STATS_PATH, JSON.stringify(stats, null, 2), "utf-8");
+      await adapter.saveStats("stats", stats);
 
       console.log(`✨ [MemoryManager] Theorem reactivated and restored to active library: ${skillName}`);
       return true;
@@ -295,56 +194,44 @@ ${shift.optimization}
 
   /**
    * Consolidates older session logs into monthly archives (Memory Consolidation).
+   * Now uses the PersistenceAdapter.
    */
   static async rotateSessionLogs(): Promise<void> {
     try {
-      const logsDir = path.resolve(__dirname, "../../logs/sessions");
-      try {
-        await fs.access(logsDir);
-      } catch {
-        return; // No logs directory yet
-      }
-
-      const entries = await fs.readdir(logsDir);
+      const adapter = PersistenceFactory.getAdapter();
+      const entries = await adapter.listLogFiles("sessions");
+      
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
       const archives: Record<string, string[]> = {};
 
       for (const entry of entries) {
-        // Expected format: YYYY-MM-DD.md
         if (!entry.match(/^\d{4}-\d{2}-\d{2}\.md$/)) continue;
-
         const dateStr = entry.replace(".md", "");
         const fileDate = new Date(dateStr);
 
-        // Only rotate logs older than 7 days
         if (fileDate < sevenDaysAgo) {
-          const archiveKey = dateStr.substring(0, 7).replace("-", "_"); // e.g., 2026_04
+          const archiveKey = dateStr.substring(0, 7).replace("-", "_");
           if (!archives[archiveKey]) archives[archiveKey] = [];
           archives[archiveKey].push(entry);
         }
       }
 
       for (const [archiveKey, files] of Object.entries(archives)) {
-        const archivePath = path.join(logsDir, `archive_${archiveKey}.md`);
-        let archiveContent = "";
-        
-        try {
-          archiveContent = await fs.readFile(archivePath, "utf-8");
-          archiveContent += "\n\n--- [APPENDED DURING SLEEP CYCLE] ---\n\n";
-        } catch {
+        let archiveContent = await adapter.readLogs("sessions", `archive_${archiveKey}`);
+        if (!archiveContent) {
           archiveContent = `# Session Archive: ${archiveKey}\n\n`;
+        } else {
+          archiveContent += "\n\n--- [APPENDED DURING SLEEP CYCLE] ---\n\n";
         }
 
         for (const file of files) {
-          const filePath = path.join(logsDir, file);
-          const content = await fs.readFile(filePath, "utf-8");
+          const content = await adapter.readLogs("sessions", file.replace(".md", ""));
           archiveContent += `\n\n## Log: ${file.replace(".md", "")}\n\n${content}`;
-          await fs.unlink(filePath);
+          await adapter.deleteLog("sessions", file.replace(".md", ""));
         }
 
-        await fs.writeFile(archivePath, archiveContent, "utf-8");
+        await adapter.saveSkill(`archive_${archiveKey}`, archiveContent); // Or use a specific log archive method
         console.log(`💤 [MemoryManager] Deep Consolidation: Merged ${files.length} old logs into [archive_${archiveKey}.md]`);
       }
     } catch (err) {

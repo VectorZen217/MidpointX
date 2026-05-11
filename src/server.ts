@@ -14,6 +14,7 @@ import { MidpointXGraph } from "./core/graph";
 import { Scheduler } from "./core/scheduler";
 import { ChannelRouter } from "./core/channelRouter";
 import { EnvManager } from "./core/envManager";
+import { PersistenceFactory } from "./core/persistence";
 
 // Phase 3: Messaging Services
 import { TelegramService } from "./services/telegramService";
@@ -54,12 +55,10 @@ app.post("/api/v1/skills", async (req, res) => {
     if (!name || !content) return res.status(400).json({ error: "Missing name or content" });
     
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const skillsDir = path.resolve(__dirname, "../src/plugins/skills");
-    await fs.mkdir(skillsDir, { recursive: true });
+    const adapter = PersistenceFactory.getAdapter();
     
-    const filePath = path.join(skillsDir, `${slug}.md`);
     const fileContent = `---\nname: ${name}\ndescription: ${description || "Custom skill"}\n---\n\n${content}\n`;
-    await fs.writeFile(filePath, fileContent, "utf-8");
+    await adapter.saveSkill(slug, fileContent);
     await PluginRegistry.reloadMDSkills();
     res.json({ success: true, slug });
   } catch (err: any) {
@@ -74,9 +73,8 @@ app.put("/api/v1/skills/:slug", async (req, res) => {
     const skills = await PluginRegistry.getMDSkills();
     const skill = skills.find(s => s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug);
     
-    if (!skill || !skill.filePath) return res.status(404).json({ error: "Skill not found" });
+    if (!skill) return res.status(404).json({ error: "Skill not found" });
     
-    // Preserve existing schedule if not provided in body (or handle it if we want to update it here)
     const scheduleMatch = skill.content.match(/schedule:\s*["']?([^"'\s][^"']*)["']?/);
     const schedule = scheduleMatch ? scheduleMatch[1] : undefined;
     
@@ -85,7 +83,8 @@ app.put("/api/v1/skills/:slug", async (req, res) => {
     frontmatter += `---`;
     
     const newContent = `${frontmatter}\n\n${content}\n`;
-    await fs.writeFile(skill.filePath, newContent, "utf-8");
+    const adapter = PersistenceFactory.getAdapter();
+    await adapter.saveSkill(slug, newContent);
     await PluginRegistry.reloadMDSkills();
     res.json({ success: true });
   } catch (err: any) {
@@ -96,12 +95,8 @@ app.put("/api/v1/skills/:slug", async (req, res) => {
 app.delete("/api/v1/skills/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
-    const skills = await PluginRegistry.getMDSkills();
-    const skill = skills.find(s => s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug);
-    
-    if (!skill || !skill.filePath) return res.status(404).json({ error: "Skill not found" });
-    
-    await fs.unlink(skill.filePath);
+    const adapter = PersistenceFactory.getAdapter();
+    await adapter.deleteLog("skills", slug); // Reusing deleteLog for skill removal
     await PluginRegistry.reloadMDSkills();
     res.json({ success: true });
   } catch (err: any) {
@@ -133,21 +128,18 @@ app.get("/api/v1/scheduler", async (req, res) => {
 app.post("/api/v1/scheduler/toggle", async (req, res) => {
   try {
     const { slug, enabled } = req.body;
-    const skills = await PluginRegistry.getMDSkills();
-    const skill = skills.find(s => s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug);
+    const adapter = PersistenceFactory.getAdapter();
+    let content = await adapter.readSkill(slug);
     
-    if (!skill || !skill.filePath) return res.status(404).json({ error: "Skill not found" });
+    if (!content) return res.status(404).json({ error: "Skill not found" });
     
-    let content = await fs.readFile(skill.filePath, "utf-8");
     if (enabled) {
-      // Uncomment
       content = content.replace(/#\s*schedule:/, "schedule:");
     } else {
-      // Comment out
       content = content.replace(/schedule:/, "# schedule:");
     }
     
-    await fs.writeFile(skill.filePath, content, "utf-8");
+    await adapter.saveSkill(slug, content);
     await PluginRegistry.reloadMDSkills();
     res.json({ success: true });
   } catch (err: any) {

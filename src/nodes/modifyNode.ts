@@ -1,6 +1,7 @@
 import { invokeWithResilience } from '../core/resilience';
 import { MidpointXState } from "../core/state";
 import { MemoryManager } from "../core/memory";
+import { A2AProtocol } from "../core/protocol";
 
 /**
  * NODE 6: ModifyActor (The State Committer)
@@ -12,14 +13,14 @@ export async function modifyNode(state: typeof MidpointXState.State) {
   // 1. If no shift was proposed by the LearnActor, simply pass through to Action
   if (!state.proposedShift) {
     console.log("\u23e9 [ModifyActor] No novel logic to commit. Proceeding to execution.");
-    return {}; 
+    return A2AProtocol.commit("ModifyActor", {}); 
   }
 
   // 2. If a shift exists, but safeguards failed, we REJECT the commit
   if (!state.isJustified || !state.regressionPassed) {
     console.warn(`\ud83d\udea8 [ModifyActor] Safeguards failed! Rejecting theorem: ${state.proposedShift.theoremId}`);
     // We wipe the proposed shift from the state so the ActionActor doesn't use it
-    return { proposedShift: null }; 
+    return A2AProtocol.commit("ModifyActor", { proposedShift: null }); 
   }
 
   // 3. Safeguards passed. Commit to memory.
@@ -35,7 +36,7 @@ export async function modifyNode(state: typeof MidpointXState.State) {
   }
 
   // We return the state unchanged, allowing the graph to proceed to ActionActor
-  return {};
+  return A2AProtocol.commit("ModifyActor", {});
 }
 
 

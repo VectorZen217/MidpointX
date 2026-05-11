@@ -1,0 +1,14 @@
+node_modules
+dist
+public/assets
+.git
+.env
+.browser_profile
+logs
+logs/audit
+*.log
+Dockerfile
+.dockerignore
+tsconfig.json
+frontend/node_modules
+frontend/dist

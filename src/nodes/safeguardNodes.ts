@@ -2,8 +2,10 @@ import "dotenv/config";
 import { z } from "zod";
 import { MidpointXState } from "../core/state";
 import { LLMFactory } from "../core/llmFactory";
-import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { invokeWithResilience } from "../core/resilience";
+import { A2AProtocol } from "../core/protocol";
+import { PolicyEngine } from "../core/policy";
 
 const JustificationSchema = z.object({
   isJustified: z.boolean().describe("True if safe and logical, False if risky or flawed"),
@@ -18,6 +20,17 @@ export async function justifyNode(state: typeof MidpointXState.State) {
   if (!state.proposedShift) return { isJustified: true }; // Nothing to justify
 
   console.log(`\u26aa [JustificationProtocol] Evaluating shift: ${state.proposedShift.theoremId}`);
+  
+  // 1. Deterministic Policy Check (Lead Shielding)
+  const policyViolation = PolicyEngine.evaluateAction("logic_shift", state.proposedShift);
+  if (policyViolation) {
+    console.warn(`\u26d4 [JustificationProtocol] Hard Policy Violation: ${policyViolation}`);
+    return A2AProtocol.commit("JustificationProtocol", {
+      isJustified: false,
+      totalInputTokens: 0,
+      totalOutputTokens: 0
+    });
+  }
 
   const rawModel = LLMFactory.getModel({ tier: "worker", temperature: 0 });
   const structuredModel = (rawModel as any).withStructuredOutput(JustificationSchema);
@@ -42,11 +55,11 @@ export async function justifyNode(state: typeof MidpointXState.State) {
     console.log(`\u2705 [JustificationProtocol] Shift Approved.`);
   }
 
-  return { 
+  return A2AProtocol.commit("JustificationProtocol", { 
     isJustified: evaluation.isJustified,
     totalInputTokens: 0, 
     totalOutputTokens: 0
-  };
+  });
 }
 
 /**
@@ -85,9 +98,9 @@ export async function regressNode(state: typeof MidpointXState.State) {
     console.warn("\ud83d\udea8 [RegressionTester] Regression detected! Shift will be discarded.");
   }
 
-  return { 
+  return A2AProtocol.commit("RegressionTester", { 
     regressionPassed: passed,
     totalInputTokens: 0,
     totalOutputTokens: 0
-  };
+  });
 }

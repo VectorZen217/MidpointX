@@ -37,6 +37,12 @@ const ConfigSchema = z.object({
   EMBEDDING_MODEL: z.string().default("text-embedding-004"),
   ENABLE_SLEEP_CYCLE: BoolSchema.default(true),
   SLEEP_CYCLE_CRON: z.string().default("0 3 * * *"), // 3 AM local time
+  
+  // GCP Native Integration (Phase 4)
+  GCP_PROJECT_ID: z.string().optional(),
+  GCP_LOCATION: z.string().default("us-central1"),
+  ENABLE_CLOUD_LOGGING: BoolSchema.default(false),
+  PERSISTENCE_ADAPTER: z.enum(["local", "firestore"]).default("local"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

@@ -24,6 +24,7 @@ export type StrategicPlan = z.infer<typeof StrategicPlanSchema>;
 export const MidpointXState = Annotation.Root({
   // Ingress
   taskId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  userId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "system" }),
   userIntent: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   environmentFingerprint: Annotation<any>({ reducer: (x: any, y: any) => y, default: () => null }),
   operatorIdentity: Annotation<any>({ reducer: (x: any, y: any) => y, default: () => null }),
@@ -77,4 +78,5 @@ export const MidpointXState = Annotation.Root({
   replanCount: Annotation<number>({ reducer: (x: number, y: number) => x + y, default: () => 0 }),
   failureThesis: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   abandonedPlans: Annotation<any[]>({ reducer: (x: any[], y: any[]) => [...x, ...y], default: () => [] }),
+  reasoning: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
 });

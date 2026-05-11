@@ -127,7 +127,10 @@ export class PluginRegistry {
           const transport = new StdioClientTransport({
             command: serverConfig.command,
             args: resolvedArgs || serverConfig.args,
-            env: { ...process.env, ...resolvedEnv }
+            env: Object.fromEntries(
+              Object.entries({ ...process.env, ...resolvedEnv })
+                .filter(([, v]) => v !== undefined)
+            ) as Record<string, string>
           });
 
           const client = new Client(
