@@ -189,7 +189,9 @@ io.on("connection", (socket) => {
 
   socket.emit("system:init", {
     provider: Config.ACTIVE_LLM_PROVIDER,
-    model: Config.ACTIVE_MODEL_NAME
+    model: Config.ACTIVE_MODEL_NAME,
+    persistence: Config.PERSISTENCE_ADAPTER,
+    env: process.env.NODE_ENV || "development"
   });
 
   socket.on("loop:start", async (payload: { taskId: string, task: string, identity?: any, executionMode?: string }) => {

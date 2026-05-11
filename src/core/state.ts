@@ -79,4 +79,5 @@ export const MidpointXState = Annotation.Root({
   failureThesis: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   abandonedPlans: Annotation<any[]>({ reducer: (x: any[], y: any[]) => [...x, ...y], default: () => [] }),
   reasoning: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  latestAuditHash: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "0" }),
 });

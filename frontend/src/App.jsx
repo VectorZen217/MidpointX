@@ -27,7 +27,7 @@ const App = () => {
   ]);
   const [tokenUsage, setTokenUsage] = useState({ input: 0, output: 0 });
   const [chatMessages, setChatMessages] = useState([]);
-  const [systemInfo, setSystemInfo] = useState({ provider: 'OPENAI', model: 'GPT-4O' });
+  const [systemInfo, setSystemInfo] = useState({ provider: 'GOOGLE', model: 'GEMINI-2.0-FLASH', persistence: 'local', env: 'development' });
   const [pendingApproval, setPendingApproval] = useState(null);
   const [hasNotifiedSovereign, setHasNotifiedSovereign] = useState(false);
   
@@ -102,12 +102,12 @@ const App = () => {
     fetch('/api/v1/config')
       .then(res => res.json())
       .then(data => {
-        if (data.ACTIVE_LLM_PROVIDER && data.ACTIVE_MODEL_NAME) {
-          setSystemInfo({
-            provider: data.ACTIVE_LLM_PROVIDER.toUpperCase(),
-            model: data.ACTIVE_MODEL_NAME.toUpperCase()
-          });
-        }
+        setSystemInfo(prev => ({
+          ...prev,
+          provider: data.ACTIVE_LLM_PROVIDER?.toUpperCase() || prev.provider,
+          model: data.ACTIVE_MODEL_NAME?.toUpperCase() || prev.model,
+          persistence: data.PERSISTENCE_ADAPTER || prev.persistence
+        }));
       })
       .catch(console.error);
 
@@ -179,6 +179,7 @@ const App = () => {
         setTrace(prev => [...prev, { 
           type: nodeStage.includes('reflection') ? 'reflection' : 'system', 
           message: logMessage, 
+          hash: payload.data?.latestAuditHash,
           time: new Date().toLocaleTimeString() 
         }]);
       }
@@ -235,8 +236,13 @@ const App = () => {
     socket.on('system:init', (payload) => {
       setSystemInfo({
         provider: payload.provider.toUpperCase(),
-        model: payload.model.toUpperCase()
+        model: payload.model.toUpperCase(),
+        persistence: payload.persistence,
+        env: payload.env
       });
+      
+      const gatewayStatus = payload.persistence === 'firestore' ? 'Cloud Gateway' : 'Local Gateway';
+      setTrace([{ type: 'system', message: `MidpointX Runtime Initialized // ${gatewayStatus} Active`, time: new Date().toLocaleTimeString() }]);
     });
 
     return () => {

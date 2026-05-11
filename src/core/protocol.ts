@@ -17,7 +17,7 @@ export class A2AProtocol {
    * Commits a state transition to the A2A audit ledger.
    * Now with session heartbeat verification (Phase 6).
    */
-  static async commit(nodeName: string, updates: Partial<typeof MidpointXState.State>, state?: typeof MidpointXState.State): Promise<void> {
+  static async commit(nodeName: string, updates: any, state?: typeof MidpointXState.State): Promise<any> {
     const timestamp = new Date().toISOString();
     
     console.log(`📜 [A2A Protocol] Node '${nodeName}' is committing a state transition...`);
@@ -28,19 +28,24 @@ export class A2AProtocol {
         await SessionManager.heartbeat(state.taskId);
       } catch (err: any) {
         console.error(`🚨 [A2A Protocol] Critical Session Error: ${err.message}`);
-        // In production, we would abort the reasoning loop here
       }
     }
 
-    // 1. Audit the transition
-    this.audit(nodeName, updates, timestamp);
+    // 1. Audit the transition and get the hash
+    const hash = await this.audit(nodeName, updates, timestamp);
+
+    // 2. Inject the hash into the state updates for UI visibility
+    return {
+      ...updates,
+      latestAuditHash: hash
+    };
   }
 
   /**
    * Records the transition to the persistent audit ledger.
    * This is the "Lead Shielding" for production non-repudiation.
    */
-  private static async audit(nodeName: string, updates: any, timestamp: string) {
+  private static async audit(nodeName: string, updates: any, timestamp: string): Promise<string> {
     try {
       const adapter = PersistenceFactory.getAdapter();
       const lastHash = await adapter.getLatestAuditHash();
@@ -62,8 +67,11 @@ export class A2AProtocol {
       if (Config.ENABLE_CLOUD_LOGGING && Config.GCP_PROJECT_ID) {
         this.pushToCloudLogging(logEntry);
       }
+
+      return hash;
     } catch (err) {
       console.error(`⚠️ [A2A Protocol] Audit failed for node ${nodeName}:`, err);
+      return "0";
     }
   }
 

@@ -92,6 +92,12 @@ const ChatView = ({
               <><Eye size={14} color="#10b981" /> <span style={{fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold'}}>VISUAL MODE</span></>
             )}
           </div>
+          <div className="system-badge persistence-badge" style={{ background: systemInfo.persistence === 'firestore' ? 'rgba(23,113,201,0.1)' : 'rgba(128,128,128,0.1)', borderColor: systemInfo.persistence === 'firestore' ? 'var(--accent-teal)' : 'var(--border-color)' }}>
+            <span className={`badge-dot ${systemInfo.persistence === 'firestore' ? 'neon-glow' : ''}`} style={{ background: systemInfo.persistence === 'firestore' ? 'var(--accent-teal)' : '#888' }}></span>
+            <span style={{ color: systemInfo.persistence === 'firestore' ? 'var(--accent-teal)' : '#888' }}>
+              {systemInfo.persistence === 'firestore' ? 'SOVEREIGN GATEWAY' : 'SOVEREIGN LOCAL'}
+            </span>
+          </div>
           <div className="system-badge">
             <span className="badge-dot neon-glow"></span>
             <span>{systemInfo.model}</span>
