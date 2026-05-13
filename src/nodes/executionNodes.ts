@@ -433,7 +433,9 @@ export async function executionActor(state: typeof MidpointXState.State) {
     temporalInsight = await ScreenCapture.getVisualDiff(frames, region);
   }
 
-  const newHistoryRecord = [{ tool: action.tool, args: action.args, result: truncateOutput(finalMessage, 10) }];
+  const isSnapshotTool = action.tool === "desktop__take_snapshot" || action.tool === "browser__screenshot";
+  const resultToStore = isSnapshotTool ? finalMessage : truncateOutput(finalMessage, 10);
+  const newHistoryRecord = [{ tool: action.tool, args: action.args, result: resultToStore }];
   
   // Artifact Extraction Heuristic
   const artifacts: any[] = [];

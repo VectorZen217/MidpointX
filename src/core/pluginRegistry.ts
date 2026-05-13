@@ -206,12 +206,17 @@ export class PluginRegistry {
           "evaluate": { 
             type: "object", 
             properties: { 
-              script: { 
+              expression: { 
                 type: "string", 
-                description: "The JavaScript code to execute in the browser context. MUST be a valid JS string. Example: 'document.body.innerText'" 
+                description: "The JavaScript expression to evaluate in the browser context. Example: 'document.body.innerText'" 
               } 
             }, 
-            required: ["script"] 
+            required: ["expression"] 
+          },
+          "page_content": {
+            type: "object",
+            description: "Retrieve the full HTML content of the current page.",
+            properties: {}
           },
           "select_option": { 
             type: "object", 
@@ -231,7 +236,7 @@ export class PluginRegistry {
           }
         };
 
-        const browserTools = ["navigate", "screenshot", "click", "hover", "type", "evaluate", "fill", "select_option", "drag_and_drop", "wait_for_selector"];
+        const browserTools = ["navigate", "screenshot", "click", "hover", "type", "evaluate", "fill", "select_option", "drag_and_drop", "wait_for_selector", "page_content"];
         browserTools.forEach(bt => {
              rawTools.push({
                 name: `browser__${bt}`,
@@ -488,6 +493,20 @@ export class PluginRegistry {
         // CRITICAL: Map standard aliases back to Puppeteer server conventions
         if (!toolName.startsWith("puppeteer_")) {
           toolName = `puppeteer_${toolName}`;
+        }
+        
+        // Parameter Normalization: Ensure 'expression' is used for evaluate
+        if (toolName === "puppeteer_evaluate") {
+          if (args.script && !args.expression) {
+            args.expression = args.script;
+            delete args.script;
+          }
+        }
+
+        // Virtual Tool: browser__page_content maps to a specific evaluate call
+        if (toolName === "puppeteer_page_content") {
+          toolName = "puppeteer_evaluate";
+          args = { expression: "document.documentElement.outerHTML" };
         }
       }
 
