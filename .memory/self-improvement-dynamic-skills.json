@@ -1,0 +1,12 @@
+{
+  "schema": "self-improvement",
+  "timestamp": "2026-05-13T11:20:00Z",
+  "task": "Implement Dynamic Skill Acquisition using Markdown SOPs",
+  "outcome": "Success",
+  "patterns_learned": [
+    "Instead of generating isolated executable sandboxes, MidpointX handles dynamic skill acquisition by generating Markdown SOP files.",
+    "This utilizes the existing `pluginRegistry` which was updated to allow Upserts for new skills.",
+    "An Immutable Core Guard was placed in `FileSystemController` to prevent the agent from destroying core execution modules (`src/core`, `src/nodes`), throwing explicit errors to request manual bypass if a core edit is genuinely required."
+  ],
+  "corrections": "Added a dedicated `VerificationNode` to LangGraph to test structural integrity of generated API skills before they are saved."
+}

@@ -28,11 +28,19 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 *   **Full-Spectrum Automation**: Expert-level navigation, form-filling, shadow DOM interaction, and custom JavaScript evaluation.
 
 ## 🔌 5. Extensible Ecosystem (MCP)
-*   **Dynamic Tool Injection**: Native support for the **Model Context Protocol (MCP)**, enabling instant integration with a vast library of external servers.
+*   **Protocol Aggregation**: Seamlessly connects to Model Context Protocol (MCP) servers, unifying disparate tools (GitHub, Slack, Google Calendar) into a single reasoning interface.
+*   **Dynamic Skill Synthesis**: The agent can autonomously discover new API capabilities, generate structured Markdown skills, and hot-load them into its runtime.
+*   **Lead-Shielded Execution**: A strict policy engine that prevents destructive tool calls without explicit human approval.
 *   **MD Skills (Theorems)**: Hot-reloadeable operational patterns defined in Markdown, allowing the agent to "learn" and adapt to new workflows without code changes.
-*   **A2A Trust Protocol**: Strict safety handshakes and trust-threshold verification for all incoming remote agent requests.
 
-## 📱 6. Multi-Channel Orchestration
+## 🛰️ 6. Sentinel Proactive Agency
+*   **State-Aware Observer Pattern**: Moves beyond request-response by monitoring local filesystem changes (`watchPath`) and external webhooks (`webhookPath`) in real-time.
+*   **Silent Assessment Actor**: Every trigger undergoes a background "Silent Assessment" against the user's current goals and historical preferences.
+*   **85% Confidence Gate**: Mitigates "context blind spots" and notification fatigue by automatically routing low-confidence events to a Dead-Letter Queue (DLQ).
+*   **Cognitive Worker Swarm**: Specialized worker nodes are dynamically assigned to handle specific proactive missions (e.g., automated CI/CD triage, trading bot monitoring).
+*   **30-Second Undo Window**: Non-destructive write operations are held in a server-side TTL queue, allowing the user to "Undo" an action before it auto-resumes.
+
+## 📱 7. Multi-Channel Orchestration
 *   **Proactive Messaging**: Orchestrate complex tasks across Web, Telegram, and Discord with real-time status synchronization.
 *   **Human-in-the-Loop (HITL)**: Secure remote approval gates delivered directly to mobile devices for sensitive or destructive operations.
 *   **Multi-Modal Grounding**: Processing of voice notes (STT) and high-resolution images for unified contextual reasoning.

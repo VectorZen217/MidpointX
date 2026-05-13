@@ -5,6 +5,32 @@ import { PersistenceFactory } from "./persistence";
  * MemoryManager — handles both permanent theorem storage and rolling session memory logs.
  */
 export class MemoryManager {
+  // Trigger Ledger for Semantic Rate Limiting (The 3:15 Rule)
+  // Maps intent string to an array of timestamps (Date.now())
+  private static triggerLedger: Map<string, number[]> = new Map();
+
+  /**
+   * Checks if a proactive trigger intent has exceeded the 3:15 rule.
+   * Returns true if rate limited (should be dropped), false otherwise.
+   */
+  static checkTriggerRateLimit(intent: string): boolean {
+    const now = Date.now();
+    const fifteenMinutesMs = 15 * 60 * 1000;
+    
+    let timestamps = this.triggerLedger.get(intent) || [];
+    // Filter out timestamps older than 15 minutes
+    timestamps = timestamps.filter(ts => now - ts <= fifteenMinutesMs);
+    
+    if (timestamps.length >= 3) {
+      console.warn(`⚠️ [MemoryManager] Semantic Rate Limit Exceeded for intent: "${intent}". (Fired ${timestamps.length} times in last 15 mins).`);
+      return true;
+    }
+    
+    timestamps.push(now);
+    this.triggerLedger.set(intent, timestamps);
+    return false;
+  }
+
   /**
    * Commits a newly validated theorem directly as a Local MD Skill.
    */
@@ -62,6 +88,42 @@ ${shift.optimization}
       console.log(`📝 [MemoryManager] Session logged via PersistenceAdapter.`);
     } catch (err) {
       console.warn(`⚠️ [MemoryManager] Failed to log session:`, err);
+    }
+  }
+
+  /**
+   * Logs a completed proactive intervention to the dedicated proactive interventions ledger.
+   */
+  static async logIntervention(eventSeen: string, workerAssigned: string, reasoning: string, actionTaken: string): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      const entry = `\n## [${now}] Event: ${eventSeen}\n**Worker:** ${workerAssigned}\n**Reasoning:** ${reasoning}\n**Action Taken:** ${actionTaken}\n`;
+      
+      const adapter = PersistenceFactory.getAdapter();
+      await adapter.appendLog("memory", "proactive_interventions", entry);
+      
+      console.log(`📝 [MemoryManager] Proactive intervention logged.`);
+    } catch (err) {
+      console.warn(`⚠️ [MemoryManager] Failed to log intervention:`, err);
+    }
+  }
+
+  /**
+   * Logs a dropped event to the Dead-Letter Queue (DLQ).
+   */
+  static async logDroppedEventToDLQ(eventData: any, reasoning: string): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      const eventSummary = typeof eventData === 'string' ? eventData : JSON.stringify(eventData);
+      const entry = `\n## [${now}] Dropped Event\n**Event:** ${eventSummary}\n**Reasoning:** ${reasoning}\n`;
+      
+      const adapter = PersistenceFactory.getAdapter();
+      // Using .md extension via appendLog so it works seamlessly with PersistenceAdapter
+      await adapter.appendLog("memory", "dropped_events", entry);
+      
+      console.log(`🗑️ [MemoryManager] Event routed to Dead-Letter Queue (DLQ).`);
+    } catch (err) {
+      console.warn(`⚠️ [MemoryManager] Failed to route to DLQ:`, err);
     }
   }
 

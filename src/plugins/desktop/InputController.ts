@@ -37,13 +37,20 @@ export class InputController {
   static async pressKey(keyName: string) {
     try {
       // Map string keyName to nut.js Key enum
-      const keyObj = (Key as any)[keyName.toUpperCase()];
-      if (keyObj) {
+      let normalizedKey = keyName.toUpperCase();
+      // Handle common aliases
+      if (normalizedKey === "RETURN") normalizedKey = "ENTER";
+      if (normalizedKey === "ESC") normalizedKey = "ESCAPE";
+      if (normalizedKey === "CMD") normalizedKey = "COMMAND";
+      if (normalizedKey === "WIN") normalizedKey = "COMMAND";
+      
+      const keyObj = (Key as any)[normalizedKey];
+      if (keyObj !== undefined) {
         await keyboard.pressKey(keyObj);
         await keyboard.releaseKey(keyObj);
-        return { success: true, message: `Pressed key: ${keyName}` };
+        return { success: true, message: `Pressed key: ${normalizedKey}` };
       }
-      return { success: false, message: `Unknown key: ${keyName}` };
+      return { success: false, message: `Unknown key: ${keyName}. Available keys include ENTER, TAB, ESCAPE, SPACE, UP, DOWN, LEFT, RIGHT, etc.` };
     } catch(e: any) {
       return { success: false, message: e.message };
     }

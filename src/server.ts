@@ -11,7 +11,7 @@ import { Config, reloadConfig } from "./core/config";
 import { WorkspaceLoader } from "./core/workspaceLoader";
 import { PluginRegistry } from "./core/pluginRegistry";
 import { MidpointXGraph } from "./core/graph";
-import { Scheduler } from "./core/scheduler";
+import { Observer } from "./core/observer";
 import { ChannelRouter } from "./core/channelRouter";
 import { EnvManager } from "./core/envManager";
 import { PersistenceFactory } from "./core/persistence";
@@ -183,6 +183,23 @@ app.get("/api/v1/ollama-models", async (req, res) => {
   }
 });
 
+// Webhook Listener for Proactive Sentinel Triggers
+app.post("/webhook/*", async (req, res) => {
+  try {
+    const webhookPath = req.path.replace(/^\/webhook\//, ""); // e.g. test-trigger
+    console.log(`🪝 [Server] Received webhook request for ${webhookPath}`);
+    
+    // Fire and forget so we don't block the webhook response
+    Observer.triggerWebhook(webhookPath, req.body).catch(err => {
+      console.error(`❌ [Server] Background webhook processing failed:`, err);
+    });
+    
+    res.json({ success: true, message: "Webhook accepted by Sentinel." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Socket.io Real-time Communication
 io.on("connection", (socket) => {
   console.log(`User/Agent connected: ${socket.id}`);
@@ -210,7 +227,39 @@ io.on("connection", (socket) => {
         });
 
         if (typeof result === "object" && result.needsApproval) {
-            socket.emit("agent:approval_required", result.action);
+            socket.emit("agent:approval_required", { action: result.action, severity: result.severity });
+
+            // 30-Second "Undo" Window Logic
+            if (result.severity === "undoable") {
+              console.log(`⏱️ [Server] 30-second undo window started for task: ${payload.taskId}`);
+              
+              // We assign this timeout to a map or handle it inline. For now, inline is fine because 
+              // the user clicking "cancel" or "approve" will fire a new loop:resume event.
+              // We need a way to clear this timeout if they act manually.
+              const autoResumeTimer = setTimeout(async () => {
+                console.log(`⏱️ [Server] Auto-approving undoable action for task: ${payload.taskId}`);
+                try {
+                  const autoResult = await ChannelRouter.resume(payload.taskId, true, (update) => {
+                    socket.emit("agent:progress", update);
+                  });
+                  if (typeof autoResult === "object" && (autoResult as any).needsApproval) {
+                    socket.emit("agent:approval_required", { action: (autoResult as any).action, severity: (autoResult as any).severity });
+                  } else {
+                    const message = typeof autoResult === "object" ? (autoResult as any).message : autoResult;
+                    const artifacts = typeof autoResult === "object" ? (autoResult as any).artifacts : [];
+                    socket.emit("agent:message", { message, artifacts });
+                    socket.emit("agent:complete", { message: "Task Fulfilled via Auto-Resume" });
+                  }
+                } catch (e) {
+                  socket.emit("agent:error", { message: "Auto-Resumption Failed", error: String(e) });
+                }
+              }, 30000); // 30 seconds
+
+              // Store timer reference on the socket object (quick and dirty) so we can clear it
+              (socket as any).undoTimers = (socket as any).undoTimers || {};
+              (socket as any).undoTimers[payload.taskId] = autoResumeTimer;
+            }
+
         } else {
             const message = typeof result === "object" ? result.message : result;
             const artifacts = typeof result === "object" ? result.artifacts : [];
@@ -226,13 +275,19 @@ io.on("connection", (socket) => {
 
   // Support for Resuming from UI
   socket.on("loop:resume", async (payload: { taskId: string, approved: boolean }) => {
+    // Clear the auto-resume timer if one exists
+    if ((socket as any).undoTimers && (socket as any).undoTimers[payload.taskId]) {
+      clearTimeout((socket as any).undoTimers[payload.taskId]);
+      delete (socket as any).undoTimers[payload.taskId];
+    }
+
     try {
       const response = await ChannelRouter.resume(payload.taskId, payload.approved, (update) => {
         socket.emit("agent:progress", update);
       });
 
       if (typeof response === "object" && (response as any).needsApproval) {
-          socket.emit("agent:approval_required", (response as any).action);
+          socket.emit("agent:approval_required", { action: (response as any).action, severity: (response as any).severity });
       } else {
           const message = typeof response === "object" ? (response as any).message : response;
           const artifacts = typeof response === "object" ? (response as any).artifacts : [];
@@ -252,7 +307,7 @@ httpServer.listen(PORT, async () => {
   try {
     await WorkspaceLoader.init();
     await PluginRegistry.init();
-    await Scheduler.init(io); 
+    await Observer.init(io); 
     
     // Initialize Messaging Channels with Socket.io for UI Sync
     await TelegramService.init(io);

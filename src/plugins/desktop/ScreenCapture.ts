@@ -163,11 +163,11 @@ export class ScreenCapture {
 
       const regionArg = region ? `-vf "crop=${region.w}:${region.h}:${region.x}:${region.y}"` : "";
       
-      // Use gdigrab for Windows desktop capture. Added 10s timeout to prevent hanging on slow I/O.
+      // Use gdigrab for Windows desktop capture. Increased timeout to 20s to prevent hanging on slow I/O or device initialization.
       const command = `ffmpeg -y -f gdigrab -framerate ${fps} -i desktop -t ${durationSec} ${regionArg} "${path.join(tempDir, "frame_%03d.png")}"`;
       
       console.log(`🎬 [ScreenCapture] Starting burst capture: ${command}`);
-      execSync(command, { stdio: 'ignore', timeout: 10000 });
+      execSync(command, { stdio: 'ignore', timeout: 20000 });
 
       const files = await fsPromises.readdir(tempDir);
       const frames: string[] = [];

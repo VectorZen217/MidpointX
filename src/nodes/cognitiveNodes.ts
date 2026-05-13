@@ -14,6 +14,76 @@ import { invokeWithResilience } from "../core/resilience";
 import { WorkspaceLoader } from "../core/workspaceLoader";
 import { MemoryManager } from "../core/memory";
 import { A2AProtocol } from "../core/protocol";
+import { z } from "zod";
+
+export const SilentAssessmentSchema = z.object({
+  action: z.enum(["DROP", "NOTIFY", "ACTION"]),
+  confidence: z.number().describe("0-100 score indicating confidence in taking autonomous action"),
+  worker: z.string().describe("The name of the Cognitive Worker (Skill) to assign, if ACTION"),
+  reasoning: z.string().describe("Why this action/drop/notify was chosen")
+});
+
+/**
+ * NODE: SilentAssessmentActor
+ * Proactively evaluates events without immediate user interaction.
+ * Applies the 85% confidence threshold and DLQ routing.
+ */
+export async function silentAssessmentNode(state: typeof MidpointXState.State) {
+  console.log("👁️ [SilentAssessmentActor] Evaluating proactive trigger...");
+
+  if (!state.proactiveTrigger) {
+     return {}; // Bypass if not a proactive trigger
+  }
+
+  const rawModel = LLMFactory.getModel({ temperature: 0.1, tier: "worker" }) as any;
+  const structuredModel = rawModel.withStructuredOutput(SilentAssessmentSchema);
+
+  const agentPersona = WorkspaceLoader.getAgentPersona();
+  const availableSkills = PluginRegistry.getMDSkills().map(s => `[${s.name}]: ${s.description}`).join("\n");
+
+  const content: any[] = [
+    { 
+      type: "text", 
+      text: `
+        PROACTIVE TRIGGER DETECTED:
+        Trigger Type: ${state.proactiveTrigger.type}
+        Skill Source: ${state.proactiveTrigger.skill}
+        Event Data: ${JSON.stringify(state.proactiveTrigger.data)}
+        
+        Evaluate this event. Should MidpointX act on it, just notify the user, or drop it as noise?
+        Available Workers:
+        ${availableSkills}
+      ` 
+    }
+  ];
+
+  const payload = [
+    new SystemMessage(`You are the Sentinel Assessment engine.\n${agentPersona}\nAnalyze the trigger. If you are extremely confident (>85%), select ACTION and assign a worker. If unsure, select NOTIFY. If the event is noise, select DROP.`),
+    new HumanMessage({ content })
+  ];
+
+  let result = (await invokeWithResilience(structuredModel, payload)) as any;
+
+  // Apply Anti-Blind Spot Strategy (85% Confidence Threshold)
+  if (result.action === "ACTION" && result.confidence < 85) {
+      console.log(`⚠️ [SilentAssessmentActor] Confidence (${result.confidence}%) below 85% threshold. Downgrading ACTION to NOTIFY.`);
+      result.action = "NOTIFY";
+      result.reasoning = `Confidence was only ${result.confidence}%. Action downgraded to Notification to prevent blind spots. Original reasoning: ${result.reasoning}`;
+  }
+
+  if (result.action === "DROP") {
+      await MemoryManager.logDroppedEventToDLQ(state.proactiveTrigger, result.reasoning);
+  }
+
+  return A2AProtocol.commit("SilentAssessmentActor", { 
+    assessmentDecision: result.action,
+    assessmentReasoning: result.reasoning,
+    assignedWorker: result.worker || "",
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    internalTurns: 1
+  });
+}
 
 /**
  * Safely extracts plain text from LangChain response content.
@@ -62,6 +132,10 @@ export async function reflectNode(state: typeof MidpointXState.State) {
     ? `\n\nCURRENT OPERATOR IDENTITY:\nName: ${state.operatorIdentity.name}\nEmail: ${state.operatorIdentity.email}\nUID: ${state.operatorIdentity.uid}`
     : '';
 
+  const swarmStr = state.assignedWorker
+    ? `\n\nCOGNITIVE WORKER SWARM ROUTING:\nYou have been assigned the worker role: [${state.assignedWorker}]. Focus EXCLUSIVELY on executing this mission within the boundaries of this specific worker skill.`
+    : '';
+
   const content: any[] = [
     { type: "text", text: `Task Intent: ${state.userIntent}${memoryBlock}\n\nCritically reflect on this task. What are the hidden complexities, required system states, and potential failure points?` }
   ];
@@ -74,7 +148,7 @@ export async function reflectNode(state: typeof MidpointXState.State) {
   }
 
   const payload = [
-    new SystemMessage(buildReflectPrompt(agentPersona, userContext) + identityStr),
+    new SystemMessage(buildReflectPrompt(agentPersona, userContext) + identityStr + swarmStr),
     new HumanMessage({ content } as any)
   ];
 
@@ -157,6 +231,7 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
   const payload = [
     new SystemMessage(
       buildAnalyzePrompt(agentPersona, userContext, state.executionMode || 'api') + identityStr +
+      (state.assignedWorker ? `\n\nSWARM DIRECTIVE: You are acting as worker [${state.assignedWorker}]. Restrict your strategy to this domain.` : '') +
       `\n\nTOOL CONTEXT: Available tools: [${availableTools}]` +
       skillsStr
     ),

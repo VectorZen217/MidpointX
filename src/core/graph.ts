@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { MidpointXState } from "./state";
-import { reflectNode, analyzeNode, learnNode } from "../nodes/cognitiveNodes";
-import { justifyNode, regressNode } from "../nodes/safeguardNodes";
+import { reflectNode, analyzeNode, learnNode, silentAssessmentNode } from "../nodes/cognitiveNodes";
+import { justifyNode, regressNode, verificationNode } from "../nodes/safeguardNodes";
 import { modifyNode } from "../nodes/modifyNode";
 import { selectionActor, executionActor } from "../nodes/executionNodes";
 import { compactionNode } from "../nodes/compactionNode";
@@ -15,12 +15,14 @@ const checkpointer = new MemorySaver();
 const builder = new StateGraph(MidpointXState);
 
 // 3. Add Nodes
+builder.addNode("SilentAssessmentActor", silentAssessmentNode);
 builder.addNode("ReflectionActor", reflectNode);
 builder.addNode("AnalysisActor", analyzeNode);
 builder.addNode("LearnActor", learnNode);
 builder.addNode("CompactionActor", compactionNode);
 builder.addNode("ModifyActor", modifyNode);
 builder.addNode("JustificationProtocol", justifyNode);
+builder.addNode("VerificationNode", verificationNode);
 builder.addNode("RegressionTester", regressNode);
 builder.addNode("SelectionActor", selectionActor);
 builder.addNode("ExecutionActor", executionActor);
@@ -36,7 +38,30 @@ builder.addNode("HumanApprovalGate", (state) => {
 });
 
 // 4. Main Workflow Path
-builder.addEdge(START, "ReflectionActor");
+builder.addConditionalEdges(
+  START,
+  (state) => state.proactiveTrigger ? "silent_assessment" : "reflection",
+  {
+    silent_assessment: "SilentAssessmentActor",
+    reflection: "ReflectionActor"
+  }
+);
+
+builder.addConditionalEdges(
+  "SilentAssessmentActor",
+  (state) => {
+    if (state.assessmentDecision === "DROP") return "end";
+    if (state.assessmentDecision === "NOTIFY") return "approval"; // Drops to human loop for review/undo
+    if (state.assessmentDecision === "ACTION") return "reflection"; // Worker Swarm route
+    return "end"; // Fallback
+  },
+  {
+    end: END,
+    approval: "HumanApprovalGate",
+    reflection: "ReflectionActor"
+  }
+);
+
 builder.addEdge("ReflectionActor", "AnalysisActor");
 builder.addEdge("AnalysisActor", "CompactionActor");
 builder.addEdge("CompactionActor", "SelectionActor");
@@ -81,7 +106,8 @@ builder.addConditionalEdges(
 );
 
 // 7. Safeguard & Committal Path
-builder.addEdge("JustificationProtocol", "RegressionTester");
+builder.addEdge("JustificationProtocol", "VerificationNode");
+builder.addEdge("VerificationNode", "RegressionTester");
 builder.addEdge("RegressionTester", "ModifyActor");
 builder.addEdge("ModifyActor", "PruningActor");
 builder.addEdge("PruningActor", END);

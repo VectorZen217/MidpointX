@@ -1,7 +1,15 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 
+const CORE_PATHS = ["src/core", "src/nodes", "src/server.ts"].map(p => path.resolve(process.cwd(), p));
+
 export class FileSystemController {
+  private static checkImmutableCore(targetPath: string) {
+    const isCore = CORE_PATHS.some(corePath => targetPath.startsWith(corePath));
+    if (isCore) {
+      throw new Error(`Permission Denied: Immutable Core Guard. You are attempting to modify a core file (${targetPath}). If this refactor is intentional, please tell the user why and what you are changing, and ask them to temporarily disable this guard if approved.`);
+    }
+  }
   static async listDirectory(targetPath: string) {
     try {
       const p = path.resolve(targetPath);
@@ -27,6 +35,7 @@ export class FileSystemController {
   static async writeFileContent(filePath: string, content: string) {
     try {
         const p = path.resolve(filePath);
+        this.checkImmutableCore(p);
         await fs.mkdir(path.dirname(p), { recursive: true });
         await fs.writeFile(p, content, 'utf-8');
         return "File successfully written.";
@@ -38,10 +47,21 @@ export class FileSystemController {
   static async deleteFile(filePath: string) {
     try {
         const p = path.resolve(filePath);
+        this.checkImmutableCore(p);
         await fs.unlink(p);
         return "File successfully deleted.";
     } catch(e: any) {
         throw new Error(`Failed to delete file: ${e.message}`);
+    }
+  }
+  
+  static async exists(targetPath: string) {
+    try {
+        const p = path.resolve(targetPath);
+        await fs.stat(p);
+        return { exists: true, path: p };
+    } catch {
+        return { exists: false, path: path.resolve(targetPath) };
     }
   }
 }

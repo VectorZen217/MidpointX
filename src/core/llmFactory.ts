@@ -77,9 +77,7 @@ export class LLMFactory {
           model: modelName,
           temperature: temperature,
           maxOutputTokens: maxTokens,
-          project: Config.GCP_PROJECT_ID,
-          location: Config.GCP_LOCATION,
-        });
+        } as any);
       }
 
       case "google":

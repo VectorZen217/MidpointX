@@ -124,7 +124,8 @@ export class ChannelRouter {
       if (finalState.needsApproval && finalState.approvalStatus === "pending") {
         return {
           needsApproval: true,
-          action: finalState.pendingAction
+          action: finalState.pendingAction,
+          severity: finalState.approvalSeverity
         };
       }
 
@@ -202,7 +203,8 @@ export class ChannelRouter {
       if (finalState.needsApproval && finalState.approvalStatus === "pending") {
         return {
           needsApproval: true,
-          action: finalState.pendingAction
+          action: finalState.pendingAction,
+          severity: finalState.approvalSeverity
         };
       }
 

@@ -62,6 +62,51 @@ export async function justifyNode(state: typeof MidpointXState.State) {
   });
 }
 
+const VerificationSchema = z.object({
+  isVerified: z.boolean().describe("True if the skill passed the structural and logic tests"),
+  reason: z.string().describe("Details of the verification check")
+});
+
+/**
+ * NODE 4.5: VerificationNode
+ * Dedicated testing node for newly synthesized skills (e.g., API skills).
+ * Evaluates structural compliance with SKILL_TEMPLATE.md and basic viability.
+ */
+export async function verificationNode(state: typeof MidpointXState.State) {
+  if (!state.proposedShift || !state.isJustified) return { isVerified: true };
+
+  console.log(`\u26aa [VerificationNode] Running dedicated tests for shift: ${state.proposedShift.theoremId}`);
+
+  const rawModel = LLMFactory.getModel({ tier: "worker", temperature: 0 });
+  const structuredModel = (rawModel as any).withStructuredOutput(VerificationSchema);
+
+  const payload = [
+    new SystemMessage("You are an automated Quality Assurance and Verification Agent. Your output MUST match the requested JSON schema."),
+    new HumanMessage(`
+      Evaluate the following proposed Logic Shift / Skill for structural integrity and operational viability.
+      
+      Pattern: ${state.proposedShift.pattern}
+      Optimization/SOP: ${state.proposedShift.optimization}
+      
+      Does this new logic provide clear, actionable steps? If it describes an API, does it include Auth and Base URL? Is it structurally sound? Answer True if passed, False if failed.
+    `)
+  ];
+
+  const evaluation = await invokeWithResilience(structuredModel, payload) as z.infer<typeof VerificationSchema>;
+  
+  if (!evaluation.isVerified) {
+    console.warn(`\u274c [VerificationNode] Verification Failed! Reason: ${evaluation.reason}`);
+  } else {
+    console.log(`\u2705 [VerificationNode] Verification Passed.`);
+  }
+
+  return A2AProtocol.commit("VerificationNode", { 
+    isVerified: evaluation.isVerified,
+    totalInputTokens: 0, 
+    totalOutputTokens: 0
+  });
+}
+
 /**
  * NODE 5: RegressionTester
  * Simulates the proposed shift against historical baselines to ensure no breaking changes.

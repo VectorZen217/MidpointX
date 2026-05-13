@@ -1,17 +1,17 @@
 ---
 name: THEOREM_FS_01
-description: filesystem, powershell, optimization
+description: filesystem, error handling, user interaction
 ---
 
 # Logic Shift: THEOREM_FS_01
-Trace ID: TELEGRAM-1777746612855
-Learned At: 2026-05-02T18:30:59.257Z
+Trace ID: TELEGRAM-1778695213228
+Learned At: 2026-05-13T18:02:14.897Z
 
 ## Justification
-The original approach used `Test-Path` followed by `Get-ChildItem | Measure-Object`. While functional, `Test-Path` is redundant if the subsequent command `Get-ChildItem` will inherently handle a non-existent directory by returning no items or an error that can be caught. For a known-to-exist directory, directly counting files is more efficient.
+The previous approach of attempting to create a disallowed directory or save to a disallowed path resulted in a failure. This theorem provides a more robust and user-friendly way to handle such situations by proactively informing the user and offering a viable alternative, preventing task failure due to environmental constraints.
 
 ## Discovered Pattern
-Counting files in a specific directory when the directory is known to exist.
+User requests file to be saved in a directory that does not exist and is not explicitly permitted.
 
 ## Optimized Approach
-Use `(Get-ChildItem -Path 'D:\Reports' -File | Measure-Object).Count` directly. This combines the file filtering and counting into a single, efficient command.
+Instead of attempting to create the directory or save to a disallowed path, inform the user of the directory restriction and offer to save the file in an allowed directory (e.g., the agent's root directory `D:\MidpointX`).

@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import fs from "fs/promises";
 import path from "path";
-import { Scheduler } from "./scheduler";
+import { Observer } from "./observer";
 const PROJECT_ROOT = path.resolve(__dirname, "../../");
 
 export interface MDSkill {
@@ -12,6 +12,8 @@ export interface MDSkill {
   content: string;
   filePath?: string;
   schedule?: string; // Cron expression for proactive tasks
+  watchPath?: string; // Directory to watch for file system events
+  webhookPath?: string; // Endpoint path for webhook listener
 }
 
 export class PluginRegistry {
@@ -25,7 +27,7 @@ export class PluginRegistry {
     await this.initMCPServers();
     await this.rebuildToolsArray();
     
-    // We don't call Scheduler.init() here because server.ts needs to pass 'io'
+    // We don't call Observer.init() here because server.ts needs to pass 'io'
   }
 
   public static getMDSkills(): MDSkill[] {
@@ -37,7 +39,7 @@ export class PluginRegistry {
     this.mdSkills.clear();
     await this.initMDSkills();
     await this.rebuildToolsArray();
-    await Scheduler.sync(); // Keep the heartbeat in sync
+    await Observer.sync(); // Keep the heartbeat in sync
   }
 
   private static async initMDSkills() {
@@ -72,7 +74,9 @@ export class PluginRegistry {
           content = await fs.readFile(filePath, "utf-8");
           const nameMatch = content.match(/name:\s*(.+)/);
           const descMatch = content.match(/description:\s*(.+)/);
-          const scheduleMatch = content.match(/schedule:\s*["']?([^"'\s][^"']*)["']?/);
+          const scheduleMatch = content.match(/schedule:\s*["']?([^"'\n\r]+)["']?/);
+          const watchPathMatch = content.match(/watchPath:\s*["']?([^"'\n\r]+)["']?/);
+          const webhookPathMatch = content.match(/webhookPath:\s*["']?([^"'\n\r]+)["']?/);
           
           if (nameMatch) {
             const skillName = nameMatch[1].trim();
@@ -81,9 +85,14 @@ export class PluginRegistry {
               description: descMatch ? descMatch[1].trim() : "Custom Agent Skill",
               content: content,
               filePath: filePath,
-              schedule: scheduleMatch ? scheduleMatch[1].trim() : undefined
+              schedule: scheduleMatch ? scheduleMatch[1].trim() : undefined,
+              watchPath: watchPathMatch ? watchPathMatch[1].trim() : undefined,
+              webhookPath: webhookPathMatch ? webhookPathMatch[1].trim() : undefined
             });
-            console.log(`✅ [PluginRegistry] Loaded MD Skill: ${skillName} (${entry.isDirectory() ? 'DIR' : 'FILE'})${scheduleMatch ? ' [SCHEDULED]' : ''}`);
+            console.log(`✅ [PluginRegistry] Loaded MD Skill: ${skillName} (${entry.isDirectory() ? 'DIR' : 'FILE'})`);
+            if (scheduleMatch) console.log(`   └─ ⏰ Schedule: ${scheduleMatch[1].trim()}`);
+            if (watchPathMatch) console.log(`   └─ 📁 Watching: ${watchPathMatch[1].trim()}`);
+            if (webhookPathMatch) console.log(`   └─ 🪝 Webhook: ${webhookPathMatch[1].trim()}`);
           }
         }
       }));
@@ -187,14 +196,39 @@ export class PluginRegistry {
     if (config.mcpServers && config.mcpServers.browser) {
         // We add hardcoded standard browser tools if they aren't already listed
         const browserToolSchemas: Record<string, any> = {
-          "navigate": { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
-          "screenshot": { type: "object", properties: { name: { type: "string" } } },
-          "click": { type: "object", properties: { selector: { type: "string" } }, required: ["selector"] },
-          "type": { type: "object", properties: { selector: { type: "string" }, text: { type: "string" } }, required: ["selector", "text"] },
-          "fill": { type: "object", properties: { selector: { type: "string" }, value: { type: "string" } }, required: ["selector", "value"] },
-          "hover": { type: "object", properties: { selector: { type: "string" } }, required: ["selector"] },
-          "wait_for_selector": { type: "object", properties: { selector: { type: "string" } }, required: ["selector"] },
-          "evaluate": { type: "object", properties: { script: { type: "string" } }, required: ["script"] }
+          "navigate": { type: "object", properties: { url: { type: "string", description: "The URL to navigate to." } }, required: ["url"] },
+          "screenshot": { type: "object", properties: { name: { type: "string", description: "Optional name for the screenshot file." } } },
+          "click": { type: "object", properties: { selector: { type: "string", description: "CSS selector of the element to click." } }, required: ["selector"] },
+          "type": { type: "object", properties: { selector: { type: "string", description: "CSS selector of the element to type into." }, text: { type: "string", description: "The text to type." } }, required: ["selector", "text"] },
+          "fill": { type: "object", properties: { selector: { type: "string", description: "CSS selector of the element to fill." }, value: { type: "string", description: "The value to fill." } }, required: ["selector", "value"] },
+          "hover": { type: "object", properties: { selector: { type: "string", description: "CSS selector of the element to hover over." } }, required: ["selector"] },
+          "wait_for_selector": { type: "object", properties: { selector: { type: "string", description: "CSS selector to wait for." } }, required: ["selector"] },
+          "evaluate": { 
+            type: "object", 
+            properties: { 
+              script: { 
+                type: "string", 
+                description: "The JavaScript code to execute in the browser context. MUST be a valid JS string. Example: 'document.body.innerText'" 
+              } 
+            }, 
+            required: ["script"] 
+          },
+          "select_option": { 
+            type: "object", 
+            properties: { 
+              selector: { type: "string", description: "CSS selector of the select element." },
+              value: { type: "string", description: "The value to select." }
+            }, 
+            required: ["selector", "value"] 
+          },
+          "drag_and_drop": { 
+            type: "object", 
+            properties: { 
+              source: { type: "string", description: "CSS selector of the element to drag." },
+              destination: { type: "string", description: "CSS selector of the drop target." }
+            }, 
+            required: ["source", "destination"] 
+          }
         };
 
         const browserTools = ["navigate", "screenshot", "click", "hover", "type", "evaluate", "fill", "select_option", "drag_and_drop", "wait_for_selector"];
@@ -209,18 +243,69 @@ export class PluginRegistry {
 
     // Natively inject our new OpenClaw desktop and filesystem tools
     console.log("🛠️ [PluginRegistry] Injecting OpenClaw desktop and filesystem tools...");
-    const builtinFS = ["list_directory", "read_text_file", "write_text_file", "search_files", "delete_file"];
+    const builtinFS = ["list_directory", "read_text_file", "write_text_file", "search_files", "delete_file", "exists"];
     builtinFS.forEach(fsTool => {
        const toolName = `filesystem__${fsTool}`;
        if (rawTools.some(t => t.name === toolName)) return;
+       
+       let description = `Cross-platform native filesystem operation: ${fsTool}`;
+       if (fsTool === "write_text_file") {
+         description = "Write content to a file. Automatically creates parent directories recursively if they do not exist.";
+       }
+       if (fsTool === "exists") {
+         description = "Check if a file or directory exists at the specified path.";
+       }
+
        rawTools.push({
          name: toolName,
-         description: `Cross-platform native filesystem operation: ${fsTool}`,
+         description: description,
          parameters: {
              type: "object", properties: { path: { type: "string" }, content: { type: "string" }, pattern: { type: "string" } }
          } as any
        });
     });
+
+    const desktopToolSchemas: Record<string, any> = {
+      "mouse_move": { 
+        type: "object", 
+        properties: { 
+          x: { type: "number", description: "The X coordinate to move to." }, 
+          y: { type: "number", description: "The Y coordinate to move to." } 
+        }, 
+        required: ["x", "y"] 
+      },
+      "mouse_click": { 
+        type: "object", 
+        properties: { 
+          clickType: { type: "string", enum: ["left", "right", "double"], description: "The type of click to perform." } 
+        }, 
+        required: ["clickType"] 
+      },
+      "keyboard_type": { 
+        type: "object", 
+        properties: { 
+          text: { type: "string", description: "The text to type." } 
+        }, 
+        required: ["text"] 
+      },
+      "keyboard_press": { 
+        type: "object", 
+        properties: { 
+          key: { type: "string", description: "The name of the key to press (e.g., 'ENTER', 'TAB', 'ESCAPE', 'SPACE')." } 
+        }, 
+        required: ["key"] 
+      },
+      "scan_screen": { type: "object", properties: {} },
+      "find_element": { 
+        type: "object", 
+        properties: { 
+          query: { type: "string", description: "Visual description or text of the element to find." } 
+        }, 
+        required: ["query"] 
+      },
+      "take_snapshot": { type: "object", properties: {} },
+      "review_history": { type: "object", properties: {} }
+    };
 
     const builtinDesktop = ["mouse_move", "mouse_click", "keyboard_type", "keyboard_press", "scan_screen", "find_element", "take_snapshot", "review_history"];
     const builtinMessaging = ["send_telegram"];
@@ -230,9 +315,7 @@ export class PluginRegistry {
        rawTools.push({
          name: toolName,
          description: `Native OS automation operation: ${deskTool}`,
-         parameters: {
-             type: "object", properties: { x: { type: "number" }, y: { type: "number" }, text: { type: "string" }, key: { type: "string" }, clickType: { type: "string" }, query: { type: "string" } }
-         } as any
+         parameters: desktopToolSchemas[deskTool] || { type: "object", properties: {} } as any
        });
     });
 
@@ -264,7 +347,7 @@ export class PluginRegistry {
 
     rawTools.push({
       name: "system__update_skill",
-      description: "Update or refine an existing theorem/skill with improved logic.",
+      description: "Create a new theorem/skill or update an existing one. If creating a new skill, provide the new content following the SKILL_TEMPLATE.md format.",
       parameters: { type: "object", properties: { skillName: { type: "string" }, newContent: { type: "string" } } } as any
     });
 
@@ -304,11 +387,17 @@ export class PluginRegistry {
     }
 
     if (name === "system__update_skill") {
+      let skillPath;
       const skill = this.mdSkills.get(args.skillName);
-      if (!skill || !skill.filePath) return "Error: Skill not found or immutable.";
-      await fs.writeFile(skill.filePath, args.newContent, "utf-8");
+      if (skill && skill.filePath) {
+        skillPath = skill.filePath;
+      } else {
+        // Upsert: Create a new skill file
+        skillPath = path.resolve(__dirname, "../../src/plugins/skills", `${args.skillName}.md`);
+      }
+      await fs.writeFile(skillPath, args.newContent, "utf-8");
       await this.reloadMDSkills();
-      return `Success: Skill ${args.skillName} updated and reloaded.`;
+      return `Success: Skill ${args.skillName} updated/created and reloaded.`;
     }
 
     if (name.startsWith("filesystem__")) {
@@ -317,6 +406,7 @@ export class PluginRegistry {
       if (name === "filesystem__read_text_file") return await FileSystemController.readFileContent(args.path);
       if (name === "filesystem__write_text_file") return await FileSystemController.writeFileContent(args.path, args.content);
       if (name === "filesystem__delete_file") return await FileSystemController.deleteFile(args.path);
+      if (name === "filesystem__exists") return await FileSystemController.exists(args.path);
     }
 
     if (name.startsWith("desktop__")) {
@@ -357,6 +447,21 @@ export class PluginRegistry {
         }
     }
 
+
+    // 1. Context-Aware Tool Name Normalization (Robustness)
+    // If the model calls 'navigate' instead of 'browser__navigate', try to resolve it.
+    if (!name.includes("__")) {
+      const knownPrefixes = ["browser", "filesystem", "desktop", "system", "messaging"];
+      for (const prefix of knownPrefixes) {
+        const potentialName = `${prefix}__${name}`;
+        // Check if this tool exists in our active tools array
+        if (this.activeTools.some(t => t.name === potentialName)) {
+           console.log(`🧠 [PluginRegistry] Normalizing tool name: ${name} -> ${potentialName}`);
+           name = potentialName;
+           break;
+        }
+      }
+    }
 
     // Check MCP Tools (namespaced by "serverName__toolName")
     const parts = name.split("__");

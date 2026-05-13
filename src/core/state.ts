@@ -26,12 +26,16 @@ export const MidpointXState = Annotation.Root({
   taskId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   userId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "system" }),
   userIntent: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  proactiveTrigger: Annotation<any>({ reducer: (x: any, y: any) => y, default: () => null }),
   environmentFingerprint: Annotation<any>({ reducer: (x: any, y: any) => y, default: () => null }),
   operatorIdentity: Annotation<any>({ reducer: (x: any, y: any) => y, default: () => null }),
   conciseIntent: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   executionMode: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "api" }),
   
   // Cognitive Layer Outputs
+  assessmentDecision: Annotation<'DROP' | 'NOTIFY' | 'ACTION' | null>({ reducer: (x: any, y: any) => y, default: () => null }),
+  assessmentReasoning: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  assignedWorker: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   reflectionTrace: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   analysisResult: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   citedSkills: Annotation<string[]>({ reducer: (x: string[], y: string[]) => [...new Set([...x, ...y])], default: () => [] }),
@@ -44,6 +48,7 @@ export const MidpointXState = Annotation.Root({
   
   // Safeguard Layer
   isJustified: Annotation<boolean>({ reducer: (x: boolean, y: boolean) => y, default: () => false }),
+  isVerified: Annotation<boolean>({ reducer: (x: boolean, y: boolean) => y, default: () => false }),
   regressionPassed: Annotation<boolean>({ reducer: (x: boolean, y: boolean) => y, default: () => false }),
   
   // Execution Layer
@@ -65,6 +70,7 @@ export const MidpointXState = Annotation.Root({
   // Security & Human Doorbell
   pendingAction: Annotation<{ tool: string, args: any } | null>({ reducer: (x: any, y: any) => y, default: () => null }),
   needsApproval: Annotation<boolean>({ reducer: (x: boolean, y: boolean) => y, default: () => false }),
+  approvalSeverity: Annotation<'undoable' | 'destructive' | null>({ reducer: (x: any, y: any) => y, default: () => null }),
   approvalStatus: Annotation<'pending' | 'approved' | 'denied' | null>({ reducer: (x: any, y: any) => y, default: () => null }),
   highFidelityContext: Annotation<string[]>({ reducer: (x: string[], y: string[]) => [...x, ...y], default: () => [] }),
 

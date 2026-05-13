@@ -24,8 +24,14 @@ graph TD
         Gateway -->|State & Memory| FS[(Firestore)]
     end
 
+    subgraph Sentinel Observer
+        Webhooks[Webhook Trigger] --> Observer[Observer Service]
+        Filesystem[FS Watcher] --> Observer
+    end
+
     subgraph LangGraph Reasoning Loop
         Gateway -->|Invoke| Reflect[ReflectionActor]
+        Observer -->|Silent Assessment| Reflect
         Reflect -->|Strategy| Analyze[AnalysisActor]
         Analyze -->|Execute| Action[ActionActor]
         Action -->|Compact| Compact[CompactionActor]
@@ -48,8 +54,8 @@ graph TD
 
 1.  **Sovereign Persistence**: State and long-term memory are decoupled from the local filesystem and managed via **Google Firestore**, ensuring infinite scalability and sub-millisecond state retrieval.
 2.  **Hardened Security**: Integrated with **GCP Secret Manager** for zero-leak credential management and **A2A Cryptographic Audit Trails** for non-repudiable action logging.
-3.  **Cognitive Compaction**: High-fidelity context management summarizes reasoning traces and prunes history to maintain optimal performance during complex, multi-day engineering tasks.
-4.  **A2A Trust Protocol**: A rigorous "Safety Handshake" ensures that all external requests are verified against trust thresholds before entering the reasoning graph.
+3.  **Proactive Sentinel**: A built-in "Sentinel" observer monitors filesystem events and webhooks, triggering autonomous reasoning via specialized **Cognitive Worker Swarms**.
+4.  **Cognitive Compaction**: High-fidelity context management summarizes reasoning traces and prunes history to maintain optimal performance during complex, multi-day engineering tasks.
 
 ---
 
@@ -65,7 +71,12 @@ graph TD
 *   **Terraform Managed**: Infrastructure-as-Code for 1-click deployment to the GCP Marketplace.
 *   **Isolated Session Guard**: Isolated, containerized browser instances (Puppeteer/Chromium) with persistent digital identity.
 
-### 🖥️ 3. Native & Multi-Channel Intelligence
+### 🖥️ 3. Proactive Intelligence (Sentinel)
+*   **Observer Pattern**: Native integration with `chokidar` for filesystem monitoring and Express for internal webhook routing.
+*   **Silent Assessment**: Autonomous evaluation of triggers with an **85% Confidence Gate** to prevent noise and DLQ routing.
+*   **30-Second Undo Window**: Non-destructive actions are held in a TTL queue, providing a safety window before automated execution.
+
+### 📱 4. Multi-Channel Intelligence
 *   **Universal App Control**: Precision humanoid interaction (mouse/keyboard) and visual grounding via `VisualProbe`.
 *   **Multi-Channel HITL**: Human-in-the-loop approval gates delivered directly to Telegram or Discord for sensitive operations.
 *   **Temporal Observation**: FFMPEG-based burst capture for verifying UI transitions and state changes in real-time.
