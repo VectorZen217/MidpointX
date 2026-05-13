@@ -64,4 +64,25 @@ export class FileSystemController {
         return { exists: false, path: path.resolve(targetPath) };
     }
   }
+
+  static async searchFiles(rootPath: string, pattern: string): Promise<string[]> {
+    const results: string[] = [];
+    async function walk(dir: string) {
+      const files = await fs.readdir(dir, { withFileTypes: true });
+      for (const file of files) {
+        const fullPath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+          await walk(fullPath);
+        } else if (file.isFile() && file.name.includes(pattern)) {
+          results.push(fullPath);
+        }
+      }
+    }
+    try {
+      await walk(path.resolve(rootPath));
+      return results;
+    } catch (e: any) {
+      throw new Error(`Failed to search files: ${e.message}`);
+    }
+  }
 }

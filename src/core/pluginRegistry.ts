@@ -269,42 +269,54 @@ export class PluginRegistry {
       "mouse_move": { 
         type: "object", 
         properties: { 
-          x: { type: "number", description: "The X coordinate to move to." }, 
-          y: { type: "number", description: "The Y coordinate to move to." } 
+          x: { type: "number", description: "The X coordinate to move the mouse cursor to. Get these coordinates from 'find_element'." }, 
+          y: { type: "number", description: "The Y coordinate to move the mouse cursor to. Get these coordinates from 'find_element'." } 
         }, 
         required: ["x", "y"] 
       },
       "mouse_click": { 
         type: "object", 
         properties: { 
-          clickType: { type: "string", enum: ["left", "right", "double"], description: "The type of click to perform." } 
+          clickType: { type: "string", enum: ["left", "right", "double"], description: "The type of mouse click to perform at the current cursor position." } 
         }, 
         required: ["clickType"] 
       },
       "keyboard_type": { 
         type: "object", 
         properties: { 
-          text: { type: "string", description: "The text to type." } 
+          text: { type: "string", description: "The text string to type on the keyboard at the current focus point." } 
         }, 
         required: ["text"] 
       },
       "keyboard_press": { 
         type: "object", 
         properties: { 
-          key: { type: "string", description: "The name of the key to press (e.g., 'ENTER', 'TAB', 'ESCAPE', 'SPACE')." } 
+          key: { type: "string", description: "The specific key to press and release (e.g., 'ENTER', 'TAB', 'ESCAPE', 'SPACE', 'BACKSPACE')." } 
         }, 
         required: ["key"] 
       },
-      "scan_screen": { type: "object", properties: {} },
+      "scan_screen": { 
+        type: "object", 
+        description: "Analyze the current screen state visually and return a natural language description of active windows and UI elements.",
+        properties: {} 
+      },
       "find_element": { 
         type: "object", 
         properties: { 
-          query: { type: "string", description: "Visual description or text of the element to find." } 
+          query: { type: "string", description: "A visual description or text label of the UI element you want to find coordinates for." } 
         }, 
         required: ["query"] 
       },
-      "take_snapshot": { type: "object", properties: {} },
-      "review_history": { type: "object", properties: {} }
+      "take_snapshot": { 
+        type: "object", 
+        description: "Capture a high-resolution screenshot of the current desktop and return it as base64 for visual confirmation.",
+        properties: {} 
+      },
+      "review_history": { 
+        type: "object", 
+        description: "List the last 10 screenshots captured to review recent visual changes.",
+        properties: {} 
+      }
     };
 
     const builtinDesktop = ["mouse_move", "mouse_click", "keyboard_type", "keyboard_press", "scan_screen", "find_element", "take_snapshot", "review_history"];
@@ -407,6 +419,7 @@ export class PluginRegistry {
       if (name === "filesystem__write_text_file") return await FileSystemController.writeFileContent(args.path, args.content);
       if (name === "filesystem__delete_file") return await FileSystemController.deleteFile(args.path);
       if (name === "filesystem__exists") return await FileSystemController.exists(args.path);
+      if (name === "filesystem__search_files") return await FileSystemController.searchFiles(args.path, args.pattern);
     }
 
     if (name.startsWith("desktop__")) {
@@ -420,7 +433,7 @@ export class PluginRegistry {
         if (name === "desktop__scan_screen") return await VisualProbe.scanScreen();
         if (name === "desktop__find_element") return await VisualProbe.findElement(args.query);
         if (name === "desktop__take_snapshot") {
-          const ScreenCapture = require("./ScreenCapture").ScreenCapture;
+          const ScreenCapture = require("../plugins/desktop/ScreenCapture").ScreenCapture;
           const base64 = await ScreenCapture.captureBase64();
           return { status: "success", snapshot: `data:image/png;base64,${base64.substring(0, 50)}... [TRUNCATED]`, fullBase64: base64 };
         }
