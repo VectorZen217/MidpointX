@@ -175,6 +175,72 @@ export class PluginRegistry {
     }
   }
 
+  /**
+   * Sanitizes a JSON Schema for Gemini API compatibility.
+   * Gemini's FunctionDeclaration schema is a strict subset of JSON Schema.
+   * This recursively patches known incompatibilities from MCP server tool schemas.
+   */
+  private static sanitizeSchema(schema: any, path = "root"): any {
+    if (!schema || typeof schema !== "object") return schema;
+
+    // Strip top-level keywords Gemini doesn't support
+    const cleaned: any = {};
+    const ALLOWED_KEYS = new Set(["type", "description", "properties", "required", "items", "enum", "nullable", "format"]);
+
+    for (const [key, value] of Object.entries(schema)) {
+      if (ALLOWED_KEYS.has(key)) {
+        cleaned[key] = value;
+      }
+      // Drop: $schema, additionalProperties, anyOf, oneOf, allOf, $ref, default, examples, etc.
+    }
+
+    // Normalize type: if array of types, pick the first non-null
+    if (Array.isArray(cleaned.type)) {
+      const nonNull = cleaned.type.filter((t: string) => t !== "null");
+      cleaned.type = nonNull.length > 0 ? nonNull[0] : "string";
+      cleaned.nullable = true;
+    }
+
+    // If type is missing but properties exist, infer object
+    if (!cleaned.type && cleaned.properties) {
+      cleaned.type = "object";
+    }
+
+    // If type is missing entirely, default to string
+    if (!cleaned.type) {
+      cleaned.type = "string";
+    }
+
+    // CRITICAL: array types MUST have items defined for Gemini
+    if (cleaned.type === "array") {
+      if (!cleaned.items || typeof cleaned.items !== "object") {
+        // Default to array of strings — the safest fallback
+        cleaned.items = { type: "string" };
+      } else {
+        cleaned.items = this.sanitizeSchema(cleaned.items, `${path}.items`);
+      }
+    }
+
+    // Recursively sanitize nested properties
+    if (cleaned.type === "object" && cleaned.properties && typeof cleaned.properties === "object") {
+      const sanitizedProps: any = {};
+      for (const [propKey, propValue] of Object.entries(cleaned.properties)) {
+        sanitizedProps[propKey] = this.sanitizeSchema(propValue, `${path}.${propKey}`);
+      }
+      cleaned.properties = sanitizedProps;
+    } else if (cleaned.type === "object" && !cleaned.properties) {
+      cleaned.properties = {};
+    }
+
+    // Trim empty descriptions
+    if (cleaned.description === "" || cleaned.description === null) {
+      delete cleaned.description;
+    }
+
+    return cleaned;
+  }
+
+
   private static async rebuildToolsArray() {
     const rawTools: FunctionDeclaration[] = [];
 
@@ -189,11 +255,12 @@ export class PluginRegistry {
       try {
         const result = await client.listTools();
         for (const tool of result.tools) {
-           rawTools.push({
-             name: `${serverName}__${tool.name}`,
-             description: tool.description || `Tool ${tool.name} from ${serverName}`,
-             parameters: tool.inputSchema as any
-           });
+          const sanitizedParams = this.sanitizeSchema(tool.inputSchema || { type: "object", properties: {} });
+          rawTools.push({
+            name: `${serverName}__${tool.name}`,
+            description: tool.description || `Tool ${tool.name} from ${serverName}`,
+            parameters: sanitizedParams as any
+          });
         }
       } catch (err) {
         console.error(`Failed to fetch tools from global ${serverName}`, err);
