@@ -245,6 +245,13 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     historyMessages.push(new HumanMessage("Reviewing result..."));
   });
 
+  // 3. Loop Detection & Strategy Guidance (Phase 4)
+  const recentFailures = state.actionHistory.slice(-3).filter((h: any) => h.result.includes("Error") || h.result.includes("failed"));
+  if (recentFailures.length >= 2) {
+    console.warn("🔄 [SelectionActor] Failure loop detected. Injecting strategy correction...");
+    messageContent[0].text += `\n\n[CRITICAL WARNING]: Your previous ${recentFailures.length} attempts have failed. Do NOT repeat the same tool or selector. If API-based browser tools are failing, you MUST switch to Visual Mode (using 'desktop__take_snapshot' and then 'desktop__mouse_move', 'desktop__mouse_click', 'desktop__keyboard_type') to interact with the screen manually like a human.`;
+  }
+
   const payload = [
     new SystemMessage(buildActionPrompt(agentPersona, userContext, state.executionMode || 'api')),
     ...historyMessages,
@@ -406,7 +413,7 @@ export async function executionActor(state: typeof MidpointXState.State) {
     }
   } else {
     try {
-      const out = await PluginRegistry.routeAndExecute(action.tool, action.args, state.operatorIdentity?.uid);
+      const out = await PluginRegistry.routeAndExecute(action.tool, action.args, state.operatorIdentity?.uid, state.executionMode);
       
       // Handle MCP specific error reporting
       if (out && typeof out === 'object' && out.isError) {

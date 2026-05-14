@@ -19,6 +19,7 @@ export interface MDSkill {
 export class PluginRegistry {
   private static mdSkills: Map<string, MDSkill> = new Map();
   private static mcpClients: Map<string, Client> = new Map();
+  private static clientModes: Map<string, string> = new Map(); // Stores 'api' or 'visual'
   private static activeTools: FunctionDeclaration[] = [];
 
   static async init() {
@@ -404,7 +405,7 @@ export class PluginRegistry {
     this.mcpClients.clear();
   }
 
-  public static async routeAndExecute(name: string, args: any, userId?: string): Promise<any> {
+  public static async routeAndExecute(name: string, args: any, userId?: string, executionMode: string = 'api'): Promise<any> {
     if (name === "system__read_skill") {
       const skill = this.mdSkills.get(args.skillName);
       if (skill) return skill.content;
@@ -511,14 +512,42 @@ export class PluginRegistry {
           }
         }
 
+        // Parameter Normalization: Map 'text' to 'value' for fill if needed
+        if (toolName === "puppeteer_fill") {
+          if (args.text && !args.value) {
+            args.value = args.text;
+            delete args.text;
+          }
+        }
+        
+        // Parameter Normalization: Map 'value' to 'text' for type if needed
+        if (toolName === "puppeteer_type") {
+          if (args.value && !args.text) {
+            args.text = args.value;
+            delete args.value;
+          }
+        }
+
         // Virtual Tool: browser__page_content maps to a specific evaluate call
         if (toolName === "puppeteer_page_content") {
           toolName = "puppeteer_evaluate";
-          args = { expression: "document.documentElement.outerHTML" };
+          args = { expression: "document.documentElement ? document.documentElement.outerHTML : '<html><body>Empty Page</body></html>'" };
         }
       }
 
       let client = this.mcpClients.get(clientKey);
+      const currentMode = this.clientModes.get(clientKey);
+
+      // 🔄 Mode Switch Logic: If the browser is running in the wrong mode (e.g. headless but we need visible), kill it
+      if (client && serverName === "browser" && currentMode && currentMode !== executionMode) {
+        console.log(`🔄 [PluginRegistry] Mode mismatch for ${clientKey} (${currentMode} -> ${executionMode}). Restarting browser...`);
+        try {
+          await client.close();
+        } catch (e) {}
+        this.mcpClients.delete(clientKey);
+        this.clientModes.delete(clientKey);
+        client = undefined;
+      }
 
       // Lazy load dynamic browser client if missing
       if (!client && serverName === "browser" && userId) {
@@ -531,11 +560,14 @@ export class PluginRegistry {
         const profilePath = path.resolve(process.cwd(), `.browser_profile_${userId}`);
         await fs.mkdir(profilePath, { recursive: true });
 
+        const isHeadless = executionMode === 'api';
+        console.log(`🌐 [PluginRegistry] Mode: ${executionMode.toUpperCase()} | Browser: ${isHeadless ? 'HEADLESS' : 'VISIBLE'}`);
+
         const isolatedEnv = {
             ...process.env,
             PUPPETEER_LAUNCH_OPTIONS: JSON.stringify({ 
                 userDataDir: profilePath,
-                headless: false 
+                headless: isHeadless 
             })
         };
 
@@ -565,6 +597,7 @@ export class PluginRegistry {
 
         await newClient.connect(transport);
         this.mcpClients.set(clientKey, newClient);
+        this.clientModes.set(clientKey, executionMode);
         client = newClient;
       }
 

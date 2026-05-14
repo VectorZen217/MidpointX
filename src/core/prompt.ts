@@ -72,7 +72,12 @@ Your goal is to synthesize the reflection into a single, cohesive Execution Stra
 export function buildActionPrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST NOT use background API tools (like gmail or google-drive). You MUST act like a physical human operator sitting at a desk. You must use desktop tools (mouse, keyboard, taking screenshots) or the browser automation to visually click through the UI and complete the task. Do NOT try to bypass the UI.`
-    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in API MODE. Prioritize background API tools (MCP servers, filesystem tools) for absolute speed and reliability. Only use visual/desktop automation tools if a direct API tool is unavailable or fails.`;
+    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in API MODE. Prioritize background API tools (MCP servers, filesystem tools) for absolute speed and reliability. 
+If a direct API tool (like browser__*) fails more than twice, you MUST immediately switch to VISUAL MODE. 
+Switching to VISUAL MODE means:
+1. Call 'desktop__take_snapshot' to see the actual screen.
+2. Use 'desktop__mouse_move', 'desktop__mouse_click', and 'desktop__keyboard_type' to interact with the UI manually.
+Do NOT get stuck in an API failure loop. Use your hands and eyes!`;
 
   return `${buildBaseIdentity(agentPersona, userContext)}
 
