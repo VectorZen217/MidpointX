@@ -14,6 +14,7 @@ export class TelegramService {
   private static bot: TelegramBot | null = null;
   private static io: Server | null = null;
   private static userChatMap: Map<string, number> = new Map(); // userId -> chatId
+  private static userModeMap: Map<string, string> = new Map(); // userId -> "api" | "visual"
 
   static async init(io?: Server) {
     if (io) this.io = io;
@@ -115,13 +116,32 @@ export class TelegramService {
         }
       });
 
-      // Handle button clicks (Human Doorbell)
+      // Handle button clicks (Human Doorbell & Mode Selection)
       this.bot.on("callback_query", async (query) => {
         try {
           const chatId = query.message?.chat.id;
           if (!chatId || !query.data) return;
 
-          const [status, userId] = query.data.split(":");
+          const dataParts = query.data.split(":");
+          
+          // Handle Mode Selection
+          if (dataParts[0] === "setmode") {
+            const mode = dataParts[1];
+            const userId = dataParts[2];
+            this.userModeMap.set(userId, mode);
+            
+            await this.bot?.answerCallbackQuery(query.id, { text: `Mode set to ${mode.toUpperCase()}` });
+            await this.bot?.editMessageText(`✅ **Execution Mode Updated**\n\nYour tasks will now run in **${mode.toUpperCase()}** Mode.`, {
+              chat_id: chatId,
+              message_id: query.message?.message_id,
+              parse_mode: "Markdown"
+            });
+            return;
+          }
+
+          // Handle Security Approvals
+          const status = dataParts[0];
+          const userId = dataParts[1];
           const approved = status === "approve";
 
           await this.bot?.answerCallbackQuery(query.id, { text: approved ? "Executing..." : "Aborting..." });
@@ -203,6 +223,18 @@ export class TelegramService {
         this.bot?.sendMessage(msg.chat.id, "🤖 **MidpointX Connection Established**\n\nVoice & Vision (Phase 5) is ACTIVE. You can now send voice messages or ask me about what I see on the screen.");
       });
 
+      this.bot.onText(/\/mode/, (msg) => {
+        this.bot?.sendMessage(msg.chat.id, "⚙️ **Select Execution Mode**\n\n- **API Mode**: Fast, background CLI/API operations.\n- **Visual Mode**: Direct OS control using mouse, keyboard, and vision.", {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🖥️ API Mode", callback_data: `setmode:api:${msg.from?.id}` },
+               { text: "👁️ Visual Mode", callback_data: `setmode:visual:${msg.from?.id}` }]
+            ]
+          }
+        });
+      });
+
       // Error handling for polling (e.g. 401 Unauthorized)
       this.bot.on("polling_error", (error: any) => {
         if (error.code === "ETELEGRAM" && error.message.includes("401 Unauthorized")) {
@@ -228,7 +260,8 @@ export class TelegramService {
     console.log(`💬 [Telegram] Routing intent: ${intent}`);
     await this.bot?.sendChatAction(chatId, isVoice ? "record_voice" : "typing");
 
-    const result = await ChannelRouter.route({ userId, intent, channel: "telegram", highFidelityContext }, (update) => {
+    const mode = this.userModeMap.get(userId) || "api";
+    const result = await ChannelRouter.route({ userId, intent, channel: "telegram", highFidelityContext, executionMode: mode }, (update) => {
       // Sync progress with Web UI
       this.io?.emit("agent:progress", update);
     });
