@@ -291,7 +291,7 @@ export class PluginRegistry {
           },
           "page_content": {
             type: "object",
-            description: "Retrieve the full HTML content of the current page.",
+            description: "Retrieve the visible text content of the current page (max 8000 chars). Does NOT return HTML or CSS selectors. To find selectors for clicking, use browser__evaluate with a JS expression.",
             properties: {}
           },
           "select_option": { 
@@ -608,7 +608,7 @@ export class PluginRegistry {
         // Virtual Tool: browser__page_content maps to a resilient evaluate call
         if (toolName === "puppeteer_page_content") {
           toolName = "puppeteer_evaluate";
-          args = { expression: "try { document.body ? document.body.innerText.substring(0, 8000) : 'PAGE_LOAD_FAILED: Empty body' } catch(e) { 'PAGE_LOAD_FAILED: ' + e.message }" };
+          args = { expression: "(() => { try { return document.body ? document.body.innerText.substring(0, 8000) : 'PAGE_LOAD_FAILED: Empty body'; } catch(e) { return 'PAGE_LOAD_FAILED: ' + e.message; } })()" };
         }
       }
 
