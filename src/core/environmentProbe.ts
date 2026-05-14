@@ -33,7 +33,7 @@ export class EnvironmentProbe {
     const targets = [
       "gcloud", "git", "docker", "python", "npm", 
       "node", "curl", "wget", "powershell", "bash", 
-      "pip", "python3"
+      "pip", "python3", "chrome", "msedge", "firefox"
     ];
     
     const binaries: Record<string, string | null> = {};
@@ -42,6 +42,22 @@ export class EnvironmentProbe {
         binaries[target] = await this.getBinaryPath(target, isWindows);
       })
     );
+
+    // 2.1 Browser Specific Paths (Windows defaults)
+    if (isWindows) {
+        if (!binaries["chrome"]) {
+            const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+            if (fs.existsSync(chromePath)) binaries["chrome"] = chromePath;
+        }
+        if (!binaries["msedge"]) {
+            const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+            if (fs.existsSync(edgePath)) binaries["msedge"] = edgePath;
+        }
+        if (!binaries["firefox"]) {
+            const ffPath = "C:\\Program Files\\Mozilla Firefox\\firefox.exe";
+            if (fs.existsSync(ffPath)) binaries["firefox"] = ffPath;
+        }
+    }
 
     const capabilities = {
       shell: isWindows ? "powershell" : "bash", // assumed default fallback

@@ -55,7 +55,15 @@ Your goal is to map complexities and extract the core mission objective.
 export function buildAnalyzePrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST plan to use desktop automation tools (screenshots, mouse, keyboard, browser automation) to complete the task visually. Do NOT plan to use background API tools.`
-    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. You have NO browser and NO desktop/visual tools. Plan ONLY using background API tools:\n- For web search/scraping: Use 'fetch__fetch' on target URLs. If robots.txt blocks fetch__fetch, IMMEDIATELY fall back to 'execute_system_command' with PowerShell: Invoke-WebRequest -Uri 'URL' -UseBasicParsing | Select-Object -ExpandProperty Content\n- IMPORTANT: Google Search blocks ALL automated tools. Use DuckDuckGo (https://html.duckduckgo.com/html/?q=QUERY) or specific sites (cycletrader.com, craigslist.org, facebook.com/marketplace).\n- For Google services (Gmail, Drive, Docs, Sheets, Calendar): Use 'google-workspace__*' tools DIRECTLY. NEVER use execute_system_command for Google API calls.\n- For file operations: Use filesystem__* tools.\nNEVER tell the user to 'do it manually' or 'search yourself'. You MUST complete the task autonomously using the tools above.`;
+    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. Your primary tools are background API and CLI tools. 
+- For web search/scraping: 
+  1. Use 'fetch__fetch' first. 
+  2. If blocked by robots.txt, use 'browser__navigate' and 'browser__page_content' (Puppeteer).
+  3. If Puppeteer is unavailable or blocked, use 'execute_system_command' with PowerShell (Invoke-WebRequest).
+- BROWSER USAGE: Check the 'ENVIRONMENTAL FINGERPRINT' for detected paths of Chrome, Edge, or Firefox. If you must use PowerShell to launch a browser, use the EXACT path detected. Do NOT guess or try multiple browsers in a loop.
+- For Google services (Gmail, Drive, Docs, Sheets, Calendar): Use 'google-workspace__*' tools DIRECTLY.
+- For file operations: Use filesystem__* tools.
+NEVER tell the user to 'do it manually'. You MUST complete the task autonomously.`;
 
   return `${buildBaseIdentity(agentPersona, userContext)}
 
@@ -73,13 +81,14 @@ export function buildActionPrompt(agentPersona: string, userContext: string, exe
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST NOT use background API tools (like gmail or google-drive). You MUST act like a physical human operator sitting at a desk. You must use desktop tools (mouse, keyboard, taking screenshots) or the browser automation to visually click through the UI and complete the task. Do NOT try to bypass the UI.`
     : `\n\n## API MODE ENFORCEMENT [CRITICAL]
-You are currently operating in API MODE. You have NO browser and NO desktop tools available. Do NOT attempt to call any tool starting with 'browser__' or 'desktop__' — they do not exist in your current toolset.
+You are operating in API MODE. Your primary focus is on background execution. You have access to a sandboxed browser (browser__*) for scraping when fetch is blocked. You do NOT have access to desktop GUI automation (desktop__*).
 
 Your available tools for web data retrieval (USE IN THIS ORDER):
-1. 'fetch__fetch': Try this first on target URLs. NOTE: This tool uses an automated user-agent that many sites block via robots.txt.
-2. 'execute_system_command': YOUR MOST POWERFUL FALLBACK. If fetch__fetch is blocked by robots.txt, use PowerShell:
-   - Invoke-WebRequest -Uri 'YOUR_URL_HERE' -UseBasicParsing | Select-Object -ExpandProperty Content
-   - This uses a standard browser user-agent that sites do NOT block.
+1. 'fetch__fetch': Try this first. 
+2. 'browser__navigate' + 'browser__page_content': Use the Puppeteer-based browser to navigate and scrape sites that block simple fetch requests.
+3. 'execute_system_command': If both the above fail, use PowerShell:
+   - Invoke-WebRequest -Uri 'URL' -UseBasicParsing | Select-Object -ExpandProperty Content
+   - Check 'ENVIRONMENTAL FINGERPRINT' for installed Chrome/Edge/Firefox paths if you need to launch a browser directly. Use the EXACT path found; do NOT guess.
    - ALWAYS use this for search engines: Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=YOUR+SEARCH+TERMS' -UseBasicParsing | Select-Object -ExpandProperty Content
    - ⚠️ DO NOT use execute_system_command to call Google APIs. Use google-workspace__* tools instead.
 3. MCP API tools:
@@ -125,6 +134,7 @@ OPERATIONAL DIRECTIVES:
 9. ANTI-LAZINESS: Never ask the user to 'manually review' or 'finish the task' if you have the tools to do it yourself. You are a full-featured operator, not a launcher.
 `;
 }
+
 
 export function buildLearnPrompt(agentPersona: string, userContext: string): string {
   return `${buildBaseIdentity(agentPersona, userContext)}
