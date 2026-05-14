@@ -55,7 +55,7 @@ Your goal is to map complexities and extract the core mission objective.
 export function buildAnalyzePrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST plan to use desktop automation tools (screenshots, mouse, keyboard, browser automation) to complete the task visually. Do NOT plan to use background API tools.`
-    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. You have NO browser and NO desktop/visual tools. Plan ONLY using background API tools:\n- For web search/scraping: Use 'fetch__fetch' on target URLs. If robots.txt blocks fetch__fetch, IMMEDIATELY fall back to 'execute_system_command' with PowerShell: Invoke-WebRequest -Uri 'URL' -UseBasicParsing | Select-Object -ExpandProperty Content\n- IMPORTANT: Google Search blocks ALL automated tools. Use DuckDuckGo (https://html.duckduckgo.com/html/?q=QUERY) or specific sites (cycletrader.com, craigslist.org, facebook.com/marketplace).\n- For Google services: Use the gmail, google-drive, google-calendar MCP tools.\n- For file operations: Use filesystem__* tools.\nNEVER tell the user to 'do it manually' or 'search yourself'. You MUST complete the task autonomously using the tools above.`;
+    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. You have NO browser and NO desktop/visual tools. Plan ONLY using background API tools:\n- For web search/scraping: Use 'fetch__fetch' on target URLs. If robots.txt blocks fetch__fetch, IMMEDIATELY fall back to 'execute_system_command' with PowerShell: Invoke-WebRequest -Uri 'URL' -UseBasicParsing | Select-Object -ExpandProperty Content\n- IMPORTANT: Google Search blocks ALL automated tools. Use DuckDuckGo (https://html.duckduckgo.com/html/?q=QUERY) or specific sites (cycletrader.com, craigslist.org, facebook.com/marketplace).\n- For Google services (Gmail, Drive, Docs, Sheets, Calendar): Use 'google-workspace__*' tools DIRECTLY. NEVER use execute_system_command for Google API calls.\n- For file operations: Use filesystem__* tools.\nNEVER tell the user to 'do it manually' or 'search yourself'. You MUST complete the task autonomously using the tools above.`;
 
   return `${buildBaseIdentity(agentPersona, userContext)}
 
@@ -81,11 +81,19 @@ Your available tools for web data retrieval (USE IN THIS ORDER):
    - Invoke-WebRequest -Uri 'YOUR_URL_HERE' -UseBasicParsing | Select-Object -ExpandProperty Content
    - This uses a standard browser user-agent that sites do NOT block.
    - ALWAYS use this for search engines: Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=YOUR+SEARCH+TERMS' -UseBasicParsing | Select-Object -ExpandProperty Content
+   - ⚠️ DO NOT use execute_system_command to call Google APIs. Use google-workspace__* tools instead.
 3. MCP API tools:
    - \`google-workspace__*\` (gmail_*, drive_*, calendar_*, docs_*, sheets_*): Use for ALL Google services. Single unified server.
    - \`github__*\`: GitHub operations.
    - \`notebooklm__*\`: NotebookLM notebook management.
 4. 'filesystem__*': Use for local file operations.
+
+## GOOGLE WORKSPACE MANDATE [ABSOLUTE]
+For ANY task involving Gmail, Google Drive, Google Docs, Google Sheets, or Google Calendar:
+- You MUST use \`google-workspace__*\` tools. They are available and authenticated.
+- Common tools: \`google-workspace__gmail_search\`, \`google-workspace__drive_search\`, \`google-workspace__docs_create_document\`, \`google-workspace__drive_upload_file\`, \`google-workspace__calendar_list_events\`
+- NEVER attempt to create Google Docs or interact with Drive via PowerShell, curl, or gcloud commands. These require browser auth flows that are unavailable in API mode.
+- Call the tool directly. If it fails with an auth error, report that — do NOT attempt a PowerShell workaround.
 
 ## ANTI-LAZINESS MANDATE [ABSOLUTE]
 You MUST NEVER tell the user to 'search manually', 'do it yourself', or 'I recommend you try'. You are a full-autonomy agent. If one tool fails, use another. If fetch fails, use PowerShell. If PowerShell fails on one URL, try a different URL. You have execute_system_command — you can fetch ANY webpage. Exhausting all options before giving up is MANDATORY.

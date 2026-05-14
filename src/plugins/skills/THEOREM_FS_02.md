@@ -1,17 +1,17 @@
 ---
 name: THEOREM_FS_02
-description: filesystem, theorem management, search
+description: Filesystem, Reliability, Automation
 ---
 
 # Logic Shift: THEOREM_FS_02
-Trace ID: TELEGRAM-1778704593523
-Learned At: 2026-05-13T20:36:50.744Z
+Trace ID: TELEGRAM-1778792156246
+Learned At: 2026-05-14T20:56:05.599Z
 
 ## Justification
-The standard approach of expecting a specific file name (e.g., 'THEOREM_FS_02') to be present in the root directory is insufficient when the file's location or exact name is uncertain. `filesystem__search_files` provides a more robust method for discovering relevant files across a directory structure, ensuring that the agent can locate and update theorems even if their naming conventions or locations deviate from initial assumptions.
+Standard write operations can fail silently due to permission issues or path resolution errors. Immediate read-back acts as a 'sanity check' to ensure the file exists and contains the expected data, preventing downstream failures in automated pipelines.
 
 ## Discovered Pattern
-Searching for theorem files within a project directory when the exact file path is unknown.
+File-based documentation generation with verification
 
 ## Optimized Approach
-Utilize `filesystem__search_files` with a broad pattern (e.g., '*.json' or '*theorem*') to locate potential theorem files within a given directory and its subdirectories, rather than relying on `filesystem__list_directory` for a specific, potentially non-existent file.
+Always verify file creation by reading the file content back immediately after write operations, and use absolute paths derived from the system environment rather than hardcoded strings.

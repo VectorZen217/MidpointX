@@ -84,7 +84,10 @@ export class ChannelRouter {
         internalTurns: 0,
         replanCount: 0,
         reflectionTrace: "",
-        analysisResult: ""
+        analysisResult: "",
+        historySummary: "",    // Prevent prior mission's compaction summary from bleeding in
+        failureThesis: "",     // Prevent prior mission's death spiral from pre-arming
+        proposedShift: null    // Prevent last mission's theorem from auto-committing
       }, config);
 
       let totalInputTokens = 0;

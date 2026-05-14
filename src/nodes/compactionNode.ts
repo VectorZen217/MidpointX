@@ -18,8 +18,9 @@ const RESULT_SUMMARY_CAP = 500;
  * Summarizes the oldest actions into a rolling milestone summary and prunes history.
  */
 export async function compactionNode(state: typeof MidpointXState.State) {
-  // Always increment turn counter regardless of compaction
-  const turnIncrement = { internalTurns: 1 };
+  // Increment turn counter — must be absolute value since reducer is now overwrite (not additive)
+  const currentTurns = (state.internalTurns || 0) + 1;
+  const turnIncrement = { internalTurns: currentTurns };
 
   if (state.actionHistory.length === 0) {
     return turnIncrement;

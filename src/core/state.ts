@@ -60,7 +60,7 @@ export const MidpointXState = Annotation.Root({
   // Diagnostics
   totalInputTokens: Annotation<number>({ reducer: (x: number, y: number) => x + y, default: () => 0 }),
   totalOutputTokens: Annotation<number>({ reducer: (x: number, y: number) => x + y, default: () => 0 }),
-  internalTurns: Annotation<number>({ reducer: (x: number, y: number) => x + y, default: () => 0 }),
+  internalTurns: Annotation<number>({ reducer: (x: number, y: number) => y, default: () => 0 }),
   
   // Desktop OS State
   currentScreenshot: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
