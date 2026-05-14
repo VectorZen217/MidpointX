@@ -644,7 +644,8 @@ export class PluginRegistry {
             ...process.env,
             PUPPETEER_LAUNCH_OPTIONS: JSON.stringify({ 
                 userDataDir: profilePath,
-                headless: isHeadless 
+                headless: isHeadless ? "new" : false,
+                args: isHeadless ? ["--headless=new", "--hide-scrollbars", "--mute-audio"] : []
             })
         };
 

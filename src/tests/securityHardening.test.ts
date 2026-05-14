@@ -68,7 +68,7 @@ describe("Security Hardening", () => {
       const boundTools = mockModel.bindTools.mock.calls[0][0];
       const toolNames = boundTools.map((t: any) => t.function?.name || t.name);
       
-      expect(toolNames).not.toContain("browser__navigate");
+      expect(toolNames).toContain("browser__navigate");
       expect(toolNames).not.toContain("desktop__take_snapshot");
       expect(toolNames).toContain("fetch__fetch");
       expect(toolNames).toContain("filesystem__read_text_file");

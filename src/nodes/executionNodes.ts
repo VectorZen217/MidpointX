@@ -74,25 +74,25 @@ function getActionSeverity(toolName: string, args: any): 'undoable' | 'destructi
 
   // Smart classification for execute_system_command:
   // Read-only commands (web fetches, directory listings, etc.) are safe.
-  if (toolName === "execute_system_command" && args?.command) {
-    const cmd = String(args.command).trim().toLowerCase();
-    const readOnlyPatterns = [
-      /^\$progresspreference.*invoke-webrequest/,  // PowerShell web fetch
-      /^invoke-webrequest/,                         // Direct Invoke-WebRequest
-      /^curl\s/,                                    // curl
-      /^wget\s/,                                    // wget
-      /^get-content\s/,                              // Read file
-      /^type\s/,                                     // Windows type
-      /^cat\s/,                                      // cat
-      /^dir\s/,                                      // dir listing
-      /^ls\s/,                                       // ls listing
-      /^get-childitem/,                              // PowerShell dir
-    ];
-    if (readOnlyPatterns.some(p => p.test(cmd))) {
-      return null; // Safe, no approval needed
+    if (toolName === "execute_system_command" && args?.command) {
+      const cmd = String(args.command).trim().toLowerCase();
+      const readOnlyPatterns = [
+        /invoke-webrequest/,                          // Direct Invoke-WebRequest
+        /^\$progresspreference.*invoke-webrequest/,   // PowerShell web fetch
+        /^curl\s/,                                    // curl
+        /^wget\s/,                                    // wget
+        /^get-content\s/,                              // Read file
+        /^type\s/,                                     // Windows type
+        /^cat\s/,                                      // cat
+        /^dir\s/,                                      // dir listing
+        /^ls\s/,                                       // ls listing
+        /^get-childitem/,                              // PowerShell dir
+      ];
+      if (readOnlyPatterns.some(p => p.test(cmd))) {
+        return null; // Safe, no approval needed
+      }
+      return 'undoable';
     }
-    return 'undoable';
-  }
 
   // Write tools that don't violate policies are 'undoable' (30-sec window)
   const writeTools = [
@@ -200,9 +200,8 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     // ═══════════════════════════════════════════════════════════════
     if (executionMode === "api") {
       // API MODE: The agent operates entirely in the background.
-      // Browser and desktop tools are FORBIDDEN — they require a visible
-      // window and physical screen interaction, which contradicts headless.
-      if (t.name!.startsWith("browser__")) return false;
+      // Desktop tools are FORBIDDEN — they require physical screen interaction (nut.js).
+      // Browser tools ARE allowed because they use headless Puppeteer.
       if (t.name!.startsWith("desktop__")) return false;
     }
 
@@ -304,7 +303,7 @@ export async function selectionActor(state: typeof MidpointXState.State) {
   // of doing broad string matching. This prevents false positives like
   // "Error count: 0" in a successful server_info response.
   // ═══════════════════════════════════════════════════════════════
-  const recentActions = state.actionHistory.slice(-4);
+  const recentActions = state.actionHistory.slice(-5);
   const recentFailures = recentActions.filter((h: any) => {
     // 1. Try structured check first (most reliable)
     try {
@@ -324,6 +323,18 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     //    successful responses that mention error counts, error logs, etc.
     return false;
   });
+
+  if (recentFailures.length >= 5) {
+    console.error("🚨 [SelectionActor] HARD ABORT: 5 consecutive failures detected. Terminating execution loop to prevent token waste.");
+    return A2AProtocol.commit("SelectionActor", {
+      isTaskComplete: true,
+      failureThesis: "I have failed 5 consecutive times and am stuck in a failure loop. I am aborting execution to prevent wasting resources. Please review my action history and provide guidance.",
+      pendingAction: null,
+      needsApproval: false,
+      currentScreenshot,
+      ...prunedState
+    });
+  }
 
   if (recentFailures.length >= 2) {
     console.warn("🔄 [SelectionActor] Failure loop detected. Injecting strategy correction...");
@@ -597,7 +608,7 @@ export async function executionActor(state: typeof MidpointXState.State) {
   let temporalInsight = "";
   const isUITool = action.tool.startsWith("desktop__") || action.tool.startsWith("browser__");
   
-  if (isUITool && action.tool !== "desktop__take_snapshot" && action.tool !== "browser__screenshot") {
+  if (state.executionMode !== "api" && isUITool && action.tool !== "desktop__take_snapshot" && action.tool !== "browser__screenshot") {
     console.log(`👁️ [ExecutionActor] Triggering Region-Locked Motion Probe for verification...`);
     // Region-Locking: If args contain x,y, use them as anchor
     const region = (action.args.x && action.args.y) ? { x: action.args.x - 50, y: action.args.y - 50, w: 100, h: 100 } : undefined;
