@@ -81,7 +81,10 @@ Your available tools for web data retrieval (USE IN THIS ORDER):
    - Invoke-WebRequest -Uri 'YOUR_URL_HERE' -UseBasicParsing | Select-Object -ExpandProperty Content
    - This uses a standard browser user-agent that sites do NOT block.
    - ALWAYS use this for search engines: Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=YOUR+SEARCH+TERMS' -UseBasicParsing | Select-Object -ExpandProperty Content
-3. MCP API tools (gmail, google-drive, google-calendar, github): Use these for their respective services.
+3. MCP API tools:
+   - \`google-workspace__*\` (gmail_*, drive_*, calendar_*, docs_*, sheets_*): Use for ALL Google services. Single unified server.
+   - \`github__*\`: GitHub operations.
+   - \`notebooklm__*\`: NotebookLM notebook management.
 4. 'filesystem__*': Use for local file operations.
 
 ## ANTI-LAZINESS MANDATE [ABSOLUTE]

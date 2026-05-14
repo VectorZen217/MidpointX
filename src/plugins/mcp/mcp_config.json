@@ -37,39 +37,13 @@
         "PYTHONUNBUFFERED": "1"
       }
     },
-    "google-drive": {
+    "google-workspace": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@piotr-agier/google-drive-mcp"
-      ],
-      "env": { "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "./src/plugins/mcp/google_creds.json",
-        "GOOGLE_DRIVE_MCP_TOKEN_PATH": "./src/plugins/mcp/google_token.json"
-      }
-    },
-    "gmail": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@shinzolabs/gmail-mcp"
-      ],
+      "args": ["-y", "@dguido/google-workspace-mcp", "start"],
       "env": {
-        "GMAIL_OAUTH_PATH": "./src/plugins/mcp/google_creds.json",
-        "GMAIL_CREDENTIALS_PATH": "./src/plugins/mcp/gmail_token.json",
-        "PORT": "3005",
-        "AUTH_SERVER_PORT": "3005"
-      }
-    },
-    "google-calendar": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-google-calendar"
-      ],
-      "env": {
-        "CREDENTIALS_PATH": "./src/plugins/mcp/google_creds.json",
-        "PORT": "3006"
-       
+        "GOOGLE_CLIENT_ID": "660796797102-qufcvd19luqf31ht9sj5gv4pn8ost94v.apps.googleusercontent.com",
+        "GOOGLE_CLIENT_SECRET": "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",
+        "GOOGLE_WORKSPACE_SERVICES": "gmail,drive,calendar,docs,sheets"
       }
     }
   }

@@ -26,5 +26,19 @@
     "fix_applied": "Three surgical changes to `src/nodes/executionNodes.ts`: (1) Replaced string matching with structured JSON `status === 'error'` checks in failure detection. (2) Added MCP output sanitization to extract clean text from CallToolResult objects before storing in actionHistory. (3) Added redundant-success detection that forces task completion when the same tool succeeds 2x with identical args. (4) Added prompt-level instruction telling the LLM to check history before calling new tools.",
     "proposed_skill_update": "When detecting failure loops in agentic systems, NEVER use broad string matching on tool outputs. Always parse the structured status field first. Reserve string heuristics for unambiguous markers only (PAGE_LOAD_FAILED, robots.txt).",
     "status": "resolved"
+  },
+  {
+    "id": "SIG-20260514-003",
+    "timestamp": "2026-05-14T14:53:00-05:00",
+    "session_id": "967c0d6c-5d4c-4d68-9abc-7f5952560bd5",
+    "original_task": "Phase 5 hardening: token budget, turn limits, session logging, test coverage",
+    "skill": "context-management",
+    "outcome": "enhancement",
+    "category": "autonomy",
+    "summary": "Upgraded MidpointX context management from static action-count thresholds to dynamic token-budget-based compaction. Added per-mission turn budget enforcement, auto session audit logging, and turn/token telemetry in the response.",
+    "root_cause": "Static HISTORY_LIMIT=8 was arbitrary and could fire early on small results or too late on large ones. No hard ceiling on individual stored results (a single large shell output could saturate the context window). No per-mission turn ceiling meant runaway tasks could consume unbounded resources. No session logging meant missions left no audit trail for RAG recall.",
+    "fix_applied": "compactionNode.ts: switched to token-budget model (6000 estimated tokens). executionNodes.ts: MAX_TURNS_PER_MISSION circuit breaker (default 50), universal 2000-char result cap. channelRouter.ts: auto logSession() fire-and-forget after every mission, telemetry in response. 21 new unit tests in executionNodes.test.ts covering all circuit breakers. All 57 tests pass.",
+    "proposed_skill_update": "Context window management should always be token-budget-based, not action-count-based. Estimate tokens as chars/4. Cap individual stored results at 2000 chars before appending to history. This prevents any single tool result from saturating the window regardless of action count.",
+    "status": "resolved"
   }
 ]
