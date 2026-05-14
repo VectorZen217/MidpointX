@@ -664,7 +664,7 @@ export class PluginRegistry {
         const transport = new StdioClientTransport({
           command: finalCommand,
           args: finalArgs,
-          env: { ...isolatedEnv, ...resolvedEnv }
+          env: { ...resolvedEnv, ...isolatedEnv }
         });
 
         const newClient = new Client(
