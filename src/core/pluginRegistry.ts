@@ -282,12 +282,12 @@ export class PluginRegistry {
           "evaluate": { 
             type: "object", 
             properties: { 
-              expression: { 
+              script: { 
                 type: "string", 
-                description: "The JavaScript expression to evaluate in the browser context. Example: 'document.body.innerText'" 
+                description: "The JavaScript script/expression to evaluate in the browser context. Example: 'document.body.innerText'" 
               } 
             }, 
-            required: ["expression"] 
+            required: ["script"] 
           },
           "page_content": {
             type: "object",
@@ -581,11 +581,11 @@ export class PluginRegistry {
           toolName = `puppeteer_${toolName}`;
         }
         
-        // Parameter Normalization: Ensure 'expression' is used for evaluate
+        // Parameter Normalization: Ensure 'script' is used for evaluate (MCP expects 'script')
         if (toolName === "puppeteer_evaluate") {
-          if (args.script && !args.expression) {
-            args.expression = args.script;
-            delete args.script;
+          if (args.expression && !args.script) {
+            args.script = args.expression;
+            delete args.expression;
           }
         }
 
@@ -608,7 +608,7 @@ export class PluginRegistry {
         // Virtual Tool: browser__page_content maps to a resilient evaluate call
         if (toolName === "puppeteer_page_content") {
           toolName = "puppeteer_evaluate";
-          args = { expression: "(() => { try { return document.body ? document.body.innerText.substring(0, 8000) : 'PAGE_LOAD_FAILED: Empty body'; } catch(e) { return 'PAGE_LOAD_FAILED: ' + e.message; } })()" };
+          args = { script: "(() => { try { return document.body ? document.body.innerText.substring(0, 8000) : 'PAGE_LOAD_FAILED: Empty body'; } catch(e) { return 'PAGE_LOAD_FAILED: ' + e.message; } })()" };
         }
       }
 
