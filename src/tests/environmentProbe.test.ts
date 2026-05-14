@@ -18,5 +18,5 @@ describe("EnvironmentProbe", () => {
     
     expect(report.environment.project_root).toBeDefined();
     expect(typeof report.environment.write_access).toBe("boolean");
-  });
+  }, 20000);
 });

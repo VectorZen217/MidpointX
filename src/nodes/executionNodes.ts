@@ -262,7 +262,8 @@ export async function selectionActor(state: typeof MidpointXState.State) {
       finalOutcome: outcome && outcome.trim().length > 5 ? outcome : "Mission accomplished. All steps in the strategic plan have been verified and completed.",
       pendingAction: null,
       needsApproval: false,
-      currentScreenshot
+      currentScreenshot,
+      ...prunedState
     });
   }
 

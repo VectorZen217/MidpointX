@@ -42,7 +42,7 @@ export class ChannelRouter {
       a2aCertificate?: SafetyCertificate,
       executionMode?: string
     }, 
-    progressCallback: (update: ProgressUpdate) => void
+    progressCallback?: (update: ProgressUpdate) => void
   ): Promise<any> {
     console.log(`📡 [ChannelRouter] Inbound from ${message.channel.toUpperCase()} (User: ${message.userId})`);
     

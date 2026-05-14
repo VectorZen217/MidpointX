@@ -1,17 +1,17 @@
 ---
 name: THEOREM_FS_02
-description: file system, powershell, efficiency
+description: filesystem, theorem management, search
 ---
 
 # Logic Shift: THEOREM_FS_02
-Trace ID: verify-p3-1777223050031
-Learned At: 2026-04-26T17:04:23.249Z
+Trace ID: TELEGRAM-1778704593523
+Learned At: 2026-05-13T20:36:50.744Z
 
 ## Justification
-The previous attempt failed because the tool call was not correctly formatted, and the execution context might not have been fully established. The `filesystem__write_text_file` tool is indeed the most efficient and direct method for creating a text file with content on Windows. This theorem codifies the correct and efficient usage of this tool for such tasks.
+The standard approach of expecting a specific file name (e.g., 'THEOREM_FS_02') to be present in the root directory is insufficient when the file's location or exact name is uncertain. `filesystem__search_files` provides a more robust method for discovering relevant files across a directory structure, ensuring that the agent can locate and update theorems even if their naming conventions or locations deviate from initial assumptions.
 
 ## Discovered Pattern
-Create a file with specific content on the desktop using the most efficient method.
+Searching for theorem files within a project directory when the exact file path is unknown.
 
 ## Optimized Approach
-Use the `filesystem__write_text_file` tool with the absolute path to the desktop and the provided content. This tool directly maps to PowerShell's `Set-Content` and is the most efficient method for this task.
+Utilize `filesystem__search_files` with a broad pattern (e.g., '*.json' or '*theorem*') to locate potential theorem files within a given directory and its subdirectories, rather than relying on `filesystem__list_directory` for a specific, potentially non-existent file.

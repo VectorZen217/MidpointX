@@ -133,9 +133,17 @@ export class PluginRegistry {
 
           console.log(`🔌 [PluginRegistry] Attempting connection to global MCP server: ${serverName}`);
 
+          let finalCommand = serverConfig.command;
+          let finalArgs = resolvedArgs || serverConfig.args || [];
+          
+          if (process.platform === "win32") {
+            finalArgs = ["/d", "/s", "/c", finalCommand, ...finalArgs];
+            finalCommand = "cmd.exe";
+          }
+
           const transport = new StdioClientTransport({
-            command: serverConfig.command,
-            args: resolvedArgs || serverConfig.args,
+            command: finalCommand,
+            args: finalArgs,
             env: Object.fromEntries(
               Object.entries({ ...process.env, ...resolvedEnv })
                 .filter(([, v]) => v !== undefined)
@@ -150,7 +158,7 @@ export class PluginRegistry {
           // Connect with timeout to prevent whole-system hang
           await Promise.race([
             client.connect(transport),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 15000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 60000))
           ]);
 
           this.mcpClients.set(serverName, client); // Global instance
@@ -536,9 +544,17 @@ export class PluginRegistry {
           Object.entries(serverConfig.env || {}).map(([k, v]) => [k, this.resolvePath(v as string)])
         );
 
+        let finalCommand = serverConfig.command;
+        let finalArgs = resolvedArgs || serverConfig.args || [];
+        
+        if (process.platform === "win32") {
+          finalArgs = ["/d", "/s", "/c", finalCommand, ...finalArgs];
+          finalCommand = "cmd.exe";
+        }
+
         const transport = new StdioClientTransport({
-          command: serverConfig.command,
-          args: resolvedArgs || serverConfig.args,
+          command: finalCommand,
+          args: finalArgs,
           env: { ...isolatedEnv, ...resolvedEnv }
         });
 

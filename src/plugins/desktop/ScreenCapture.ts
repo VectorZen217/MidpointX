@@ -1,10 +1,9 @@
 import { screen } from "@nut-tree-fork/nut-js";
 import * as path from "path";
+import * as fsPromises from "fs/promises";
 import * as fs from "fs";
 import * as os from "os";
 import { execSync } from "child_process";
-
-const fsPromises = fs.promises;
 
 export class ScreenCapture {
   private static async hideAgentWindow(): Promise<void> {

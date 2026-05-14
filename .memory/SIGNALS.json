@@ -1,0 +1,16 @@
+[
+  {
+    "id": "SIG-20260514-001",
+    "timestamp": "2026-05-14T08:55:00-05:00",
+    "session_id": "c91dce17-b20f-479b-8103-63c88fe8f1bb",
+    "original_task": "Fix your mcp error",
+    "skill": "mcp-builder",
+    "outcome": "correction",
+    "category": "setup",
+    "summary": "Fixed MCP server startup errors on Windows by wrapping commands in cmd.exe and increasing the connection timeout.",
+    "root_cause": "Node.js CVE-2024-27980 restricts spawning .cmd files without shell: true. Using `StdioClientTransport` without it threw `ENOENT` or `EINVAL`. Also, `npx -y` downloads the packages on first run, which exceeded the 15-second connection timeout.",
+    "fix_applied": "Modified `src/core/pluginRegistry.ts` to wrap MCP server commands in `cmd.exe /d /s /c` on Windows and increased the timeout from 15s to 60s.",
+    "proposed_skill_update": "On Windows, when dynamically spawning MCP servers using `npx` or `uvx` through `@modelcontextprotocol/sdk/client/stdio`, always prepend `cmd.exe /c` to bypass `ENOENT` and Node CVE `EINVAL` restrictions, and set a timeout >= 60 seconds to allow package installation.",
+    "status": "pending"
+  }
+]
