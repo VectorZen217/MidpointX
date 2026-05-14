@@ -263,8 +263,9 @@ io.on("connection", (socket) => {
         } else {
             const message = typeof result === "object" ? result.message : result;
             const artifacts = typeof result === "object" ? result.artifacts : [];
+            const telemetry = typeof result === "object" ? result.telemetry : undefined;
             socket.emit("agent:message", { message, artifacts });
-            socket.emit("agent:complete", { message: "Mission Accomplished" });
+            socket.emit("agent:complete", { message: "Mission Accomplished", telemetry });
         }
 
     } catch (err) {

@@ -1,24 +1,47 @@
 # MidpointX Performance and Testing Log
 
-## Overview
-A complete test suite was run using `npm test` to verify the features outlined in `CAPABILITIES.md` and `Expectations.md`. Several test failures and issues were identified.
+## Current State (2026-05-14 — Phase 5)
 
-## Failing Features and Capabilities
+All 36 tests pass across 11 test suites. The three failures documented below were resolved during Phase 4 hardening.
 
-### 1. `ChannelRouter` API Signature Mismatch (Agent-to-Agent Trust Protocol)
-- **File**: `src/tests/channelRouter.test.ts`
-- **Error**: `TS2554: Expected 2 arguments, but got 1.`
-- **Details**: The `ChannelRouter.route` method requires a `progressCallback` as its second argument, but the test suite is not providing it. This indicates a mismatch between the current implementation of the A2A Trust Protocol and its corresponding tests, breaking validation of nested delegations and safety handshakes.
+---
 
-### 2. Temporal Contextual Observation (FFMPEG Burst Capture)
-- **File**: `tests/temporal.test.ts` / `src/plugins/desktop/ScreenCapture.ts`
-- **Error**: `TypeError: Cannot set property existsSync of #<Object> which has only a getter`
-- **Details**: The test mocks for the `fs` module are incorrectly implemented, trying to mutate a getter for `existsSync`. This breaks the validation of FFMPEG parameter passing for UI temporal observation.
+## ✅ Resolved Issues
 
-### 3. Agent Window Lifecycle Management (Visual Intelligence)
-- **File**: `src/plugins/desktop/ScreenCapture.ts`
-- **Error**: `TypeError: Cannot read properties of undefined (reading 'writeFile')`
-- **Details**: The `hideAgentWindow` and `restoreAgentWindow` methods are failing due to an undefined filesystem method (`writeFile`). This implies the mechanism to hide the agent's window during burst capture (so it doesn't obscure the user's screen) is completely non-functional.
+### 1. `ChannelRouter` Test Failures — RESOLVED
+- **Root Cause**: Tests used `expect(response).toBe("string")` but the router now returns `{ message, telemetry }`.
+- **Fix**: Updated all channelRouter tests to use `toMatchObject({ message: "..." })`. Added `MemoryManager` mock.
+- **Session**: `cb26fd36` / `967c0d6c`
 
-### Summary
-The core tests validating **Temporal Observation Verification**, **A2A Safety Handshakes**, and **Screen Capture Window Management** are currently failing. These features require codebase updates to align with the functionality defined in `CAPABILITIES.md` and `Expectations.md`.
+### 2. Temporal Contextual Observation (FFMPEG Burst Capture) — RESOLVED
+- **Root Cause**: Test was trying to mutate a read-only `fs.existsSync` getter.
+- **Fix**: Moved `temporal.test.ts` to `tests/temporal.test.ts` with corrected `jest.mock("fs")` using spread of `requireActual`. All ScreenCapture tests now pass.
+- **Session**: `b78861d5`
+
+### 3. Agent Window Lifecycle Management — RESOLVED
+- **Root Cause**: `hideAgentWindow` / `restoreAgentWindow` called `writeFile` from a destructured import that was undefined in test context.
+- **Fix**: ScreenCapture now imports `writeFile` from `fs/promises` at module level. Tests mock `fs/promises` fully.
+- **Session**: `b78861d5`
+
+### 4. False-Positive Failure Loop Detection — RESOLVED
+- **Root Cause**: `SelectionActor` used broad string matching (`result.includes("Error")`) which flagged successful tool responses mentioning "Error count: 0".
+- **Fix**: Replaced with structured JSON parsing (`parsed.status === "error"`). Only unambiguous failure markers trigger recovery.
+- **Session**: `cb26fd36`
+
+---
+
+## Phase 4/5 Improvements Landed
+
+| Feature | Status |
+|---------|--------|
+| Structured failure detection (JSON status parsing) | ✅ |
+| MCP output sanitization (extract text from CallToolResult) | ✅ |
+| Redundant-success circuit breaker (2x identical success → complete) | ✅ |
+| Death spiral detector (3x identical call → force replan) | ✅ |
+| Prompt-level synthesis instruction (check history before calling) | ✅ |
+| Dynamic compaction threshold (token-budget based, not action count) | ✅ |
+| Per-mission turn budget enforcement (MAX_TURNS_PER_MISSION) | ✅ |
+| Auto session logging after every mission | ✅ |
+| Turn/token telemetry in agent response | ✅ |
+| executionNodes.test.ts — loop/sanitization/circuit-breaker coverage | ✅ |
+

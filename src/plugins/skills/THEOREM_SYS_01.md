@@ -1,17 +1,17 @@
 ---
 name: THEOREM_SYS_01
-description: system monitoring, automation, powershell
+description: monitoring, automation, configuration
 ---
 
 # Logic Shift: THEOREM_SYS_01
-Trace ID: PROACTIVE-MIDPOINTX_HEALTH_MONITOR-1777741200037
-Learned At: 2026-05-02T17:00:23.882Z
+Trace ID: TELEGRAM-1778778987201
+Learned At: 2026-05-14T17:16:54.098Z
 
 ## Justification
-The standard approach of separate checks for each component (process, logs, disk) can be inefficient and harder to manage. Consolidating these checks into a single script simplifies deployment, reduces overhead, and ensures consistent logging. Task Scheduler provides a robust, native Windows mechanism for reliable periodic execution, which is superior to manual checks or less integrated scheduling methods.
+The standard approach of hardcoding monitoring parameters or performing manual checks is inefficient and prone to errors. Externalizing configuration allows for dynamic adjustments without code changes, and a dedicated script ensures consistent, repeatable, and automated execution, preventing manual oversight and potential infinite loops of replanning.
 
 ## Discovered Pattern
-Proactive health monitoring of local agent processes and their associated log files.
+Automated health monitoring of a system or application.
 
 ## Optimized Approach
-Utilize a single PowerShell script to perform all health checks (process status, log file existence/size, disk space) and log results to a timestamped file. Schedule this script using Windows Task Scheduler with appropriate retry logic and failure notifications.
+Externalize configuration parameters (e.g., thresholds, check intervals) into a separate configuration file (e.g., JSON, YAML) and use a dedicated script to read this configuration and perform the monitoring. This script should include robust error handling and logging.

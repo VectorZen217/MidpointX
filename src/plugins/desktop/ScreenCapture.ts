@@ -1,6 +1,6 @@
 import { screen } from "@nut-tree-fork/nut-js";
 import * as path from "path";
-import * as fsPromises from "fs/promises";
+import { writeFile, unlink, mkdir, readdir, readFile, rmdir, copyFile } from "fs/promises";
 import * as fs from "fs";
 import * as os from "os";
 import { execSync } from "child_process";
@@ -34,9 +34,9 @@ export class ScreenCapture {
         }
       `;
       const scriptPath = path.join(os.tmpdir(), `hide_agent_${Date.now()}.ps1`);
-      await fsPromises.writeFile(scriptPath, psScript, "utf-8");
+      await writeFile(scriptPath, psScript, "utf-8");
       execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`);
-      await fsPromises.unlink(scriptPath).catch(() => {});
+      await unlink(scriptPath).catch(() => {});
     } catch (e) {
       console.warn("⚠️ [ScreenCapture] Failed to hide agent window:", e);
     }
@@ -59,9 +59,9 @@ export class ScreenCapture {
         }
       `;
       const scriptPath = path.join(os.tmpdir(), `restore_agent_${Date.now()}.ps1`);
-      await fsPromises.writeFile(scriptPath, psScript, "utf-8");
+      await writeFile(scriptPath, psScript, "utf-8");
       execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`);
-      await fsPromises.unlink(scriptPath).catch(() => {});
+      await unlink(scriptPath).catch(() => {});
     } catch (e) {
       console.warn("⚠️ [ScreenCapture] Failed to restore agent window:", e);
     }
@@ -76,8 +76,8 @@ export class ScreenCapture {
       const tempDir = path.resolve(process.cwd(), "temp");
       const historyDir = path.join(tempDir, "visual_history");
       
-      if (!fs.existsSync(tempDir)) await fsPromises.mkdir(tempDir, { recursive: true });
-      if (!fs.existsSync(historyDir)) await fsPromises.mkdir(historyDir, { recursive: true });
+      if (!fs.existsSync(tempDir)) await mkdir(tempDir, { recursive: true });
+      if (!fs.existsSync(historyDir)) await mkdir(historyDir, { recursive: true });
 
       const timestamp = Date.now();
       const tempPath = path.join(tempDir, `capture_${timestamp}.png`);
@@ -104,13 +104,13 @@ export class ScreenCapture {
           `;
           
           const scriptPath = path.join(tempDir, `script_${timestamp}.ps1`);
-          await fsPromises.writeFile(scriptPath, psScript, "utf-8");
+          await writeFile(scriptPath, psScript, "utf-8");
           
           try {
             execSync(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`);
             if (fs.existsSync(tempPath)) captured = true;
           } finally {
-            await fsPromises.unlink(scriptPath).catch(() => {});
+            await unlink(scriptPath).catch(() => {});
           }
         } catch (e) {
           console.warn("⚠️ [ScreenCapture] PowerShell method failed.");
@@ -129,19 +129,19 @@ export class ScreenCapture {
 
       if (!captured) throw new Error(`Failed to capture screenshot`);
 
-      const buffer = await fsPromises.readFile(tempPath);
+      const buffer = await readFile(tempPath);
       
       // Save to history and manage rolling buffer (keep last 10)
-      await fsPromises.copyFile(tempPath, historyPath);
-      const historyFiles = await fsPromises.readdir(historyDir);
+      await copyFile(tempPath, historyPath);
+      const historyFiles = await readdir(historyDir);
       if (historyFiles.length > 10) {
         const sorted = historyFiles.sort();
         for (let i = 0; i < sorted.length - 10; i++) {
-          await fsPromises.unlink(path.join(historyDir, sorted[i])).catch(() => {});
+          await unlink(path.join(historyDir, sorted[i])).catch(() => {});
         }
       }
 
-      await fsPromises.unlink(tempPath).catch(() => {}); // cleanup temp
+      await unlink(tempPath).catch(() => {}); // cleanup temp
       await this.restoreAgentWindow();
       
       return buffer.toString("base64");
@@ -157,31 +157,31 @@ export class ScreenCapture {
       await this.hideAgentWindow();
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const tempDir = path.resolve(process.cwd(), "temp", `burst_${Date.now()}`);
-      if (!fs.existsSync(tempDir)) await fsPromises.mkdir(tempDir, { recursive: true });
+      const burstDir = path.resolve(process.cwd(), "temp", `burst_${Date.now()}`);
+      if (!fs.existsSync(burstDir)) await mkdir(burstDir, { recursive: true });
 
       const regionArg = region ? `-vf "crop=${region.w}:${region.h}:${region.x}:${region.y}"` : "";
       
       // Use gdigrab for Windows desktop capture. Increased timeout to 20s to prevent hanging on slow I/O or device initialization.
-      const command = `ffmpeg -y -f gdigrab -framerate ${fps} -i desktop -t ${durationSec} ${regionArg} "${path.join(tempDir, "frame_%03d.png")}"`;
+      const command = `ffmpeg -y -f gdigrab -framerate ${fps} -i desktop -t ${durationSec} ${regionArg} "${path.join(burstDir, "frame_%03d.png")}"`;
       
       console.log(`🎬 [ScreenCapture] Starting burst capture: ${command}`);
       execSync(command, { stdio: 'ignore', timeout: 20000 });
 
-      const files = await fsPromises.readdir(tempDir);
+      const files = (await readdir(burstDir)).filter(f => f.endsWith(".png"));
       const frames: string[] = [];
       
       for (const file of files.sort()) {
-        const filePath = path.join(tempDir, file);
-        const buffer = await fsPromises.readFile(filePath);
+        const filePath = path.join(burstDir, file);
+        const buffer = await readFile(filePath);
         frames.push(buffer.toString("base64"));
       }
 
       // Cleanup
       for (const file of files) {
-        await fsPromises.unlink(path.join(tempDir, file)).catch(() => {});
+        await unlink(path.join(burstDir, file)).catch(() => {});
       }
-      await fsPromises.rmdir(tempDir).catch(() => {});
+      await rmdir(burstDir).catch(() => {});
       
       await this.restoreAgentWindow();
       return frames;

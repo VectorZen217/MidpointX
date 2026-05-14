@@ -39,7 +39,7 @@ describe("Security Hardening", () => {
       (LLMFactory.getModel as jest.Mock).mockReturnValue(mockModel);
       (invokeWithResilience as jest.Mock).mockResolvedValue({ content: "test", tool_calls: [] });
 
-      await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [] } as any);
+      await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [], executionMode: "visual" } as any);
 
       // Verify that bindTools was NOT called with execute_system_command or write_text_file
       const boundTools = mockModel.bindTools.mock.calls[0][0];
@@ -49,6 +49,30 @@ describe("Security Hardening", () => {
       expect(toolNames).not.toContain("filesystem__write_text_file");
       expect(toolNames).toContain("browser__navigate");
     });
+
+    it("should block browser and desktop tools when in API execution mode", async () => {
+      const mockTools = [
+        { name: "browser__navigate", description: "nav", parameters: {} },
+        { name: "desktop__take_snapshot", description: "snap", parameters: {} },
+        { name: "fetch__fetch", description: "fetch", parameters: {} },
+        { name: "filesystem__read_text_file", description: "read", parameters: {} }
+      ];
+      (PluginRegistry.getActiveTools as jest.Mock).mockReturnValue(mockTools);
+      
+      const mockModel = { bindTools: jest.fn().mockReturnThis() };
+      (LLMFactory.getModel as jest.Mock).mockReturnValue(mockModel);
+      (invokeWithResilience as jest.Mock).mockResolvedValue({ content: "test", tool_calls: [] });
+
+      await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [], executionMode: "api" } as any);
+
+      const boundTools = mockModel.bindTools.mock.calls[0][0];
+      const toolNames = boundTools.map((t: any) => t.function?.name || t.name);
+      
+      expect(toolNames).not.toContain("browser__navigate");
+      expect(toolNames).not.toContain("desktop__take_snapshot");
+      expect(toolNames).toContain("fetch__fetch");
+      expect(toolNames).toContain("filesystem__read_text_file");
+    });
   });
 
   describe("SelectionActor - Approval Flagging", () => {
@@ -57,7 +81,7 @@ describe("Security Hardening", () => {
         tool_calls: [{ name: "execute_system_command", args: { command: "ls" } }]
       });
 
-      const result = await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [] } as any);
+      const result = await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [], executionMode: "visual" } as any);
 
       expect(result.needsApproval).toBe(true);
       expect(result.approvalStatus).toBe("pending");
@@ -68,7 +92,7 @@ describe("Security Hardening", () => {
         tool_calls: [{ name: "browser__navigate", args: { url: "google.com" } }]
       });
 
-      const result = await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [] } as any);
+      const result = await selectionActor({ analysisResult: "test", userIntent: "test", strategicPlan: [], planStatus: {}, actionHistory: [], executionMode: "visual" } as any);
 
       expect(result.needsApproval).toBe(false);
       expect(result.approvalStatus).toBe("approved");

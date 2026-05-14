@@ -12,5 +12,19 @@
     "fix_applied": "Modified `src/core/pluginRegistry.ts` to wrap MCP server commands in `cmd.exe /d /s /c` on Windows and increased the timeout from 15s to 60s.",
     "proposed_skill_update": "On Windows, when dynamically spawning MCP servers using `npx` or `uvx` through `@modelcontextprotocol/sdk/client/stdio`, always prepend `cmd.exe /c` to bypass `ENOENT` and Node CVE `EINVAL` restrictions, and set a timeout >= 60 seconds to allow package installation.",
     "status": "pending"
+  },
+  {
+    "id": "SIG-20260514-002",
+    "timestamp": "2026-05-14T14:48:00-05:00",
+    "session_id": "cb26fd36-9d7e-41d3-b8cc-03bb7cd992b9",
+    "original_task": "Agent stuck in infinite loop calling server_info/notebook_list repeatedly",
+    "skill": "loop-detection",
+    "outcome": "correction",
+    "category": "autonomy",
+    "summary": "Fixed false-positive failure loop detection that caused the agent to enter infinite recovery spirals on successful MCP tool calls.",
+    "root_cause": "SelectionActor's loop detection used broad `h.result.includes('Error')` string matching on JSON-serialized tool results. Successful MCP responses like `{status: 'success', output: {content: [{text: '...Error count: 0...'}]}}` contained the word 'Error' in their output, triggering the CRITICAL WARNING recovery prompt. This confused the LLM into re-calling diagnostic tools endlessly instead of synthesizing the answer it already had.",
+    "fix_applied": "Three surgical changes to `src/nodes/executionNodes.ts`: (1) Replaced string matching with structured JSON `status === 'error'` checks in failure detection. (2) Added MCP output sanitization to extract clean text from CallToolResult objects before storing in actionHistory. (3) Added redundant-success detection that forces task completion when the same tool succeeds 2x with identical args. (4) Added prompt-level instruction telling the LLM to check history before calling new tools.",
+    "proposed_skill_update": "When detecting failure loops in agentic systems, NEVER use broad string matching on tool outputs. Always parse the structured status field first. Reserve string heuristics for unambiguous markers only (PAGE_LOAD_FAILED, robots.txt).",
+    "status": "resolved"
   }
 ]

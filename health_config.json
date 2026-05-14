@@ -1,0 +1,20 @@
+{
+  "components": {
+    "cpu": {
+      "threshold": 90,
+      "unit": "%",
+      "check": "usage"
+    },
+    "disk": {
+      "path": "C:\\",
+      "threshold": 10,
+      "unit": "GB",
+      "check": "free_space"
+    },
+    "memory": {
+      "threshold": 85,
+      "unit": "%",
+      "check": "usage"
+    }
+  }
+}

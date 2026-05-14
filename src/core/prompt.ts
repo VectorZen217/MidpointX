@@ -55,7 +55,7 @@ Your goal is to map complexities and extract the core mission objective.
 export function buildAnalyzePrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST plan to use desktop automation tools (screenshots, mouse, keyboard, browser automation) to complete the task visually. Do NOT plan to use background API tools.`
-    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in API MODE. Prioritize background API tools (MCP servers, filesystem tools) for absolute speed and reliability.`;
+    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. You have NO browser and NO desktop/visual tools. Plan ONLY using background API tools:\n- For web search/scraping: Use 'fetch__fetch' on target URLs. If robots.txt blocks fetch__fetch, IMMEDIATELY fall back to 'execute_system_command' with PowerShell: Invoke-WebRequest -Uri 'URL' -UseBasicParsing | Select-Object -ExpandProperty Content\n- IMPORTANT: Google Search blocks ALL automated tools. Use DuckDuckGo (https://html.duckduckgo.com/html/?q=QUERY) or specific sites (cycletrader.com, craigslist.org, facebook.com/marketplace).\n- For Google services: Use the gmail, google-drive, google-calendar MCP tools.\n- For file operations: Use filesystem__* tools.\nNEVER tell the user to 'do it manually' or 'search yourself'. You MUST complete the task autonomously using the tools above.`;
 
   return `${buildBaseIdentity(agentPersona, userContext)}
 
@@ -72,12 +72,22 @@ Your goal is to synthesize the reflection into a single, cohesive Execution Stra
 export function buildActionPrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in VISUAL MODE. You MUST NOT use background API tools (like gmail or google-drive). You MUST act like a physical human operator sitting at a desk. You must use desktop tools (mouse, keyboard, taking screenshots) or the browser automation to visually click through the UI and complete the task. Do NOT try to bypass the UI.`
-    : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are currently operating in API MODE. Prioritize background API tools (MCP servers, filesystem tools) for absolute speed and reliability. 
-If a direct API tool (like browser__*) fails more than twice, you MUST immediately switch to VISUAL MODE. 
-Switching to VISUAL MODE means:
-1. Call 'desktop__take_snapshot' to see the actual screen.
-2. Use 'desktop__mouse_move', 'desktop__mouse_click', and 'desktop__keyboard_type' to interact with the UI manually.
-Do NOT get stuck in an API failure loop. Use your hands and eyes!`;
+    : `\n\n## API MODE ENFORCEMENT [CRITICAL]
+You are currently operating in API MODE. You have NO browser and NO desktop tools available. Do NOT attempt to call any tool starting with 'browser__' or 'desktop__' — they do not exist in your current toolset.
+
+Your available tools for web data retrieval (USE IN THIS ORDER):
+1. 'fetch__fetch': Try this first on target URLs. NOTE: This tool uses an automated user-agent that many sites block via robots.txt.
+2. 'execute_system_command': YOUR MOST POWERFUL FALLBACK. If fetch__fetch is blocked by robots.txt, use PowerShell:
+   - Invoke-WebRequest -Uri 'YOUR_URL_HERE' -UseBasicParsing | Select-Object -ExpandProperty Content
+   - This uses a standard browser user-agent that sites do NOT block.
+   - ALWAYS use this for search engines: Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=YOUR+SEARCH+TERMS' -UseBasicParsing | Select-Object -ExpandProperty Content
+3. MCP API tools (gmail, google-drive, google-calendar, github): Use these for their respective services.
+4. 'filesystem__*': Use for local file operations.
+
+## ANTI-LAZINESS MANDATE [ABSOLUTE]
+You MUST NEVER tell the user to 'search manually', 'do it yourself', or 'I recommend you try'. You are a full-autonomy agent. If one tool fails, use another. If fetch fails, use PowerShell. If PowerShell fails on one URL, try a different URL. You have execute_system_command — you can fetch ANY webpage. Exhausting all options before giving up is MANDATORY.
+
+If ALL approaches genuinely fail, call 'system__request_replanning' with a thesis — do NOT give up and ask the user to do the work.`;
 
   return `${buildBaseIdentity(agentPersona, userContext)}
 

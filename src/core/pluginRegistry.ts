@@ -477,8 +477,18 @@ export class PluginRegistry {
 
     // 1. Context-Aware Tool Name Normalization (Robustness)
     // If the model calls 'navigate' instead of 'browser__navigate', try to resolve it.
+    // Also handles MCP servers like 'fetch' -> 'fetch__fetch'
     if (!name.includes("__")) {
+      // Build dynamic prefix list from all registered MCP servers + builtins
       const knownPrefixes = ["browser", "filesystem", "desktop", "system", "messaging"];
+      for (const serverName of this.mcpClients.keys()) {
+        // Strip user-isolated keys like "browser:123" to just "browser"
+        const baseServerName = serverName.split(":")[0];
+        if (!knownPrefixes.includes(baseServerName)) {
+          knownPrefixes.push(baseServerName);
+        }
+      }
+
       for (const prefix of knownPrefixes) {
         const potentialName = `${prefix}__${name}`;
         // Check if this tool exists in our active tools array
@@ -528,10 +538,10 @@ export class PluginRegistry {
           }
         }
 
-        // Virtual Tool: browser__page_content maps to a specific evaluate call
+        // Virtual Tool: browser__page_content maps to a resilient evaluate call
         if (toolName === "puppeteer_page_content") {
           toolName = "puppeteer_evaluate";
-          args = { expression: "document.documentElement ? document.documentElement.outerHTML : '<html><body>Empty Page</body></html>'" };
+          args = { expression: "try { document.body ? document.body.innerText.substring(0, 8000) : 'PAGE_LOAD_FAILED: Empty body' } catch(e) { 'PAGE_LOAD_FAILED: ' + e.message }" };
         }
       }
 

@@ -7,6 +7,19 @@ jest.mock("../core/graph", () => ({
   }
 }));
 
+jest.mock("../core/memory", () => ({
+  MemoryManager: {
+    logSession: jest.fn().mockResolvedValue(undefined)
+  }
+}));
+
+/** Helper: extracts message string from either a plain string or { message } response */
+function extractMessage(result: any): string {
+  if (typeof result === "string") return result;
+  if (result && typeof result.message === "string") return result.message;
+  return JSON.stringify(result);
+}
+
 describe("ChannelRouter & Graph Integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -49,7 +62,7 @@ describe("ChannelRouter & Graph Integration", () => {
       highFidelityContext: ["iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="] // 1x1 blank pixel
     }, () => {});
 
-    expect(result).toContain("DISCIPLINED REFUSAL");
+    expect(extractMessage(result)).toContain("DISCIPLINED REFUSAL");
   });
 
   test("A2A Handshake should reject agents with lax thresholds", async () => {
@@ -86,7 +99,7 @@ describe("ChannelRouter & Graph Integration", () => {
       a2aCertificate: alignedCert
     }, () => {});
 
-    expect(result).not.toContain("A2A REJECTION");
+    expect(extractMessage(result)).not.toContain("A2A REJECTION");
   });
 
   test("A2A Handshake should reject 'Trust Laundering' (untrusted originator via trusted proxy)", async () => {

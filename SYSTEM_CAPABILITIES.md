@@ -50,22 +50,23 @@ Zod schemas are crucial for validating API payloads, configuration objects, and 
 
 ## Application Control & Visual Memory
 
-The system empowers the agent to act as a **Humanoid Operator** with full control over the host environment.
+The system empowers the agent to act as a **Humanoid Operator** with full control over the host environment, utilizing a sophisticated hybrid execution model.
 
-### **1. Universal App Control**
-The agent can launch, monitor, and interact with any application on the machine using the `execute_system_command` (e.g., `start chrome`, `code .`, `start excel`). It can then use its **Hands** (`desktop__mouse_click`, `desktop__keyboard_type`) to operate these apps exactly like a human.
+### **1. Hybrid Execution Model (Stealth vs. Visual)**
+The agent intelligently orchestrates its visibility based on the task complexity and reliability:
+*   **API Mode (Headless)**: Prioritizes speed and stability by running browser operations in the background. Ideal for high-speed data fetching and background automation.
+*   **Visual Mode (Visible)**: Automatically reveals the browser and uses its **Hands** (`desktop__mouse_click`, `desktop__keyboard_type`) to interact with the UI. Required for complex UI navigation, login bypass, and manual recovery.
 
-### **2. Visual Memory (Historical Vision)**
-The agent maintains a rolling buffer of its last 10 snapshots in `temp/visual_history`. This allows for **State Verification** and **Historical Context**:
-*   **Snapshots**: Use `desktop__take_snapshot` to capture the current state of an active app.
-*   **History**: Use `desktop__review_history` to look back at past snapshots to see how an app state has evolved (e.g., "What did the terminal look like 5 minutes ago?").
+### **2. Self-Healing Loop Detection**
+The system autonomously detects execution stalls. If a sequence of tool calls fails to progress the state (e.g., repeating a failing selector), the system triggers a **Recalculation Event**. This forces a strategy pivot, often switching from API to Visual mode to bypass the technical blocker via manual interaction.
 
-### **3. Smart Throttling**
-To ensure efficiency, the agent avoids "Snapshot Spam." It only captures the screen when explicitly needed for a task or when the user requests a visual update.
+### **3. Universal App Control**
+The agent can launch, monitor, and interact with any application on the machine using the `execute_system_command` (e.g., `start chrome`, `code .`, `start excel`). It can then use its **Hands** to operate these apps exactly like a human.
 
-### **3. Multi-Channel Proactive Workflows (Personal Concierge)**
-The agent is capable of **Cross-Channel Orchestration**. It can monitor high-priority tasks (like incoming emails) in the background and proactively reach out to the user on **Telegram or Discord** to seek approvals or provide updates.
-*   **Approval Loop**: The agent can draft complex content (like emails), send them to the user's mobile device for review, and only execute the final action once it receives a "Yes" or "Approve" message back through the mobile channel.
+### **4. Visual Memory & Temporal Probing**
+The agent maintains a rolling buffer of its visual history in `temp/visual_history`. This is augmented by:
+*   **Motion Probes**: Uses FFMPEG burst captures to verify that a click or keystroke actually triggered a visual change on the screen.
+*   **Grounded Reasoning**: Cross-references textual tool outputs with visual snapshots to ensure "Truth in Action."
 
 ---
 

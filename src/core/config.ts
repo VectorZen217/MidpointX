@@ -24,6 +24,7 @@ const ConfigSchema = z.object({
   PORT: z.coerce.number().default(5001),
   RETRY_COUNT: z.coerce.number().default(5),
   MAX_RECURSION_LIMIT: z.coerce.number().default(150),
+  MAX_TURNS_PER_MISSION: z.coerce.number().default(50),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   TOOL_PROFILE: z.enum(["messaging", "coding", "full"]).default("full"),

@@ -4,8 +4,21 @@ import * as fsPromises from "fs/promises";
 import { execSync } from "child_process";
 
 jest.mock("child_process");
-jest.mock("fs");
-jest.mock("fs/promises");
+
+jest.mock("fs", () => ({
+  ...jest.requireActual("fs"),
+  existsSync: jest.fn()
+}));
+
+jest.mock("fs/promises", () => ({
+  writeFile: jest.fn(),
+  unlink: jest.fn(),
+  mkdir: jest.fn(),
+  readdir: jest.fn(),
+  readFile: jest.fn(),
+  rmdir: jest.fn(),
+  copyFile: jest.fn()
+}));
 
 describe("ScreenCapture Temporal Logic", () => {
   beforeEach(() => {
@@ -23,11 +36,6 @@ describe("ScreenCapture Temporal Logic", () => {
     const mockExecSync = execSync as unknown as jest.Mock;
     mockExecSync.mockReturnValue(Buffer.from("done"));
     
-    (fs.existsSync as jest.Mock).mockReturnValue(true);
-    (fsPromises.readdir as jest.Mock).mockResolvedValue(["frame_001.png", "frame_002.png"]);
-    (fsPromises.readFile as jest.Mock).mockResolvedValue(Buffer.from("fake_image_data"));
-    (fsPromises.mkdir as jest.Mock).mockResolvedValue(undefined);
-
     const frames = await ScreenCapture.captureBurst(1, 2);
 
     const ffmpegCall = mockExecSync.mock.calls.find(call => call[0].includes("ffmpeg"));
@@ -46,5 +54,18 @@ describe("ScreenCapture Temporal Logic", () => {
     const result = await ScreenCapture.getVisualDiff(["frame1", "frame2"], { x: 0, y: 0, w: 100, h: 100 });
     expect(result).toContain("[Temporal Observation]");
     expect(result).toContain("region [x:0, y:0, w:100, h:100]");
+  });
+
+  test("captureBurst should return TIMEOUT_ERROR on ffmpeg timeout", async () => {
+    const mockExecSync = execSync as unknown as jest.Mock;
+    mockExecSync.mockImplementation(() => {
+      const err = new Error("timeout");
+      // @ts-ignore
+      err.code = "ETIMEDOUT";
+      throw err;
+    });
+
+    const frames = await ScreenCapture.captureBurst(1, 2);
+    expect(frames).toEqual(["TIMEOUT_ERROR"]);
   });
 });

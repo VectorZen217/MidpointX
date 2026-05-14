@@ -1,6 +1,7 @@
 import { MidpointXGraph } from "./graph";
 import { Config } from "./config";
 import { A2AService, SafetyCertificate } from "../services/a2aService";
+import { MemoryManager } from "./memory";
 
 /**
  * Standard Payload for all incoming communication channels.
@@ -131,11 +132,24 @@ export class ChannelRouter {
 
       const outcome = finalState.finalOutcome || (finalState.isTaskComplete ? "Mission accomplished. All objectives have been met." : "Execution cycle concluded.");
       const artifacts = finalState.outputArtifacts || [];
-      
-      if (artifacts.length > 0) {
-        return { message: outcome, artifacts };
+      const turnsUsed = finalState.internalTurns || 0;
+      const tokensUsed = { input: totalInputTokens, output: totalOutputTokens };
+
+      // Auto-audit: Log every completed mission for post-mortem + RAG recall
+      if (finalState.isTaskComplete || turnsUsed > 0) {
+        const toolsUsed = [...new Set((finalState.actionHistory || []).map((h: any) => h.tool))] as string[];
+        MemoryManager.logSession(
+          `${message.channel.toUpperCase()}-${Date.now()}`,
+          message.intent,
+          outcome,
+          toolsUsed
+        ).catch(() => {}); // Fire-and-forget, never block the response
       }
-      return outcome;
+
+      if (artifacts.length > 0) {
+        return { message: outcome, artifacts, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
+      }
+      return { message: outcome, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
 
     } catch (error: any) {
       console.error(`❌ [ChannelRouter] Error during graph execution:`, error);
@@ -210,11 +224,13 @@ export class ChannelRouter {
 
       const outcome = finalState.finalOutcome || (finalState.isTaskComplete ? "Mission accomplished based on latest analysis." : "Task resumed and cycle concluded.");
       const artifacts = finalState.outputArtifacts || [];
+      const turnsUsed = finalState.internalTurns || 0;
+      const tokensUsed = { input: totalInputTokens, output: totalOutputTokens };
 
       if (artifacts.length > 0) {
-        return { message: outcome, artifacts };
+        return { message: outcome, artifacts, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
       }
-      return outcome;
+      return { message: outcome, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
 
     } catch (error: any) {
       console.error(`❌ [ChannelRouter] Error during resumption:`, error);

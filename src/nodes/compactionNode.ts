@@ -3,35 +3,58 @@ import { LLMFactory } from "../core/llmFactory";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { extractText } from "./cognitiveNodes";
 
+// Characters per estimated token (rough approximation for mixed text/JSON)
+const CHARS_PER_TOKEN = 4;
+// Trigger compaction when estimated history context exceeds this token count
+const TOKEN_BUDGET = 6000;
+// Number of recent actions to keep un-compressed (sliding window)
+const RETENTION_WINDOW = 3;
+// Max chars per action result before feeding to the summarizer
+const RESULT_SUMMARY_CAP = 500;
+
 /**
  * NODE 8: CompactionActor
- * Triggered when state tokens exceed threshold.
- * Summarizes the reasoning trace and prunes the action history.
+ * Triggered when estimated token cost of action history exceeds TOKEN_BUDGET.
+ * Summarizes the oldest actions into a rolling milestone summary and prunes history.
  */
 export async function compactionNode(state: typeof MidpointXState.State) {
-  const HISTORY_LIMIT = 8;
-  
   // Always increment turn counter regardless of compaction
   const turnIncrement = { internalTurns: 1 };
 
-  if (state.actionHistory.length < HISTORY_LIMIT) {
-    console.log(`🧹 [CompactionActor] Context lean (${state.actionHistory.length} actions). Skipping.`);
+  if (state.actionHistory.length === 0) {
     return turnIncrement;
   }
 
-  console.log(`🧹 [CompactionActor] Context limit reached (${state.actionHistory.length} actions). Condensing...`);
+  // Estimate token cost of the full action history
+  const estimatedTokens = state.actionHistory.reduce((sum: number, h: any) => {
+    const resultLen = typeof h.result === "string" ? h.result.length : JSON.stringify(h.result || "").length;
+    return sum + resultLen;
+  }, 0) / CHARS_PER_TOKEN;
+
+  if (estimatedTokens < TOKEN_BUDGET && state.actionHistory.length < 12) {
+    console.log(`🧹 [CompactionActor] Context lean (~${Math.round(estimatedTokens)} tokens, ${state.actionHistory.length} actions). Skipping.`);
+    return turnIncrement;
+  }
+
+  const toCompress = state.actionHistory.slice(0, state.actionHistory.length - RETENTION_WINDOW);
+  const remainingHistory = state.actionHistory.slice(-RETENTION_WINDOW);
+
+  console.log(`🧹 [CompactionActor] Budget exceeded (~${Math.round(estimatedTokens)} tokens). Compressing ${toCompress.length} actions, retaining ${remainingHistory.length}.`);
 
   const workerModel = LLMFactory.getModel({ tier: "worker", temperature: 0 });
-  
-  // Distill the OLDEST actions into a milestone summary
-  const toSummarize = state.actionHistory.slice(0, state.actionHistory.length - 5);
-  const remainingHistory = state.actionHistory.slice(-(state.actionHistory.length - 5));
 
-  const historyStr = toSummarize.map((h: any, i: number) => `Turn ${i+1}: Action ${h.tool} -> Result: ${h.result}`).join("\n");
+  // Pre-truncate results to prevent the summarizer call itself from being expensive
+  const historyStr = toCompress.map((h: any, i: number) => {
+    const result = typeof h.result === "string" ? h.result : JSON.stringify(h.result || "");
+    const truncated = result.length > RESULT_SUMMARY_CAP
+      ? result.substring(0, RESULT_SUMMARY_CAP) + `... [+${result.length - RESULT_SUMMARY_CAP} chars]`
+      : result;
+    return `Turn ${i + 1}: [${h.tool}] -> ${truncated}`;
+  }).join("\n");
 
   const payload = [
-    new SystemMessage("You are a high-fidelity context manager. Distill the following agent actions into a 'Milestone Summary' that preserves the original intent and key accomplishments. Include any critical state changes (e.g. 'Successfully authenticated') or discovered constants (e.g. 'Project root is D:/repo')."),
-    new HumanMessage(`Original Intent: ${state.conciseIntent || state.userIntent}\nExisting Summary: ${state.historySummary}\n\nActions to compress:\n${historyStr}`)
+    new SystemMessage("You are a high-fidelity context manager. Distill the following agent actions into a 'Milestone Summary' that preserves the original intent and key accomplishments. Include any critical state changes (e.g. 'Successfully authenticated') or discovered constants (e.g. 'Project root is D:/repo'). Be concise — max 200 words."),
+    new HumanMessage(`Original Intent: ${state.conciseIntent || state.userIntent}\nExisting Summary: ${state.historySummary || "none"}\n\nActions to compress:\n${historyStr}`)
   ];
 
   const response = await workerModel.invoke(payload);

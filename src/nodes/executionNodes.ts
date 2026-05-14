@@ -25,7 +25,10 @@ const execAsync = promisify(exec);
 /**
  * Helper to truncate long shell outputs (middle-out) with hard character caps
  */
-const truncateOutput = (output: string, maxLines = 40, maxChars = 2000): string => {
+// Hard cap for every stored action result (non-snapshot). Keeps context window under control.
+const OUTPUT_HARD_CAP = 2000;
+
+const truncateOutput = (output: string, maxLines = 40, maxChars = OUTPUT_HARD_CAP): string => {
   const lines = output.split('\n');
   let truncatedByLines = output;
   
@@ -69,10 +72,31 @@ function getActionSeverity(toolName: string, args: any): 'undoable' | 'destructi
     return 'destructive';
   }
 
+  // Smart classification for execute_system_command:
+  // Read-only commands (web fetches, directory listings, etc.) are safe.
+  if (toolName === "execute_system_command" && args?.command) {
+    const cmd = String(args.command).trim().toLowerCase();
+    const readOnlyPatterns = [
+      /^\$progresspreference.*invoke-webrequest/,  // PowerShell web fetch
+      /^invoke-webrequest/,                         // Direct Invoke-WebRequest
+      /^curl\s/,                                    // curl
+      /^wget\s/,                                    // wget
+      /^get-content\s/,                              // Read file
+      /^type\s/,                                     // Windows type
+      /^cat\s/,                                      // cat
+      /^dir\s/,                                      // dir listing
+      /^ls\s/,                                       // ls listing
+      /^get-childitem/,                              // PowerShell dir
+    ];
+    if (readOnlyPatterns.some(p => p.test(cmd))) {
+      return null; // Safe, no approval needed
+    }
+    return 'undoable';
+  }
+
   // Write tools that don't violate policies are 'undoable' (30-sec window)
   const writeTools = [
-    "filesystem__write_text_file",
-    "execute_system_command"
+    "filesystem__write_text_file"
   ];
 
   if (writeTools.includes(toolName)) {
@@ -129,6 +153,23 @@ function minifyToolSchema(schema: any): any {
 export async function selectionActor(state: typeof MidpointXState.State) {
   console.log("⚡ [SelectionActor] Analyzing next logical step...");
 
+  // ═══════════════════════════════════════════════════════════════
+  // TURN BUDGET ENFORCEMENT: Hard ceiling per mission.
+  // Prevents runaway 24h+ tasks from consuming unbounded resources.
+  // ═══════════════════════════════════════════════════════════════
+  const turnsUsed = state.internalTurns || 0;
+  const turnBudget = Config.MAX_TURNS_PER_MISSION;
+  if (turnsUsed >= turnBudget) {
+    console.warn(`⏱️ [SelectionActor] TURN BUDGET EXHAUSTED: ${turnsUsed}/${turnBudget} turns. Forcing mission completion.`);
+    const toolsUsed = [...new Set(state.actionHistory.map((h: any) => h.tool))].join(", ");
+    return A2AProtocol.commit("SelectionActor", {
+      isTaskComplete: true,
+      finalOutcome: `Mission halted after ${turnsUsed} turns (budget: ${turnBudget}). Progress summary: ${state.historySummary || state.analysisResult || "Task was underway."}\n\nTools used: ${toolsUsed}\n\nTo continue this task, restart with a more specific sub-goal.`,
+      pendingAction: null,
+      needsApproval: false,
+    });
+  }
+
   // LIFO Pruning: Clear raw visual buffer and transfer context to text-based insight
   const prunedState = {
     visualBuffer: [],
@@ -142,6 +183,7 @@ export async function selectionActor(state: typeof MidpointXState.State) {
 
   // 1. Tool Profile Filtering (Phase 4)
   const profile = Config.TOOL_PROFILE;
+  const executionMode = state.executionMode || 'api';
   const activeTools = PluginRegistry.getActiveTools().filter(t => {
     if (!t.name) return false;
     
@@ -153,9 +195,21 @@ export async function selectionActor(state: typeof MidpointXState.State) {
       if (t.name === "filesystem__write_text_file") return false;
     }
 
-    // Execution Mode Enforcement (Visual vs API)
-    if (state.executionMode === "visual") {
-      // Block high-level APIs that bypass the UI
+    // ═══════════════════════════════════════════════════════════════
+    // EXECUTION MODE ENFORCEMENT — Hard tool-level gating
+    // ═══════════════════════════════════════════════════════════════
+    if (executionMode === "api") {
+      // API MODE: The agent operates entirely in the background.
+      // Browser and desktop tools are FORBIDDEN — they require a visible
+      // window and physical screen interaction, which contradicts headless.
+      if (t.name!.startsWith("browser__")) return false;
+      if (t.name!.startsWith("desktop__")) return false;
+    }
+
+    if (executionMode === "visual") {
+      // VISUAL MODE: The agent operates as a physical human at a desk.
+      // Block background MCP APIs that bypass the UI — the agent must
+      // interact through the browser/desktop like a human would.
       const blockedVisualPrefixes = [
         "gmail",
         "google-calendar",
@@ -168,7 +222,6 @@ export async function selectionActor(state: typeof MidpointXState.State) {
       }
     }
 
-    // Heuristic pruning removed. Let the Brain (LLM) decide which tools to use.
     return true; 
   });
 
@@ -224,7 +277,7 @@ export async function selectionActor(state: typeof MidpointXState.State) {
   const temporalContext = state.temporalInsight ? `\n\n[TEMPORAL OBSERVATION]:\n${state.temporalInsight}` : "";
   
   const messageContent: any[] = [
-    { type: "text", text: `Core Mission: ${state.conciseIntent || state.userIntent}\nStrategy: ${state.analysisResult}${historySummary}${temporalContext}\n\nPLAN:\n${planStr}\n\nReview history and plan. Pick the next tool.` }
+    { type: "text", text: `Core Mission: ${state.conciseIntent || state.userIntent}\nStrategy: ${state.analysisResult}${historySummary}${temporalContext}\n\nPLAN:\n${planStr}\n\nCRITICAL INSTRUCTION: Before selecting a tool, EXAMINE YOUR ACTION HISTORY ABOVE. If any previous tool call already returned the data you need to answer the user's question, DO NOT call another tool. Instead, return NO tool call and provide the synthesized answer as your text content. Only call a new tool if the data is genuinely missing from your history.\n\nReview history and plan. Pick the next tool OR synthesize a final answer.` }
   ];
   if (isValidScreenshot) messageContent.push({ type: "image_url", image_url: { url: `data:image/png;base64,${currentScreenshot}` } });
 
@@ -246,10 +299,62 @@ export async function selectionActor(state: typeof MidpointXState.State) {
   });
 
   // 3. Loop Detection & Strategy Guidance (Phase 4)
-  const recentFailures = state.actionHistory.slice(-3).filter((h: any) => h.result.includes("Error") || h.result.includes("failed"));
+  // ═══════════════════════════════════════════════════════════════
+  // STRUCTURED FAILURE DETECTION: Parse the JSON status field instead
+  // of doing broad string matching. This prevents false positives like
+  // "Error count: 0" in a successful server_info response.
+  // ═══════════════════════════════════════════════════════════════
+  const recentActions = state.actionHistory.slice(-4);
+  const recentFailures = recentActions.filter((h: any) => {
+    // 1. Try structured check first (most reliable)
+    try {
+      const parsed = JSON.parse(h.result);
+      if (parsed.status === "error") return true;
+      if (parsed.isError === true) return true;
+    } catch {
+      // Not JSON — fall through to string heuristics
+    }
+    // 2. Unambiguous failure markers (string fallback for non-JSON results)
+    const r = h.result || "";
+    if (r.includes("PAGE_LOAD_FAILED")) return true;
+    if (r.includes("robots.txt")) return true;
+    if (r.includes("REJECTED BY USER")) return true;
+    if (r.includes("execution failed")) return true;
+    // 3. Do NOT flag generic "Error" — it causes false positives on
+    //    successful responses that mention error counts, error logs, etc.
+    return false;
+  });
+
   if (recentFailures.length >= 2) {
     console.warn("🔄 [SelectionActor] Failure loop detected. Injecting strategy correction...");
-    messageContent[0].text += `\n\n[CRITICAL WARNING]: Your previous ${recentFailures.length} attempts have failed. Do NOT repeat the same tool or selector. If API-based browser tools are failing, you MUST switch to Visual Mode (using 'desktop__take_snapshot' and then 'desktop__mouse_move', 'desktop__mouse_click', 'desktop__keyboard_type') to interact with the screen manually like a human.`;
+    
+    if (executionMode === "api") {
+      // API MODE: No browser/desktop tools exist. Guide toward PowerShell fallback.
+      const fetchWasBlocked = recentActions.some((h: any) => h.result.includes("robots.txt"));
+      messageContent[0].text += `\n\n[CRITICAL WARNING]: Your previous ${recentFailures.length} API attempts have failed. Do NOT repeat the same URL or tool.
+MANDATORY RECOVERY (USE IN ORDER):
+1. ${fetchWasBlocked ? "fetch__fetch was BLOCKED by robots.txt. You MUST use " : "Try "}'execute_system_command' with PowerShell:
+   { command: "Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=YOUR+SEARCH+TERMS' -UseBasicParsing | Select-Object -ExpandProperty Content" }
+2. Try fetching specific marketplace/dealer sites directly (cycletrader.com, craigslist.org).
+3. If ALL approaches fail, call 'system__request_replanning' to escalate to Visual Mode.
+NEVER tell the user to do it manually. You have execute_system_command — USE IT.`;
+    } else {
+      // VISUAL MODE: Guide toward physical interaction
+      const recentSnapshots = recentActions.filter((h: any) => h.tool === "desktop__take_snapshot" || h.tool === "browser__screenshot");
+      if (recentSnapshots.length >= 1) {
+        messageContent[0].text += `\n\n[CRITICAL WARNING]: You have already taken ${recentSnapshots.length} screenshot(s). You can SEE the screen. STOP taking screenshots. You MUST now ACT on what you see:
+1. Identify the URL bar, search box, or key UI element from your last screenshot.
+2. Use 'desktop__mouse_move' to move to that element's coordinates.
+3. Use 'desktop__mouse_click' to click it.
+4. Use 'desktop__keyboard_type' to type your search query.
+5. Use 'desktop__keyboard_press' with key 'ENTER' to submit.
+Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a physical action.`;
+      } else {
+        messageContent[0].text += `\n\n[CRITICAL WARNING]: Your previous ${recentFailures.length} attempts have failed. Switch to manual interaction NOW:
+1. Call 'desktop__take_snapshot' to see the current screen state.
+2. Then use 'desktop__mouse_move', 'desktop__mouse_click', 'desktop__keyboard_type' to interact manually.`;
+      }
+    }
   }
 
   const payload = [
@@ -276,22 +381,63 @@ export async function selectionActor(state: typeof MidpointXState.State) {
 
   const isReplanRequested = toolCall?.name === "system__request_replanning";
   const replanCount = state.replanCount || 0;
+
+  // ═══════════════════════════════════════════════════════════════
+  // FETCH INTERCEPT: If the LLM chose fetch__fetch but fetch has
+  // EVER failed with robots.txt in this session, auto-convert to
+  // execute_system_command with Invoke-WebRequest. This prevents
+  // the agent from wasting turns on a tool that will never work.
+  // ═══════════════════════════════════════════════════════════════
+  if (toolCall?.name === "fetch__fetch" && state.actionHistory?.length > 0) {
+    const fetchEverBlocked = state.actionHistory.some(
+      (h: any) => h.tool === "fetch__fetch" && h.result && h.result.includes("robots.txt")
+    );
+    if (fetchEverBlocked) {
+      const fetchUrl = toolCall.args?.url || "";
+      console.warn(`🔄 [SelectionActor] FETCH INTERCEPT: fetch__fetch was previously blocked by robots.txt. Auto-converting to PowerShell Invoke-WebRequest for: ${fetchUrl}`);
+      toolCall.name = "execute_system_command";
+      toolCall.args = {
+        command: `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '${fetchUrl}' -UseBasicParsing | Select-Object -ExpandProperty Content`
+      };
+    }
+  }
   
   const severity = getActionSeverity(toolCall?.name, toolCall?.args);
   let needsApproval = Config.REQUIRE_APPROVAL_FOR_DESTRUCTIVE && severity !== null;
   let approvalSeverity = severity;
   
   // Anti-Looping Heuristic (Death Spiral Prevention)
-  if (state.actionHistory && state.actionHistory.length >= 3 && !isReplanRequested) {
+  if (state.actionHistory && state.actionHistory.length >= 2 && !isReplanRequested) {
     const recent = state.actionHistory.slice(-3);
     const allSameTool = recent.every((a: any) => a.tool === toolCall.name);
-    // Ignore pagination/offset differences if needed, but strict identical args is a safe baseline for loops
     const allSameArgs = recent.every((a: any) => JSON.stringify(a.args) === JSON.stringify(toolCall.args));
     
-    if (allSameTool && allSameArgs) {
+    // Strict identical-call loop (3+ times)
+    if (allSameTool && allSameArgs && recent.length >= 3) {
       console.warn(`⚠️ [SelectionActor] DEATH SPIRAL DETECTED: Agent called ${toolCall.name} 3+ times with identical args. Forcing replan.`);
       toolCall.name = "system__request_replanning";
       toolCall.args = { thesis: `I am stuck in an infinite loop calling ${toolCall.name} repeatedly without making progress. I must stop, back up, and completely rethink my strategy using a different tool.` };
+    }
+    
+    // Redundant success detection: If the agent already got the data 2x, stop.
+    const last2 = state.actionHistory.slice(-2);
+    if (last2.length >= 2 && last2.every((a: any) => a.tool === toolCall.name && JSON.stringify(a.args) === JSON.stringify(toolCall.args))) {
+      // Check if the previous calls actually succeeded
+      const allSucceeded = last2.every((a: any) => {
+        try { return JSON.parse(a.result)?.status === "success"; } catch { return false; }
+      });
+      if (allSucceeded) {
+        console.warn(`⚠️ [SelectionActor] REDUNDANT CALL DETECTED: ${toolCall.name} already succeeded 2x with same args. The data you need is already in your history. Synthesize a final answer.`);
+        // Don't force replan — force completion. The data is there.
+        return A2AProtocol.commit("SelectionActor", { 
+          isTaskComplete: true, 
+          finalOutcome: `I have already successfully retrieved the required data using ${toolCall.name}. Reviewing my action history to synthesize the answer now.`,
+          pendingAction: null,
+          needsApproval: false,
+          currentScreenshot,
+          ...prunedState
+        });
+      }
     }
   }
 
@@ -420,7 +566,25 @@ export async function executionActor(state: typeof MidpointXState.State) {
         finalMessage = JSON.stringify({ status: "error", errors: out.content });
         console.error(`❌ [ExecutionActor] Tool ${action.tool} reported internal error.`);
       } else {
-        finalMessage = JSON.stringify({ status: "success", output: out });
+        // ═══════════════════════════════════════════════════════════════
+        // MCP OUTPUT SANITIZATION: Extract clean text from CallToolResult
+        // objects. MCP tools return { content: [{ type: "text", text: ... }] }
+        // Storing raw nested JSON bloats the context window and causes
+        // keyword collisions (e.g. the word "Error" in a status report).
+        // ═══════════════════════════════════════════════════════════════
+        let cleanOutput = out;
+        if (out && typeof out === 'object') {
+          // MCP CallToolResult format: { content: [{ type: "text", text: "..." }] }
+          if (Array.isArray(out.content)) {
+            cleanOutput = out.content
+              .filter((block: any) => block.type === "text")
+              .map((block: any) => block.text)
+              .join("\n");
+          } else if (out.content && typeof out.content === 'string') {
+            cleanOutput = out.content;
+          }
+        }
+        finalMessage = JSON.stringify({ status: "success", output: cleanOutput });
         console.log(`✅ [ExecutionActor] Tool ${action.tool} success.`);
       }
     } catch (err: any) {
@@ -442,7 +606,9 @@ export async function executionActor(state: typeof MidpointXState.State) {
   }
 
   const isSnapshotTool = action.tool === "desktop__take_snapshot" || action.tool === "browser__screenshot";
-  const resultToStore = isSnapshotTool ? finalMessage : truncateOutput(finalMessage, 10);
+  // Apply universal hard cap to all non-snapshot results. Snapshot results are already
+  // stored as a truncated reference string by the routeAndExecute handler.
+  const resultToStore = isSnapshotTool ? finalMessage : truncateOutput(finalMessage);
   const newHistoryRecord = [{ tool: action.tool, args: action.args, result: resultToStore }];
   
   // Artifact Extraction Heuristic
