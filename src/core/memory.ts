@@ -203,6 +203,45 @@ ${shift.optimization}
   }
 
   /**
+   * Logs application usage habits for pattern recognition.
+   */
+  static async logHabitData(appName: string, windowTitle: string): Promise<void> {
+    try {
+      const adapter = PersistenceFactory.getAdapter();
+      const habits = await adapter.readStats("habits");
+      const now = new Date().toISOString();
+      const hour = new Date().getHours();
+
+      if (!habits[appName]) {
+        habits[appName] = { count: 0, titles: [], hourlyDistribution: {} };
+      }
+
+      habits[appName].count += 1;
+      habits[appName].lastSeen = now;
+      if (!habits[appName].titles.includes(windowTitle)) {
+        habits[appName].titles.push(windowTitle);
+      }
+      habits[appName].hourlyDistribution[hour] = (habits[appName].hourlyDistribution[hour] || 0) + 1;
+
+      await adapter.saveStats("habits", habits);
+    } catch (err) {
+      console.warn(`⚠️ [MemoryManager] Failed to log habit data:`, err);
+    }
+  }
+
+  /**
+   * Retrieves logged habit data.
+   */
+  static async getHabitData(): Promise<Record<string, any>> {
+    try {
+      const adapter = PersistenceFactory.getAdapter();
+      return await adapter.readStats("habits");
+    } catch {
+      return {};
+    }
+  }
+
+  /**
    * Searches the .archive/ directory for relevant theorems (Long-Term Memory).
    * Now uses the PersistenceAdapter.
    */
