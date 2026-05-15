@@ -37,14 +37,15 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 *   **MD Skills (Theorems)**: Hot-reloadeable operational patterns defined in Markdown, allowing the agent to "learn" and adapt to new workflows without code changes.
 
 ## 🛰️ 6. Sentinel Proactive Agency
-*   **State-Aware Observer Pattern**: Moves beyond request-response by monitoring local filesystem changes (`watchPath`) and external webhooks (`webhookPath`) in real-time.
-*   **Silent Assessment Actor**: Every trigger undergoes a background "Silent Assessment" against the user's current goals and historical preferences.
-*   **85% Confidence Gate**: Mitigates "context blind spots" and notification fatigue by automatically routing low-confidence events to a Dead-Letter Queue (DLQ).
-*   **Cognitive Worker Swarm**: Specialized worker nodes are dynamically assigned to handle specific proactive missions (e.g., automated CI/CD triage, trading bot monitoring).
-*   **30-Second Undo Window**: Non-destructive write operations are held in a server-side TTL queue, allowing the user to "Undo" an action before it auto-resumes.
+*   **State-Aware Observer Pattern**: Monitors local filesystem changes (`watchPath`), external webhooks (`webhookPath`), and **Workspace Polling** (Gmail/Drive) in real-time.
+*   **Silent Assessment Actor**: Every trigger undergoes a background "Silent Assessment" using frugal worker models (`flash-lite`) to filter noise before involving the primary reasoning engine.
+*   **Predictive Habit Learning**: A local background observer that monitors application usage rhythms to identify repetitive workflows and propose "Logic Shift" automation theorems.
+*   **85% Confidence Gate**: Mitigates notification fatigue by automatically routing low-confidence events to a Dead-Letter Queue (DLQ).
+*   **Workspace Sentinel**: Regularly scans Google Workspace for unread messages and shared files, performing "Cognitive Labor" (drafting, summarizing) before the user even asks.
 
-## 📱 7. Multi-Channel Orchestration
-*   **Proactive Messaging**: Orchestrate complex tasks across Web, Telegram, and Discord with real-time status synchronization.
+## 7. Multi-Channel Orchestration
+*   **Mobile-First Human Doorbell**: Prioritizes Telegram and Discord as the primary "Approval Gate" for all proactive interventions, allowing for device-agnostic command and control.
+*   **Draft-First Protocol**: Proactive email and messaging actions are strictly held in a "Draft" state until explicitly approved via a mobile or web doorbell notification.
 *   **Human-in-the-Loop (HITL)**: Secure remote approval gates delivered directly to mobile devices for sensitive or destructive operations.
 *   **Multi-Modal Grounding**: Processing of voice notes (STT) and high-resolution images for unified contextual reasoning.
 

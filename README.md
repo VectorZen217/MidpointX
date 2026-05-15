@@ -71,15 +71,16 @@ graph TD
 *   **Terraform Managed**: Infrastructure-as-Code for 1-click deployment to the GCP Marketplace.
 *   **Isolated Session Guard**: Isolated, containerized browser instances (Puppeteer/Chromium) with persistent digital identity.
 
-### 🖥️ 3. Proactive Intelligence (Sentinel)
-*   **Observer Pattern**: Native integration with `chokidar` for filesystem monitoring and Express for internal webhook routing.
-*   **Silent Assessment**: Autonomous evaluation of triggers with an **85% Confidence Gate** to prevent noise and DLQ routing.
-*   **30-Second Undo Window**: Non-destructive actions are held in a TTL queue, providing a safety window before automated execution.
+### 🖥️ 3. Predictive Intelligence (Sentinel)
+*   **Observer Pattern**: Real-time monitoring of filesystem events, webhooks, and **Google Workspace (Gmail/Drive) polling**.
+*   **Silent Assessment**: Autonomous evaluation using frugal worker models (`flash-lite`) to preserve token budget.
+*   **Habit Learning Engine**: Local background tracking of application usage rhythms for predictive workflow automation.
+*   **85% Confidence Gate**: Ensures the system only interrupts the operator for high-relevance mission events.
 
 ### 📱 4. Multi-Channel Intelligence
+*   **Mobile-First Human Doorbell**: Prioritized notifications to Telegram/Discord for proactive approvals (e.g., draft reviews).
+*   **Draft-First Safety**: Proactive Workspace actions are held in "Draft" mode, strictly adhering to the "No-Delete" firmware directive.
 *   **Universal App Control**: Precision humanoid interaction (mouse/keyboard) and visual grounding via `VisualProbe`.
-*   **Multi-Channel HITL**: Human-in-the-loop approval gates delivered directly to Telegram or Discord for sensitive operations.
-*   **Temporal Observation**: FFMPEG-based burst capture for verifying UI transitions and state changes in real-time.
 
 ---
 
