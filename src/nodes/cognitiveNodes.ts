@@ -303,6 +303,17 @@ export async function summarizeNode(state: typeof MidpointXState.State) {
 }
 
 export async function learnNode(state: typeof MidpointXState.State) {
+  // [SECURITY]: If the task failed or was incomplete, skip learning to prevent flawed logic shifts
+  if (!state.isTaskComplete || (state.failureThesis && state.failureThesis.length > 0)) {
+    console.log("⏩ [LearnActor] Task failed or incomplete. Skipping logic shift analysis.");
+    return A2AProtocol.commit("LearnActor", { 
+      proposedShift: null,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      internalTurns: 1
+    });
+  }
+
   console.log("💡 [LearnActor] Evaluating for novel theorems...");
 
   const rawModel = LLMFactory.getModel({ temperature: 0.4, tier: "worker" }) as unknown as BaseChatModel;

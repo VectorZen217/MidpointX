@@ -17,8 +17,38 @@ import { EnvManager } from "./core/envManager";
 import { PersistenceFactory } from "./core/persistence";
 
 // Phase 3: Messaging Services
-import { TelegramService } from "./services/telegramService";
 import { DiscordService } from "./services/discordService";
+import { TelegramService } from "./services/telegramService";
+
+// Global Log Filtering (Phase 4): Suppress verbose protocol logs in SILENT_MODE
+if (Config.SILENT_MODE) {
+  const originalLog = console.log;
+  console.log = (...args: any[]) => {
+    const message = args.map(arg => String(arg)).join(" ");
+    
+    // Critical Whitelist: ONLY whitelist security alerts, hard failures, and startup
+    const criticalIcons = ["🚀", "❌", "⛔", "🔔", "⚠️", "🔌", "✅"];
+    const isCritical = criticalIcons.some(icon => message.includes(icon));
+    
+    // Blacklist: Suppress timestamped child logs and common internal noise
+    const isTimestamp = /^\[\d{4}-\d{2}-\d{2}T/.test(message);
+    const isNodeInternal = message.includes("node-telegram-bot-api") || message.includes("DeprecationWarning");
+    
+    if (isCritical || (!isTimestamp && !isNodeInternal)) {
+      originalLog(...args);
+    }
+  };
+  
+  // Also filter warnings but keep errors
+  const originalWarn = console.warn;
+  console.warn = (...args: any[]) => {
+    const message = args.map(arg => String(arg)).join(" ");
+    const criticalIcons = ["🚨", "⚠️", "❌"];
+    if (criticalIcons.some(icon => message.includes(icon))) {
+      originalWarn(...args);
+    }
+  };
+}
 
 const app = express();
 const allowedOrigins = process.env.CORS_ORIGIN 

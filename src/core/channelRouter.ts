@@ -133,13 +133,33 @@ export class ChannelRouter {
         };
       }
 
-      const outcome = finalState.finalOutcome || (finalState.isTaskComplete ? "Mission accomplished. All objectives have been met." : "Execution cycle concluded.");
+      const outcomeRaw = finalState.finalOutcome || (finalState.isTaskComplete ? "Done." : "Cycle complete. No final outcome synthesized.");
+      
+      // 🛰️ Channel-Specific Post-Processing (Phase 4):
+      // For mobile-first channels, we strip rationale and lead with data.
+      let outcome = outcomeRaw;
+      if (message.channel === "telegram" || message.channel === "discord") {
+        const lines = outcomeRaw.split("\n");
+        // If the response is long, keep only the first few lines or the key data point
+        if (lines.length > 5) {
+          outcome = lines.slice(0, 5).join("\n") + "\n... [TERSE MODE ACTIVE]";
+        }
+      }
+
       const artifacts = finalState.outputArtifacts || [];
       const turnsUsed = finalState.internalTurns || 0;
       const tokensUsed = { input: totalInputTokens, output: totalOutputTokens };
 
       // Auto-audit: Log every completed mission for post-mortem + RAG recall
-      if (finalState.isTaskComplete || turnsUsed > 0) {
+      // [SECURITY]: Do not log sessions that were denied, aborted, or failed.
+      const isFailureOrDenied = 
+        finalState.approvalStatus === "denied" || 
+        (finalState.failureThesis && finalState.failureThesis.length > 0) ||
+        outcome.toLowerCase().includes("failed") || 
+        outcome.toLowerCase().includes("abort") ||
+        outcome.toLowerCase().includes("rejected");
+
+      if (!isFailureOrDenied && (finalState.isTaskComplete || turnsUsed > 0)) {
         const toolsUsed = [...new Set((finalState.actionHistory || []).map((h: any) => h.tool))] as string[];
         MemoryManager.logSession(
           `${message.channel.toUpperCase()}-${Date.now()}`,
@@ -225,7 +245,12 @@ export class ChannelRouter {
         };
       }
 
-      const outcome = finalState.finalOutcome || (finalState.isTaskComplete ? "Mission accomplished based on latest analysis." : "Task resumed and cycle concluded.");
+      const outcomeRaw = finalState.finalOutcome || (finalState.isTaskComplete ? "Done." : "Resumed. Cycle complete.");
+      
+      let outcome = outcomeRaw;
+      // We don't have the original 'message' object here, but we can infer from thread_id or just skip for resume
+      // For now, let's keep resume responses as-is or implement a global terseness if needed.
+
       const artifacts = finalState.outputArtifacts || [];
       const turnsUsed = finalState.internalTurns || 0;
       const tokensUsed = { input: totalInputTokens, output: totalOutputTokens };

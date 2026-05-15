@@ -37,7 +37,7 @@ export class TelegramService {
     }
 
     try {
-      this.bot = new TelegramBot(token, { polling: true });
+      this.bot = new TelegramBot(token, { polling: { params: { offset: -1 } } });
 
       // Catch generic bot errors to prevent Node process crashes
       this.bot.on("error", (error: any) => {
@@ -220,16 +220,15 @@ export class TelegramService {
 
       // Command handling
       this.bot.onText(/\/start/, (msg) => {
-        this.bot?.sendMessage(msg.chat.id, "🤖 **MidpointX Connection Established**\n\nVoice & Vision (Phase 5) is ACTIVE. You can now send voice messages or ask me about what I see on the screen.");
+        this.bot?.sendMessage(msg.chat.id, "MidpointX online. Ready for tasking.");
       });
 
       this.bot.onText(/\/mode/, (msg) => {
-        this.bot?.sendMessage(msg.chat.id, "⚙️ **Select Execution Mode**\n\n- **API Mode**: Fast, background CLI/API operations.\n- **Visual Mode**: Direct OS control using mouse, keyboard, and vision.", {
-          parse_mode: "Markdown",
+        this.bot?.sendMessage(msg.chat.id, "Select execution mode.", {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "🖥️ API Mode", callback_data: `setmode:api:${msg.from?.id}` },
-               { text: "👁️ Visual Mode", callback_data: `setmode:visual:${msg.from?.id}` }]
+              [{ text: "API Mode", callback_data: `setmode:api:${msg.from?.id}` },
+               { text: "Visual Mode", callback_data: `setmode:visual:${msg.from?.id}` }]
             ]
           }
         });

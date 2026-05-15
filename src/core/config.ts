@@ -38,6 +38,7 @@ const ConfigSchema = z.object({
   EMBEDDING_MODEL: z.string().default("text-embedding-004"),
   ENABLE_SLEEP_CYCLE: BoolSchema.default(true),
   SLEEP_CYCLE_CRON: z.string().default("0 3 * * *"), // 3 AM local time
+  SILENT_MODE: BoolSchema.default(false),
   
   // GCP Native Integration (Phase 4)
   GCP_PROJECT_ID: z.string().optional(),

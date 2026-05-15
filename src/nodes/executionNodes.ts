@@ -49,6 +49,16 @@ const truncateOutput = (output: string, maxLines = 40, maxChars = OUTPUT_HARD_CA
 };
 
 /**
+ * Structured Fault Protocol — The Soul's error doctrine.
+ * Every failure is reported as FAULT → CONSTRAINT → FIX.
+ */
+function formatFault(tool: string, error: string, constraint?: string, fix?: string): string {
+  const c = constraint || "Underlying system or logic constraint.";
+  const f = fix || "Identify alternative tool or escalate.";
+  return `FAULT: ${tool} — ${error}\nCONSTRAINT: ${c}\nFIX: ${f}`;
+}
+
+/**
  * Security: Identifies actions that could modify the system or data.
  * Now uses the centralized PolicyEngine for "Lead Shielding".
  * Returns the severity level for the Agency Circuit Breaker.
@@ -367,6 +377,13 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
       }
     }
   }
+  
+  // 4. Persona Enforcement: Reinforce "No Filler" in the final synthesis turn
+  const personaEnforcement = `\n\n## PERSONA ENFORCEMENT [MANDATORY]
+- NO FILLER: Do not apologize, hedge, or use conversational fluff.
+- TERSE COMPLETION: If you have the answer, state it directly and stop.
+- CHANNEL AWARENESS: On Telegram/Discord, keep it extremely mobile-friendly.`;
+  messageContent[0].text += personaEnforcement;
 
   const payload = [
     new SystemMessage(buildActionPrompt(agentPersona, userContext, state.executionMode || 'api')),
@@ -382,7 +399,7 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
     console.log("🏁 [SelectionActor] No tool call detected. Mission concluding...");
     return A2AProtocol.commit("SelectionActor", { 
       isTaskComplete: true, 
-      finalOutcome: outcome && outcome.trim().length > 5 ? outcome : "Mission accomplished. All steps in the strategic plan have been verified and completed.",
+      finalOutcome: outcome && outcome.trim().length > 5 ? outcome : "Done. All planned steps verified and completed.",
       pendingAction: null,
       needsApproval: false,
       currentScreenshot,
@@ -574,8 +591,9 @@ export async function executionActor(state: typeof MidpointXState.State) {
       
       // Handle MCP specific error reporting
       if (out && typeof out === 'object' && out.isError) {
-        finalMessage = JSON.stringify({ status: "error", errors: out.content });
-        console.error(`❌ [ExecutionActor] Tool ${action.tool} reported internal error.`);
+        const faultMsg = formatFault(action.tool, String(out.content), "Tool returned isError flag.");
+        finalMessage = JSON.stringify({ status: "error", errors: faultMsg });
+        console.error(`❌ [ExecutionActor] ${faultMsg}`);
       } else {
         // ═══════════════════════════════════════════════════════════════
         // MCP OUTPUT SANITIZATION: Extract clean text from CallToolResult
@@ -599,8 +617,9 @@ export async function executionActor(state: typeof MidpointXState.State) {
         console.log(`✅ [ExecutionActor] Tool ${action.tool} success.`);
       }
     } catch (err: any) {
-      finalMessage = JSON.stringify({ status: "error", errors: err.message });
-      console.error(`❌ [ExecutionActor] Tool ${action.tool} failed: ${err.message}`);
+      const faultMsg = formatFault(action.tool, err.message, "Unhandled exception during MCP tool execution.");
+      finalMessage = JSON.stringify({ status: "error", errors: faultMsg });
+      console.error(`❌ [ExecutionActor] ${faultMsg}`);
     }
   }
 

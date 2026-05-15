@@ -119,10 +119,15 @@ export class PluginRegistry {
 
         // Check for placeholder tokens
         const envEntries = Object.entries(serverConfig.env || {});
-        const hasPlaceholder = envEntries.some(([_k, v]) => String(v).includes("INSERT_YOUR") || String(v).length === 0);
+        const hasPlaceholder = envEntries.some(([_k, v]) => 
+          String(v).includes("INSERT_YOUR") || 
+          String(v).includes("YOUR_") || 
+          String(v).includes("_HERE") ||
+          String(v).length === 0
+        );
         
         if (hasPlaceholder) {
-            console.warn(`⏩ [PluginRegistry] Skipping ${serverName}: Missing or placeholder API tokens.`);
+            console.warn(`⏩ [PluginRegistry] Skipping ${serverName}: Missing or placeholder API tokens detected.`);
             return;
         }
 
@@ -159,7 +164,7 @@ export class PluginRegistry {
           // Connect with timeout to prevent whole-system hang
           await Promise.race([
             client.connect(transport),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 60000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Connection timeout after 120s`)), 120000))
           ]);
 
           this.mcpClients.set(serverName, client); // Global instance
@@ -262,8 +267,8 @@ export class PluginRegistry {
             parameters: sanitizedParams as any
           });
         }
-      } catch (err) {
-        console.error(`Failed to fetch tools from global ${serverName}`, err);
+      } catch (err: any) {
+        console.error(`❌ [PluginRegistry] Failed to fetch tools from global ${serverName}: ${err.message}`);
       }
     }
 
@@ -645,7 +650,9 @@ export class PluginRegistry {
             PUPPETEER_LAUNCH_OPTIONS: JSON.stringify({ 
                 userDataDir: profilePath,
                 headless: isHeadless ? "new" : false,
-                args: isHeadless ? ["--headless=new", "--hide-scrollbars", "--mute-audio"] : []
+                args: isHeadless 
+                    ? ["--headless=new", "--hide-scrollbars", "--mute-audio", "--disable-http2", "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"] 
+                    : ["--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"]
             })
         };
 
@@ -673,7 +680,11 @@ export class PluginRegistry {
           { capabilities: {} }
         );
 
-        await newClient.connect(transport);
+        // Connect with timeout to prevent whole-system hang (Lazy Load)
+        await Promise.race([
+          newClient.connect(transport),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`Browser connection timeout after 120s`)), 120000))
+        ]);
         this.mcpClients.set(clientKey, newClient);
         this.clientModes.set(clientKey, executionMode);
         client = newClient;

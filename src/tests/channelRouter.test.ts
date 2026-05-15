@@ -80,7 +80,7 @@ describe("ChannelRouter", () => {
       channel: "web"
     });
 
-    expect(response).toMatchObject({ message: "Mission accomplished. All objectives have been met." });
+    expect(response).toMatchObject({ message: "Done." });
   });
 
   it("should enforce A2A safety handshakes for API channel", async () => {
