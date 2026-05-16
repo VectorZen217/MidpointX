@@ -14,13 +14,14 @@ const BoolSchema = z.preprocess((val) => {
 }, z.coerce.boolean());
 
 const ConfigSchema = z.object({
-  ACTIVE_LLM_PROVIDER: z.enum(["google", "anthropic", "openai", "openrouter", "local"]).default("google"),
+  ACTIVE_LLM_PROVIDER: z.enum(["google", "anthropic", "openai", "openrouter", "local", "nvidia"]).default("google"),
   ACTIVE_MODEL_NAME: z.string(),
   WORKER_MODEL_NAME: z.string(),
   GEMINI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENROUTER_API_KEY: z.string().optional(),
+  NVIDIA_API_KEY: z.string().optional(),
   PORT: z.coerce.number().default(5001),
   RETRY_COUNT: z.coerce.number().default(5),
   MAX_RECURSION_LIMIT: z.coerce.number().default(150),

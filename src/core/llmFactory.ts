@@ -49,6 +49,19 @@ export class LLMFactory {
         });
       }
 
+      case "nvidia": {
+        // NVIDIA NIM: OpenAI-compatible interface
+        return new ChatOpenAI({
+          apiKey: Config.NVIDIA_API_KEY,
+          model: modelName,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          configuration: {
+            baseURL: "https://integrate.api.nvidia.com/v1",
+          }
+        });
+      }
+
       case "openai": {
         return new ChatOpenAI({
           apiKey: Config.OPENAI_API_KEY,

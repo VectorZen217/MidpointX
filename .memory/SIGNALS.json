@@ -40,5 +40,33 @@
     "fix_applied": "compactionNode.ts: switched to token-budget model (6000 estimated tokens). executionNodes.ts: MAX_TURNS_PER_MISSION circuit breaker (default 50), universal 2000-char result cap. channelRouter.ts: auto logSession() fire-and-forget after every mission, telemetry in response. 21 new unit tests in executionNodes.test.ts covering all circuit breakers. All 57 tests pass.",
     "proposed_skill_update": "Context window management should always be token-budget-based, not action-count-based. Estimate tokens as chars/4. Cap individual stored results at 2000 chars before appending to history. This prevents any single tool result from saturating the window regardless of action count.",
     "status": "resolved"
+  },
+  {
+    "id": "SIG-20260515-001",
+    "timestamp": "2026-05-15T19:55:00-05:00",
+    "session_id": "bac4f3af-4102-4aa3-93c9-1a45fce48a82",
+    "original_task": "Review proactive trigger failure for MIDPOINTX_HEALTH_MONITOR",
+    "skill": "proactive-agency",
+    "outcome": "correction",
+    "category": "logic",
+    "summary": "Fixed path hallucination where the agent guessed internal skill paths incorrectly during proactive triggers.",
+    "root_cause": "During proactive missions, the agent attempted to read skill definitions using generic filesystem tools and guessed the root path as 'skills/' with inconsistent case/underscores. It failed to use the dedicated 'system__read_skill' tool which has built-in registry resolution.",
+    "fix_applied": "Updated AGENT.md with explicit skill path context, standardized skill filenames to uppercase/underscores (matching internal names), and created THEOREM_FS_RECOVERY_01 to enforce the use of system__read_skill over generic filesystem tools for self-referential access.",
+    "proposed_skill_update": "When an agentic system uses a PluginRegistry to manage skills/theorems, ALWAYS provide the agent with a dedicated 'read_skill' tool that handles path resolution internally. Codify a mandate that the agent must NEVER guess internal paths using generic filesystem tools when a dedicated registry tool is available.",
+    "status": "resolved"
+  },
+  {
+    "id": "SIG-20260515-002",
+    "timestamp": "2026-05-15T19:56:00-05:00",
+    "session_id": "bac4f3af-4102-4aa3-93c9-1a45fce48a82",
+    "original_task": "Sentinel events routed to DLQ",
+    "skill": "proactive-agency",
+    "outcome": "observation",
+    "category": "logic",
+    "summary": "Observed that SilentAssessmentActor correctly routes low-relevance proactive triggers to the Dead-Letter Queue (DLQ).",
+    "root_cause": "The flash-lite worker model evaluates metadata (e.g. Gmail unread count, active window title) and suppresses mission triggers that don't meet the 'Interesting Change' threshold. This is a success of the Frugal Autonomy system, though it requires monitoring to ensure high-value events are not being missed.",
+    "fix_applied": "No code change required, but verified that DLQ logging is working as intended in MemoryManager.",
+    "proposed_skill_update": "Proactive systems using silent assessment for cost control MUST implement a Dead-Letter Queue (DLQ) to log suppressed events. This allows for offline audit and prompt refinement to tune the threshold for 'Interesting Changes' without burning tokens on full missions.",
+    "status": "resolved"
   }
 ]

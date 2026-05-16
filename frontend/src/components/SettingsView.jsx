@@ -135,6 +135,7 @@ const SettingsView = () => {
                 <option value="anthropic">Anthropic Claude</option>
                 <option value="openai">OpenAI GPT</option>
                 <option value="openrouter">OpenRouter (Unified)</option>
+                <option value="nvidia">NVIDIA NIM (Minimax)</option>
                 <option value="local">Ollama (Local)</option>
               </select>
             </div>
@@ -221,6 +222,7 @@ const SettingsView = () => {
                 type="password" 
                 className="form-input"
                 disabled={isLocal}
+                placeholder="AIzaSy..."
                 value={config.GEMINI_API_KEY || ''}
                 onChange={(e) => handleChange('GEMINI_API_KEY', e.target.value)}
               />
@@ -232,6 +234,7 @@ const SettingsView = () => {
                 type="password" 
                 className="form-input"
                 disabled={isLocal}
+                placeholder="sk-ant-api03-..."
                 value={config.ANTHROPIC_API_KEY || ''}
                 onChange={(e) => handleChange('ANTHROPIC_API_KEY', e.target.value)}
               />
@@ -243,8 +246,33 @@ const SettingsView = () => {
                 type="password" 
                 className="form-input"
                 disabled={isLocal}
+                placeholder="sk-proj-..."
                 value={config.OPENAI_API_KEY || ''}
                 onChange={(e) => handleChange('OPENAI_API_KEY', e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ opacity: isLocal ? 0.5 : 1 }}>
+              <label className="form-label">OpenRouter API Key</label>
+              <input 
+                type="password" 
+                className="form-input"
+                disabled={isLocal}
+                placeholder="sk-or-v1-..."
+                value={config.OPENROUTER_API_KEY || ''}
+                onChange={(e) => handleChange('OPENROUTER_API_KEY', e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ opacity: isLocal ? 0.5 : 1 }}>
+              <label className="form-label">NVIDIA API Key</label>
+              <input 
+                type="password" 
+                className="form-input"
+                disabled={isLocal}
+                placeholder="nvapi-..."
+                value={config.NVIDIA_API_KEY || ''}
+                onChange={(e) => handleChange('NVIDIA_API_KEY', e.target.value)}
               />
             </div>
 
