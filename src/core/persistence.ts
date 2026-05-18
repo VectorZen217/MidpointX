@@ -37,6 +37,10 @@ export interface PersistenceAdapter {
   deleteLog(category: string, key: string): Promise<void>;
   moveSkill(source: string, destination: string): Promise<void>;
   listLogFiles(category: string): Promise<string[]>;
+
+  // Hybrid Vector Memory (Phase 2)
+  saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void>;
+  queryVectorIndex(category: string, vector: number[], limit: number): Promise<Array<{ key: string; score: number; metadata: any }>>;
 }
 
 /**
@@ -200,6 +204,52 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   async listActiveSessions(): Promise<string[]> {
     return Array.from(this.sessions.keys());
   }
+
+  async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
+    const filePath = path.join(this.baseDir, "vector_store.json");
+    let store: Record<string, Array<{ key: string; vector: number[]; metadata: any }>> = {};
+    
+    if (existsSync(filePath)) {
+      try {
+        const raw = await fs.readFile(filePath, "utf-8");
+        store = JSON.parse(raw);
+      } catch (e) {
+        console.warn("⚠️ [Persistence] Failed to parse vector_store.json, resetting.", e);
+      }
+    }
+    
+    if (!store[category]) {
+      store[category] = [];
+    }
+    
+    // Remove existing item to avoid duplicates
+    store[category] = store[category].filter(item => item.key !== key);
+    store[category].push({ key, vector, metadata });
+    
+    await fs.mkdir(this.baseDir, { recursive: true });
+    await fs.writeFile(filePath, JSON.stringify(store, null, 2), "utf-8");
+  }
+
+  async queryVectorIndex(category: string, vector: number[], limit: number): Promise<Array<{ key: string; score: number; metadata: any }>> {
+    const filePath = path.join(this.baseDir, "vector_store.json");
+    if (!existsSync(filePath)) return [];
+    
+    try {
+      const raw = await fs.readFile(filePath, "utf-8");
+      const store = JSON.parse(raw);
+      const items = store[category] || [];
+      
+      const results = items.map((item: any) => {
+        const score = cosineSimilarity(vector, item.vector);
+        return { key: item.key, score, metadata: item.metadata };
+      });
+      
+      return results.sort((a: any, b: any) => b.score - a.score).slice(0, limit);
+    } catch (e) {
+      console.error("❌ [Persistence] Failed to query vector store:", e);
+      return [];
+    }
+  }
 }
 
 /**
@@ -331,6 +381,30 @@ export class FirestorePersistenceAdapter implements PersistenceAdapter {
   async listLogFiles(category: string): Promise<string[]> {
     return this.listLogs(category);
   }
+
+  async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
+    await this.db.collection("vector_store").doc(`${category}_${key}`).set({
+      category,
+      key,
+      vector,
+      metadata,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  async queryVectorIndex(category: string, vector: number[], limit: number): Promise<Array<{ key: string; score: number; metadata: any }>> {
+    const snapshot = await this.db.collection("vector_store").where("category", "==", category).get();
+    const results: Array<{ key: string; score: number; metadata: any }> = [];
+    
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const docVector = data.vector || [];
+      const score = cosineSimilarity(vector, docVector);
+      results.push({ key: data.key, score, metadata: data.metadata });
+    }
+    
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
 }
 
 /**
@@ -352,4 +426,21 @@ export class PersistenceFactory {
     
     return this.instance;
   }
+}
+
+/**
+ * Cosine Similarity Math Helper (100% native vector operations)
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }

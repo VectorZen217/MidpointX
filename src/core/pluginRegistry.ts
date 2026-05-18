@@ -163,8 +163,8 @@ export class PluginRegistry {
 
           // Connect with timeout to prevent whole-system hang
           await Promise.race([
-            client.connect(transport),
-            new Promise((_, reject) => setTimeout(() => reject(new Error(`Connection timeout after 120s`)), 120000))
+            client.connect(transport, { timeout: 180000 }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Connection timeout after 180s`)), 180000))
           ]);
 
           this.mcpClients.set(serverName, client); // Global instance
@@ -398,6 +398,19 @@ export class PluginRegistry {
         description: "Capture a high-resolution screenshot of the current desktop and return it as base64 for visual confirmation.",
         properties: {} 
       },
+      "take_snapshot_with_grid": { 
+        type: "object", 
+        description: "Capture a screenshot of the current desktop overlaid with a highly visible 12x8 red coordinate grid labeled A1 to L8 for pixel-perfect visual element grounding.",
+        properties: {} 
+      },
+      "click_grid_cell": { 
+        type: "object", 
+        properties: { 
+          cell: { type: "string", description: "The grid coordinate cell identifier containing the target element (e.g. 'D4', 'H2')." },
+          clickType: { type: "string", enum: ["left", "right", "double"], description: "The type of click to perform at the center of the cell." }
+        }, 
+        required: ["cell", "clickType"] 
+      },
       "review_history": { 
         type: "object", 
         description: "List the last 10 screenshots captured to review recent visual changes.",
@@ -405,7 +418,7 @@ export class PluginRegistry {
       }
     };
 
-    const builtinDesktop = ["mouse_move", "mouse_click", "keyboard_type", "keyboard_press", "scan_screen", "find_element", "take_snapshot", "review_history"];
+    const builtinDesktop = ["mouse_move", "mouse_click", "keyboard_type", "keyboard_press", "scan_screen", "find_element", "take_snapshot", "take_snapshot_with_grid", "click_grid_cell", "review_history"];
     const builtinMessaging = ["send_telegram"];
     builtinDesktop.forEach(deskTool => {
        const toolName = `desktop__${deskTool}`;
@@ -522,6 +535,50 @@ export class PluginRegistry {
           const ScreenCapture = require("../plugins/desktop/ScreenCapture").ScreenCapture;
           const base64 = await ScreenCapture.captureBase64();
           return { status: "success", snapshot: `data:image/png;base64,${base64.substring(0, 50)}... [TRUNCATED]`, fullBase64: base64 };
+        }
+        if (name === "desktop__take_snapshot_with_grid") {
+          const ScreenCapture = require("../plugins/desktop/ScreenCapture").ScreenCapture;
+          const base64 = await ScreenCapture.captureBase64(true);
+          return { status: "success", snapshot: `data:image/png;base64,${base64.substring(0, 50)}... [TRUNCATED]`, fullBase64: base64 };
+        }
+        if (name === "desktop__click_grid_cell") {
+          const ScreenCapture = require("../plugins/desktop/ScreenCapture").ScreenCapture;
+          const InputController = require("../plugins/desktop/InputController").InputController;
+          const { screen } = require("@nut-tree-fork/nut-js");
+          
+          const cell = (args.cell || "").toUpperCase().trim();
+          const clickType = args.clickType || "left";
+          
+          if (!/^[A-L][1-8]$/.test(cell)) {
+            return { status: "error", message: `Invalid cell coordinate format: "${cell}". Must be between A1 and L8.` };
+          }
+          
+          const colChar = cell.charAt(0);
+          const rowChar = cell.charAt(1);
+          
+          const colIndex = colChar.charCodeAt(0) - 65; // A=0, B=1, ...
+          const rowIndex = parseInt(rowChar, 10) - 1; // 1=0, 2=1, ...
+          
+          const W = await screen.width();
+          const H = await screen.height();
+          
+          const cols = 12;
+          const rows = 8;
+          
+          const cellW = W / cols;
+          const cellH = H / rows;
+          
+          const x = Math.round((colIndex * cellW) + (cellW / 2));
+          const y = Math.round((rowIndex * cellH) + (cellH / 2));
+          
+          await InputController.mouseMove(x, y);
+          const clickResult = await InputController.mouseClick(clickType);
+          
+          return {
+            status: "success",
+            message: `Clicked grid cell ${cell} at pixel coordinate x:${x}, y:${y}`,
+            clickResult
+          };
         }
         if (name === "desktop__review_history") {
           const fs = require("fs").promises;
@@ -682,8 +739,8 @@ export class PluginRegistry {
 
         // Connect with timeout to prevent whole-system hang (Lazy Load)
         await Promise.race([
-          newClient.connect(transport),
-          new Promise((_, reject) => setTimeout(() => reject(new Error(`Browser connection timeout after 120s`)), 120000))
+          newClient.connect(transport, { timeout: 180000 }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`Browser connection timeout after 180s`)), 180000))
         ]);
         this.mcpClients.set(clientKey, newClient);
         this.clientModes.set(clientKey, executionMode);

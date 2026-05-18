@@ -82,6 +82,12 @@ graph TD
 *   **Draft-First Safety**: Proactive Workspace actions are held in "Draft" mode, strictly adhering to the "No-Delete" firmware directive.
 *   **Universal App Control**: Precision humanoid interaction (mouse/keyboard) and visual grounding via `VisualProbe`.
 
+### 🛡️ 5. Phase III: Sovereign Interoperability & Sleep-Cycle Auto-Skills
+*   **Sovereign A2A Gateway (`POST /api/v1/a2a/delegate`)**: Authenticated program-to-program task delegation utilizing **Ed25519 payload signatures** and path-scoped security envelopes (enforcing strict directory boundaries like `D:\playground\PolyTrader`).
+*   **Host Audit Trail Ledgers**: Spawns cryptographically signed response objects containing task execution traces and cryptographic signatures to prove execution fidelity and alignment.
+*   **Unsupervised Sleep-Cycle Habit Mining**: A background cron-driven workflow miner inside the Sentinel system that clusters repetitive app usage, synthesizes new proactive markdown skills in `src/plugins/skills/` (frequency $\ge 5$), and alerts operators via Telegram.
+*   **Stateful Puppeteer Rehydration**: Spawns visible-first browser windows (`headless: false`) and deeply serializes active tabs (cookies, HTML DOM snippets, and `localStorage`/`sessionStorage` tokens) to preserve browser states over long approval gaps.
+
 ---
 
 ## 📖 Setup & Deployment

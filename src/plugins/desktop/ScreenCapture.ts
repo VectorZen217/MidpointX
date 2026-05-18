@@ -67,7 +67,7 @@ export class ScreenCapture {
     }
   }
 
-  static async captureBase64(): Promise<string> {
+  static async captureBase64(withGrid: boolean = false): Promise<string> {
     try {
       // Minimize ourselves first to avoid "Inception" screenshots
       await this.hideAgentWindow();
@@ -83,7 +83,7 @@ export class ScreenCapture {
       const tempPath = path.join(tempDir, `capture_${timestamp}.png`);
       const historyPath = path.join(historyDir, `snap_${timestamp}.png`);
       
-      console.log(`📸 [ScreenCapture] Target path: ${tempPath}`);
+      console.log(`📸 [ScreenCapture] Target path: ${tempPath} (withGrid: ${withGrid})`);
       
       let captured = false;
 
@@ -91,6 +91,51 @@ export class ScreenCapture {
       if (os.platform() === "win32") {
         try {
           const escapedPath = tempPath.replace(/\\/g, "\\\\");
+          
+          const gridScript = withGrid ? `
+            $W = $Screen.Bounds.Width
+            $H = $Screen.Bounds.Height
+            $cols = 12
+            $rows = 8
+            $Pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(120, 255, 0, 0)), 1
+            $Font = New-Object System.Drawing.Font "Arial", 12, [System.Drawing.FontStyle]::Bold
+            $BrushText = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+            $BrushBack = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(140, 0, 0, 0))
+            
+            # Draw vertical lines
+            for ($i = 1; $i -lt $cols; $i++) {
+                $x = [int]($i * ($W / $cols))
+                $Graphics.DrawLine($Pen, $x, 0, $x, $H)
+            }
+            # Draw horizontal lines
+            for ($j = 1; $j -lt $rows; $j++) {
+                $y = [int]($j * ($H / $rows))
+                $Graphics.DrawLine($Pen, 0, $y, $W, $y)
+            }
+            
+            # Draw coordinate labels in cell top-left corners
+            $colsArr = @("A","B","C","D","E","F","G","H","I","J","K","L")
+            for ($c = 0; $c -lt $cols; $c++) {
+                for ($r = 0; $r -lt $rows; $r++) {
+                    $x = [int]($c * ($W / $cols))
+                    $y = [int]($r * ($H / $rows))
+                    $label = $colsArr[$c] + ($r + 1)
+                    
+                    # Draw a dark background box for high contrast readability
+                    $textSize = $Graphics.MeasureString($label, $Font)
+                    $rect = New-Object System.Drawing.RectangleF $x, $y, ($textSize.Width + 6), ($textSize.Height + 4)
+                    $Graphics.FillRectangle($BrushBack, $rect)
+                    
+                    # Draw the alphanumeric label
+                    $Graphics.DrawString($label, $Font, $BrushText, ($x + 3), ($y + 2))
+                }
+            }
+            $Pen.Dispose()
+            $Font.Dispose()
+            $BrushText.Dispose()
+            $BrushBack.Dispose()
+          ` : '';
+
           const psScript = `
             Add-Type -AssemblyName System.Windows.Forms
             Add-Type -AssemblyName System.Drawing
@@ -98,6 +143,7 @@ export class ScreenCapture {
             $Bitmap = New-Object System.Drawing.Bitmap $Screen.Bounds.Width, $Screen.Bounds.Height
             $Graphics = [System.Drawing.Graphics]::FromImage($Bitmap)
             $Graphics.CopyFromScreen($Screen.Bounds.X, $Screen.Bounds.Y, 0, 0, $Bitmap.Size)
+            ${gridScript}
             $Bitmap.Save("${escapedPath}", [System.Drawing.Imaging.ImageFormat]::Png)
             $Graphics.Dispose()
             $Bitmap.Dispose()

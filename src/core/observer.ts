@@ -7,7 +7,11 @@ import { Config } from "./config";
 import { Server } from "socket.io";
 import { MemoryManager } from "./memory";
 import { pruningNode } from "../nodes/pruningNode";
+import { PersistenceFactory } from "./persistence";
+import { TelegramService } from "../services/telegramService";
 import path from "path";
+import fs from "fs";
+
 
 /**
  * Observer — The Proactive Sentinel System of MidpointX.
@@ -82,6 +86,13 @@ export class Observer {
     try {
       if (!skill.watchPath) return;
       const targetPath = path.resolve(process.cwd(), skill.watchPath);
+      
+      // Auto-create watch directory if missing to prevent sentinel failures
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+        console.log(`📁 [Observer] Auto-created missing watch directory: [${targetPath}]`);
+      }
+
       console.log(`👀 [Observer] Watching filesystem for: ${skill.name} at [${targetPath}]`);
       
       const watcher = chokidar.watch(targetPath, { persistent: true, ignoreInitial: true });
@@ -198,11 +209,67 @@ export class Observer {
     }
 
     try {
+      // 1. Rotate session logs and run cognitive pruning
       await MemoryManager.rotateSessionLogs();
       const dummyState: any = { pruningTrace: "" };
       const pruningResult = await pruningNode(dummyState);
       
       console.log(`💤 [SleepCycle] Maintenance Outcome: ${pruningResult.pruningTrace}`);
+      
+      // 2. Unsupervised Workflow Mining & Auto-Skill Synthesis
+      console.log("💤 [SleepCycle] Mining application habits for repetitive workflow synthesis...");
+      const habits = await MemoryManager.getHabitData();
+      const adapter = PersistenceFactory.getAdapter();
+      
+      let minedSomething = false;
+      
+      for (const appName of Object.keys(habits)) {
+        const profile = habits[appName];
+        // Mine workflows where count >= 5
+        if (profile.count >= 5) {
+          const skillName = `AUTO_SKILL_${appName.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`;
+          const skillSlug = skillName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          
+          const titlesList = profile.titles.map((t: string) => `- ${t}`).join("\n");
+          const skillContent = `---
+name: ${skillName}
+description: Mined automation skill for highly repeated workflow in ${appName}.
+# enabled: false
+---
+
+# Mined Workflow Skill: ${skillName}
+Synthesized during Sleep Cycle: ${new Date().toISOString()}
+
+## Behavior Profile
+Detected highly repetitive activity on application: **${appName}**
+Total occurrences: **${profile.count}**
+Seen window titles:
+${titlesList}
+
+## Recommended Automation Path
+1. Autonomously launch the application ${appName}
+2. Audit active processes and window titles
+3. Alert user when expected operations are blocked or inactive.
+`;
+          
+          await adapter.saveSkill(skillSlug, skillContent);
+          console.log(`💡 [SleepCycle] Mined workflow and synthesized active MD Skill: ${skillName}`);
+          
+          // Send Telegram proactive notification
+          const msg = `💤 **Sleep-Cycle Workflow Miner**\n\nI have successfully mined a highly repetitive activity pattern in **${appName}**!\n\nA new proactive skill template \`${skillName}\` has been synthesized and saved under \`src/plugins/skills/\` (currently marked inactive).\n\nDo you want to enable this automation?`;
+          await TelegramService.sendMessage(msg).catch(err => {
+            console.warn("⚠️ [SleepCycle] Failed to send Telegram notification:", err.message);
+          });
+          
+          minedSomething = true;
+          break; // Synthesize one high-priority skill per sleep cycle
+        }
+      }
+      
+      if (!minedSomething) {
+        console.log("💤 [SleepCycle] No significant repetitive habit sequences mined today.");
+      }
+
       if (this.ioInstance) {
         this.ioInstance.emit("agent:message", { message: `[Sleep Cycle Complete] ${pruningResult.pruningTrace}` });
       }

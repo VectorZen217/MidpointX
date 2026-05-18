@@ -19,6 +19,7 @@ import { ScreenCapture } from "../plugins/desktop/ScreenCapture";
 import { Config } from "../core/config";
 import { A2AProtocol } from "../core/protocol";
 import { PolicyEngine } from "../core/policy";
+import { CacheManager } from "../core/cacheManager";
 
 const execAsync = promisify(exec);
 
@@ -26,11 +27,30 @@ const execAsync = promisify(exec);
  * Helper to truncate long shell outputs (middle-out) with hard character caps
  */
 // Hard cap for every stored action result (non-snapshot). Keeps context window under control.
-const OUTPUT_HARD_CAP = 2000;
+const OUTPUT_HARD_CAP = 1500;
 
-const truncateOutput = (output: string, maxLines = 40, maxChars = OUTPUT_HARD_CAP): string => {
-  const lines = output.split('\n');
-  let truncatedByLines = output;
+/**
+ * Strips ANSI escape codes, collapses blank lines, and normalizes whitespaces.
+ */
+const sanitizeOutput = (output: string): string => {
+  if (!output) return "";
+  // 1. Remove ANSI escape codes
+  const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+  let clean = output.replace(ansiRegex, "");
+
+  // 2. Collapse carriage returns
+  clean = clean.replace(/\r/g, "");
+
+  // 3. Collapse multiple consecutive empty lines to a single empty line
+  clean = clean.replace(/\n{3,}/g, "\n\n");
+
+  return clean.trim();
+};
+
+const truncateOutput = (output: string, maxLines = 30, maxChars = OUTPUT_HARD_CAP): string => {
+  const sanitized = sanitizeOutput(output);
+  const lines = sanitized.split('\n');
+  let truncatedByLines = sanitized;
   
   if (lines.length > maxLines) {
     const half = Math.floor(maxLines / 2);
@@ -247,7 +267,10 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     }
   })));
 
-  const modelWithTools = (model as unknown as BaseChatModel).bindTools!(toolsToBind);
+  const isCacheActive = !!CacheManager.getActiveCacheId();
+  const modelWithTools = isCacheActive 
+    ? model 
+    : (model as unknown as BaseChatModel).bindTools!(toolsToBind);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
   const userContext = WorkspaceLoader.getUserContext();
@@ -385,11 +408,12 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
 - CHANNEL AWARENESS: On Telegram/Discord, keep it extremely mobile-friendly.`;
   messageContent[0].text += personaEnforcement;
 
-  const payload = [
-    new SystemMessage(buildActionPrompt(agentPersona, userContext, state.executionMode || 'api')),
-    ...historyMessages,
-    new HumanMessage({ content: messageContent } as any)
-  ];
+  const payload = [];
+  if (!isCacheActive) {
+    payload.push(new SystemMessage(buildActionPrompt(agentPersona, userContext, state.executionMode || 'api')));
+  }
+  payload.push(...historyMessages);
+  payload.push(new HumanMessage({ content: messageContent } as any));
 
   const response = await invokeWithResilience(modelWithTools, payload);
   const toolCall = response.tool_calls?.[0];

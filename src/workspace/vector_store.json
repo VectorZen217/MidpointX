@@ -1,0 +1,26 @@
+{
+  "test_cat": [
+    {
+      "key": "item1",
+      "vector": [
+        1,
+        0,
+        0
+      ],
+      "metadata": {
+        "title": "Item One"
+      }
+    },
+    {
+      "key": "item2",
+      "vector": [
+        0,
+        1,
+        0
+      ],
+      "metadata": {
+        "title": "Item Two"
+      }
+    }
+  ]
+}

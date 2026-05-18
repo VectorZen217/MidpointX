@@ -1,6 +1,9 @@
+import crypto from "crypto";
+import path from "path";
+
 /**
- * A2AService
- * Implements a Trustless Safety Handshake for Agent-to-Agent collaboration.
+ * SafetyCertificate
+ * Declares alignment, limits, capabilities, and Ed25519 verification profiles for program-to-program requests.
  */
 export interface SafetyCertificate {
   agentId: string;
@@ -9,7 +12,10 @@ export interface SafetyCertificate {
   capabilities: string[];
   originatorId?: string; // The ID of the original agent who triggered this request
   isDelegated?: boolean;
-  signature?: string;
+  publicKey?: string; // Hex or PEM public key for cryptographic signature verification
+  allowedPaths?: string[]; // Scoped allowed directory roots
+  allowedTools?: string[]; // Scoped allowed tool names
+  signature?: string; // Hex-encoded signature of request payload
 }
 
 export class A2AService {
@@ -65,5 +71,63 @@ export class A2AService {
 
   static isTrusted(agentId: string): boolean {
     return this.trustedAgents.has(agentId);
+  }
+
+  /**
+   * Verifies an Ed25519 cryptographic signature of a payload.
+   */
+  static verifyPayloadSignature(publicKey: string, signatureHex: string, payload: any): boolean {
+    try {
+      const data = typeof payload === "string" ? payload : JSON.stringify(payload);
+      const signatureBuffer = Buffer.from(signatureHex, "hex");
+      
+      let key: crypto.KeyLike;
+      if (publicKey.startsWith("-----BEGIN PUBLIC KEY-----") || publicKey.startsWith("-----BEGIN PRIVATE KEY-----")) {
+        key = publicKey;
+      } else {
+        key = crypto.createPublicKey({
+          key: Buffer.from(publicKey, "hex"),
+          format: "der",
+          type: "spki"
+        });
+      }
+      
+      return crypto.verify(
+        undefined,
+        Buffer.from(data),
+        key,
+        signatureBuffer
+      );
+    } catch (e: any) {
+      console.error("❌ [A2AService] Cryptographic signature check failed:", e.message);
+      return false;
+    }
+  }
+
+  /**
+   * Validates target paths and target tool scopes against permitted certificate permissions.
+   */
+  static validateRequestScope(cert: SafetyCertificate, targetPath?: string, targetTool?: string): boolean {
+    if (targetPath && cert.allowedPaths && cert.allowedPaths.length > 0) {
+      const resolvedTarget = path.resolve(targetPath).toLowerCase();
+      const isAllowed = cert.allowedPaths.some(allowed => {
+        const resolvedAllowed = path.resolve(allowed).toLowerCase();
+        return resolvedTarget.startsWith(resolvedAllowed) || resolvedAllowed.startsWith(resolvedTarget);
+      });
+      if (!isAllowed) {
+        console.warn(`⛔ [A2AService] Security Scoping Rejection: Target path '${targetPath}' is outside allowed scopes.`);
+        return false;
+      }
+    }
+    
+    if (targetTool && cert.allowedTools && cert.allowedTools.length > 0) {
+      const isAllowed = cert.allowedTools.some(tool => tool.toLowerCase() === targetTool.toLowerCase());
+      if (!isAllowed) {
+        console.warn(`⛔ [A2AService] Security Scoping Rejection: Tool '${targetTool}' is not in allowed tools list.`);
+        return false;
+      }
+    }
+    
+    return true;
   }
 }

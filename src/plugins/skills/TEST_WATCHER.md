@@ -1,3 +1,4 @@
+---
 name: TEST_WATCHER
 description: A test skill to verify the FS observer trigger.
 watchPath: ./test_watch_folder

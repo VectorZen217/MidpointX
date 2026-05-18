@@ -86,4 +86,13 @@ export const MidpointXState = Annotation.Root({
   abandonedPlans: Annotation<any[]>({ reducer: (x: any[], y: any[]) => [...x, ...y], default: () => [] }),
   reasoning: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   latestAuditHash: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "0" }),
+
+  // Sandbox Compiler Feedback (Double-Loop Self-Correction)
+  needsRecompile: Annotation<boolean>({ reducer: (x: boolean, y: boolean) => y, default: () => false }),
+  compilerTrace: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+
+  // Swarm Routing & Multi-Agent Execution State
+  activeWorker: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "none" }),
+  workerSubGoal: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  workerOutput: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
 });

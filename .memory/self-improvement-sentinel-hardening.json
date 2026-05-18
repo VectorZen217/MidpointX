@@ -1,0 +1,14 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-05-17T12:51:00-05:00",
+  "task": "Harden Proactive Sentinel controllers and eliminate startup race conditions",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "Running heavy asynchronous initialization tasks (Workspace loading, MCP client mapping, cache generation, channel connections) inside Express listen callbacks creates transient port-open bindings before socket.io or Express is fully ready. This triggers connection refused (ECONNREFUSED) errors in Vite's proxy.",
+      "Reorganizing the server boot flow to fully resolve and wait for all core subsystems *before* invoking `httpServer.listen()` entirely eliminates boot-time proxy race conditions and ensures a 100% clean and functional startup.",
+      "If MD skills define custom filesystem watch paths (e.g. `./test_watch_folder`), starting Chokidar watchers without confirming directory existence can cause silent failures or warnings. Introducing a synchronous folder exists-and-create step inside the Sentinel Observer ensures the filesystem is perfectly prepared for monitoring."
+    ],
+    "patterns_observed": "Moving startup initialization blocks prior to network-port binding guarantees that client-side routers and proxies never hit invalid socket states during loading cycles."
+  }
+}

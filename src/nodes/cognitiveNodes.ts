@@ -173,19 +173,29 @@ export async function reflectNode(state: typeof MidpointXState.State) {
   });
 }
 
-export async function analyzeNode(state: typeof MidpointXState.State) {
-  console.log("🔍 [AnalysisActor] Mapping strategy...");
+export const SwarmRoutingSchema = z.object({
+  strategicPlan: z.array(z.string()).describe("A list of concrete, actionable steps to complete the task."),
+  rationale: z.string().describe("Explanation of why this plan/routing was chosen."),
+  assignedWorker: z.enum(["researcher", "developer", "tester", "none"]).describe("The specialized worker role assigned to the current step."),
+  subGoal: z.string().describe("Specific goal or instructions for the assigned worker."),
+  isTaskComplete: z.boolean().describe("True if all steps of the plan are fully executed and the overall task is complete.")
+});
+
+export type SwarmRouting = z.infer<typeof SwarmRoutingSchema>;
+
+export async function supervisorNode(state: typeof MidpointXState.State) {
+  console.log("👑 [SupervisorActor] Orchestrating cognitive swarm worker assignments...");
 
   const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
   const rawModel = LLMFactory.getModel({ temperature: 0.1 }) as any;
-  const structuredModel = rawModel.withStructuredOutput(StrategicPlanSchema);
+  const structuredModel = rawModel.withStructuredOutput(SwarmRoutingSchema);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
   const userContext = WorkspaceLoader.getUserContext();
   const availableTools = PluginRegistry.getActiveTools().map(t => t.name).join(", ");
   const skills = PluginRegistry.getMDSkills();
   const skillsStr = skills.length > 0 
-    ? `\n\nLIBRARY OF REUSABLE SKILLS (THEOREMS):\n${skills.map(s => `[${s.name}]: ${s.description}`).join("\n")}\n\nIf any of these skills are relevant to the mission, cite them in your rationale and use their patterns in the plan.`
+    ? `\n\nLIBRARY OF REUSABLE SKILLS (THEOREMS):\n${skills.map(s => `[${s.name}]: ${s.description}`).join("\n")}`
     : '';
 
   const identityStr = state.operatorIdentity
@@ -193,7 +203,15 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     : '';
 
   const failureContext = state.failureThesis 
-    ? `\n\n⚠️ RE-PLANNING CONTEXT: The previous plan failed. \nAGENT FAILURE THESIS: "${state.failureThesis}"\n\nYour new plan MUST address this failure and avoid the same pitfalls.` 
+    ? `\n\n⚠️ RE-PLANNING CONTEXT: The previous execution failed. \nAGENT FAILURE THESIS: "${state.failureThesis}"\nAddress this failure in your plan and worker routing.` 
+    : '';
+
+  const activePlanStr = state.strategicPlan && state.strategicPlan.length > 0
+    ? `\n\nACTIVE STRATEGIC PLAN:\n${state.strategicPlan.map((s, i) => `${i+1}. ${s} [${state.planStatus[s] || 'pending'}]`).join("\n")}`
+    : '\n\nNo active plan exists. You must generate a new strategic plan.';
+
+  const workerOutputsStr = state.workerOutput
+    ? `\n\nLAST SWARM WORKER OUTPUT:\n${state.workerOutput}`
     : '';
 
   const content: any[] = [
@@ -203,25 +221,18 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
         Original Task: ${state.userIntent}
         Concise Intent: ${state.conciseIntent}
         ${failureContext}
+        ${activePlanStr}
+        ${workerOutputsStr}
         Reflection Trace: ${state.reflectionTrace}
         ENVIRONMENTAL FINGERPRINT:
         ${JSON.stringify(envFingerprint, null, 2)}
         
-        Generate a structured strategic plan for this mission.
+        Evaluate the overall state and assign the next logical specialized worker role to move the task forward.
       ` 
     }
   ];
 
-  // Ingest high-fidelity context (User uploads)
-  if (state.highFidelityContext && state.highFidelityContext.length > 0) {
-    state.highFidelityContext.forEach((base64: string) => {
-      content.push({ type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } });
-    });
-  }
-
-  // Vision Integration: If we have a screenshot, attach it to the analysis context
   if (state.currentScreenshot && state.currentScreenshot.length > 100) {
-    console.log("📸 [AnalysisActor] Attaching visual context to strategy mapping.");
     content.push({
       type: "image_url",
       image_url: { url: `data:image/png;base64,${state.currentScreenshot}` }
@@ -230,23 +241,37 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
 
   const payload = [
     new SystemMessage(
-      buildAnalyzePrompt(agentPersona, userContext, state.executionMode || 'api') + identityStr +
-      (state.assignedWorker ? `\n\nSWARM DIRECTIVE: You are acting as worker [${state.assignedWorker}]. Restrict your strategy to this domain.` : '') +
-      `\n\nTOOL CONTEXT: Available tools: [${availableTools}]` +
-      skillsStr
+      `You are the MidpointX Swarm Supervisor/Architect.\n${agentPersona}\n${userContext}
+Your mandate is to review the global task intent, create/maintain the strategic plan, evaluate progress, and assign sub-goals to specialized workers.
+Worker Roles:
+1. 'researcher': Gathering info, reading documentation, scanning files, and scraping.
+2. 'developer': Writing code files, making surgical edits, refactoring.
+3. 'tester': Compiling code, running linting tools, testing builds, verifying test suites.
+
+Select the next worker, define their focused 'subGoal', and output the updated strategicPlan. If all plan goals are fully met, set 'isTaskComplete' to true and 'assignedWorker' to 'none'.` + identityStr + skillsStr
     ),
     new HumanMessage({ content })
   ];
 
-  const response = await invokeWithResilience(structuredModel, payload) as StrategicPlan;
+  const response = await invokeWithResilience(structuredModel, payload) as SwarmRouting;
 
-  // Initialize plan status
-  const planStatus: Record<string, 'pending' | 'completed' | 'failed'> = {};
-  response.plan.forEach((step: string) => {
-    planStatus[step] = 'pending';
+  // Sync planStatus Map
+  const newPlanStatus = { ...state.planStatus };
+  response.strategicPlan.forEach((step: string) => {
+    if (!newPlanStatus[step]) {
+      newPlanStatus[step] = 'pending';
+    }
   });
 
-  // Citation detection: Detect which skills were mentioned in the rationale
+  // If activeWorker just finished a step, let's mark it as completed
+  if (state.activeWorker !== "none" && state.workerSubGoal) {
+    const matchingStep = response.strategicPlan.find(s => s.toLowerCase().includes(state.workerSubGoal.toLowerCase()) || state.workerSubGoal.toLowerCase().includes(s.toLowerCase()));
+    if (matchingStep) {
+      newPlanStatus[matchingStep] = 'completed';
+    }
+  }
+
+  // Detect cited skills
   const citedSkills: string[] = [];
   skills.forEach(skill => {
     if (response.rationale.includes(skill.name)) {
@@ -254,14 +279,15 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     }
   });
 
-  if (citedSkills.length > 0) {
-    console.log(`🎯 [AnalysisActor] Cited ${citedSkills.length} skill(s): ${citedSkills.join(", ")}`);
-  }
+  console.log(`👑 [SupervisorActor] Step assigned: "${response.subGoal}" -> Role: [${response.assignedWorker}]`);
 
-  return A2AProtocol.commit("AnalysisActor", { 
+  return A2AProtocol.commit("SupervisorActor", { 
     analysisResult: response.rationale,
-    strategicPlan: response.plan,
-    planStatus: planStatus,
+    strategicPlan: response.strategicPlan,
+    planStatus: newPlanStatus,
+    activeWorker: response.assignedWorker,
+    workerSubGoal: response.subGoal,
+    isTaskComplete: response.isTaskComplete,
     environmentFingerprint: envFingerprint,
     citedSkills: citedSkills,
     totalInputTokens: 0,
@@ -269,6 +295,9 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     internalTurns: 1
   });
 }
+
+// Keep export alias for backward compatibility
+export const analyzeNode = supervisorNode;
 
 /**
  * NODE: SummarizeActor

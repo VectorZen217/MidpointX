@@ -19,6 +19,8 @@ import { PersistenceFactory } from "./core/persistence";
 // Phase 3: Messaging Services
 import { DiscordService } from "./services/discordService";
 import { TelegramService } from "./services/telegramService";
+import { initContextCache } from "./core/cacheManager";
+import { a2aRouter } from "./routes/a2aRoutes";
 
 // Global Log Filtering (Phase 4): Suppress verbose protocol logs in SILENT_MODE
 if (Config.SILENT_MODE) {
@@ -68,6 +70,7 @@ const io = new Server(httpServer, {
 });
 
 // API Routes
+app.use("/api/v1/a2a", a2aRouter);
 app.get("/api/v1/health", (req, res) => res.json({ status: "healthy", version: "2.0.0" }));
 
 app.get("/api/v1/skills", async (req, res) => {
@@ -332,10 +335,10 @@ io.on("connection", (socket) => {
 });
 
 const PORT = Config.PORT;
-httpServer.listen(PORT, async () => {
-  console.log(`\n🚀 MidpointX Production Server running on port ${PORT}`);
-  
+
+async function startServer() {
   try {
+    console.log("🛠️ [System] Initializing core subsystems...");
     await WorkspaceLoader.init();
     await PluginRegistry.init();
     await Observer.init(io); 
@@ -343,12 +346,20 @@ httpServer.listen(PORT, async () => {
     // Initialize Messaging Channels with Socket.io for UI Sync
     await TelegramService.init(io);
     await DiscordService.init(io);
+    await initContextCache();
 
-    console.log("🛠️ [System] All core subsystems initialized and verified.");
+    httpServer.listen(PORT, () => {
+      console.log(`\n🚀 MidpointX Production Server running on port ${PORT}`);
+      console.log("🛠️ [System] All core subsystems initialized and verified.");
+    });
   } catch (err: any) {
     console.error("⛔ [Critical] System initialization failed:", err.message);
+    process.exit(1);
   }
-});
+}
+
+startServer();
+
 
 // Graceful Shutdown Handling
 const shutdown = async () => {

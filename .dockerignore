@@ -12,3 +12,8 @@ Dockerfile
 tsconfig.json
 frontend/node_modules
 frontend/dist
+.memory
+src/workspace/sessions
+src/plugins/skills/habits.json
+src/plugins/skills/stats.json
+coverage

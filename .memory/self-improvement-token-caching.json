@@ -1,0 +1,15 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-05-17T10:08:00-05:00",
+  "task": "Implement token caching and cost optimization strategy for Google Gemini / Vertex AI",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "Explicit Google Gemini context caching requires a minimum of 32,768 tokens to be cost-effective and accepted by the caches.create API. Smaller contexts will fail/warn on boot.",
+      "Google Explicit Cache Rule: When an explicit context cache is created, systemInstructions and tools must be pre-bound directly inside the cache creation payload. Downstream model generation calls must skip dynamic system messages and .bind_tools() to prevent INVALID_ARGUMENT (400) conflicts.",
+      "Local Process Lifecycle Handling: Storing explicit cache IDs standardly in state requires lifecycle tracking (expiresAt timestamp) to handle Google's 1-hour cache TTL. Pre-expiry synchronous lookups can seamlessly trigger background auto-reloads without blocking the model factory.",
+      "For small-to-medium base prompts (<32k tokens), Gemini's free and automatic 'Implicit Context Caching' is preferred, requiring a 100% stable, appended-only history layout and ANSI sanitization to maximize cost efficiency."
+    ],
+    "patterns_observed": "Dynamically bypassing runtime tool binding and system instruction injections in executionNodes when an explicit Cache ID is resolved provides an extremely robust, crash-free interface for Gemini context caches."
+  }
+}

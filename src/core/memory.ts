@@ -1,5 +1,6 @@
 import { LogicShift } from "./state";
 import { PersistenceFactory } from "./persistence";
+import { Config } from "./config";
 
 /**
  * MemoryManager — handles both permanent theorem storage and rolling session memory logs.
@@ -8,6 +9,24 @@ export class MemoryManager {
   // Trigger Ledger for Semantic Rate Limiting (The 3:15 Rule)
   // Maps intent string to an array of timestamps (Date.now())
   private static triggerLedger: Map<string, number[]> = new Map();
+
+  /**
+   * Generates a vector embedding for the target text using text-embedding-004.
+   */
+  private static async getEmbedding(text: string): Promise<number[] | null> {
+    if (!Config.ENABLE_EMBEDDINGS) return null;
+    try {
+      const { GoogleGenerativeAIEmbeddings } = await import("@langchain/google-genai");
+      const embeddings = new GoogleGenerativeAIEmbeddings({
+        apiKey: Config.GEMINI_API_KEY,
+        modelName: Config.EMBEDDING_MODEL || "text-embedding-004",
+      });
+      return await embeddings.embedQuery(text);
+    } catch (e) {
+      console.warn("⚠️ [MemoryManager] Failed to generate embedding:", e);
+      return null;
+    }
+  }
 
   /**
    * Checks if a proactive trigger intent has exceeded the 3:15 rule.
@@ -61,6 +80,15 @@ ${shift.optimization}
       await adapter.saveSkill(shift.theoremId, markdownContent);
 
       console.log(`✅ [MemoryManager] Logic permanently solidified via PersistenceAdapter.`);
+
+      // Generate & save semantic embedding index
+      const textToEmbed = `${shift.theoremId} ${shift.conceptualTags.join(' ')} ${shift.justification} ${shift.pattern} ${shift.optimization}`;
+      const vector = await this.getEmbedding(textToEmbed);
+      if (vector) {
+        await adapter.saveVectorIndex("skills", shift.theoremId, vector, { theoremId: shift.theoremId, justification: shift.justification });
+        console.log(`🔮 [MemoryManager] Skill embedding index stored.`);
+      }
+
       return true;
 
     } catch (error) {
@@ -86,6 +114,13 @@ ${shift.optimization}
       await adapter.appendLog("memory", today, entry);
       
       console.log(`📝 [MemoryManager] Session logged via PersistenceAdapter.`);
+
+      // Generate & save semantic embedding index
+      const vector = await this.getEmbedding(entry);
+      if (vector) {
+        await adapter.saveVectorIndex("memory", taskId, vector, { intent, outcome: cappedOutcome, tools });
+        console.log(`🔮 [MemoryManager] Session embedding index stored.`);
+      }
     } catch (err) {
       console.warn(`⚠️ [MemoryManager] Failed to log session:`, err);
     }
@@ -133,6 +168,24 @@ ${shift.optimization}
    */
   static async recallRecent(query: string, maxDays: number = 7): Promise<string> {
     try {
+      const adapter = PersistenceFactory.getAdapter();
+
+      // Try semantic Vector search first if enabled
+      if (Config.ENABLE_EMBEDDINGS) {
+        const queryVector = await this.getEmbedding(query);
+        if (queryVector) {
+          const vectorResults = await adapter.queryVectorIndex("memory", queryVector, 3);
+          if (vectorResults.length > 0) {
+            console.log(`🔮 [MemoryManager] Semantic recall retrieved ${vectorResults.length} relevant past session(s).`);
+            const formatted = vectorResults
+              .map(r => `[Semantic Score: ${r.score.toFixed(3)}]\n**Intent:** ${r.metadata.intent}\n**Outcome:** ${r.metadata.outcome}\n**Tools:** ${r.metadata.tools}`)
+              .join("\n\n---\n\n");
+            return `RELEVANT PAST SESSIONS (Semantic Memory):\n\n${formatted}`;
+          }
+        }
+      }
+
+      // Keyword search fallback
       const queryTerms = query
         .toLowerCase()
         .split(/\s+/)
@@ -140,7 +193,6 @@ ${shift.optimization}
 
       if (queryTerms.length === 0) return "";
 
-      const adapter = PersistenceFactory.getAdapter();
       const results = await adapter.searchLogs("memory", queryTerms);
 
       if (results.length === 0) return "";
@@ -247,10 +299,26 @@ ${shift.optimization}
    */
   static async searchArchive(query: string): Promise<string> {
     try {
+      const adapter = PersistenceFactory.getAdapter();
+
+      // Try semantic Vector search first if enabled
+      if (Config.ENABLE_EMBEDDINGS) {
+        const queryVector = await this.getEmbedding(query);
+        if (queryVector) {
+          const vectorResults = await adapter.queryVectorIndex("skills", queryVector, 2);
+          if (vectorResults.length > 0) {
+            console.log(`🔮 [MemoryManager] Semantic archive search retrieved ${vectorResults.length} relevant skill(s).`);
+            return vectorResults
+              .map(r => `[ARCHIVED THEOREM: ${r.key}] (Semantic Score: ${r.score.toFixed(3)})\n${r.metadata.justification || ''}`)
+              .join("\n\n---\n\n");
+          }
+        }
+      }
+
+      // Keyword search fallback
       const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 3);
       if (queryTerms.length === 0) return "";
 
-      const adapter = PersistenceFactory.getAdapter();
       const results = await adapter.searchLogs(".archive", queryTerms);
 
       if (results.length === 0) return "";

@@ -1,0 +1,14 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-05-17T13:48:30-05:00",
+  "task": "Google Workspace OAuth credential verification and get_status schema resolution",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "Running 'npx @dguido/google-workspace-mcp auth' with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables successfully triggers a synchronous refresh of existing cached credentials without needing a full re-authorization flow in the browser.",
+      "Workspace MCP get_status Schema Bug: The '@dguido/google-workspace-mcp' server get_status tool has a strict output schema requiring 'last_error' to be an object. When the connection is healthy (last_error is null), it violates its own schema and throws a -32602 schema validation error.",
+      "Workaround Verification: Directly calling 'list_calendars' bypasses the get_status schema bug and successfully verifies the active credentials, retrieving the primary account calendar (rwarmst@gmail.com) and showing 100% auth success."
+    ],
+    "patterns_observed": "Workarounds for MCP server validation bugs can be verified using harmless secondary read-only APIs (like list_calendars or list_labels) that share the same OAuth authorization requirement."
+  }
+}

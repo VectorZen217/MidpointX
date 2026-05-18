@@ -1,0 +1,15 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-05-17T12:47:00-05:00",
+  "task": "Resolve global MCP connection timeouts during engine startup",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "When MCP servers are started using 'npx -y' or 'uvx' in environments with varying network speeds, the initial package download and package update check can take up to 75+ seconds.",
+      "The default JSON-RPC request timeout for the `@modelcontextprotocol/sdk` Client is 60 seconds (DEFAULT_REQUEST_TIMEOUT_MSEC = 60000).",
+      "If the child process is blocked downloading/compiling packages during startup, it cannot respond to the initialization handshake, triggering an automatic 'MCP error -32001: Request timed out' error.",
+      "Passing an explicit `{ timeout: 180000 }` (3 minutes) option to `client.connect(transport, options)` overrides the default SDK timeout, cleanly allowing slow-booting servers to complete download and launch cycles successfully."
+    ],
+    "patterns_observed": "Setting the Promise.race timeout in MidpointX to match the client handshake timeout (180s) ensures total synchronization and prevents premature socket timeouts on Windows."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "signal": "self-improvement",
+  "timestamp": "2026-05-17T13:50:30-05:00",
+  "task": "Verify additional MCP servers (notebooklm, fetch, filesystem)",
+  "outcomes": {
+    "success": true,
+    "key_learnings": [
+      "Filesystem MCP is fully active and successfully sandboxed, restricting allowed operations to designated work paths ('D:\\MidpointX', 'D:\\Reports').",
+      "Fetch MCP uses pure-Python mode for article layout extraction when Node/NPM dependencies are missing on the local interpreter. Fetching empty HTML/API bodies (like httpbin status codes) triggers index range errors, whereas standard HTML pages (like example.com) parse flawlessly.",
+      "NotebookLM MCP is fully logged in and verified. It successfully communicates with the Google NotebookLM backend, retrieving personal notebooks, counts, and ownership metadata."
+    ],
+    "patterns_observed": "Health checks for fetch MCP tools should target standard HTML pages with readable text structure to avoid pure-Python parser edge-case exceptions."
+  }
+}

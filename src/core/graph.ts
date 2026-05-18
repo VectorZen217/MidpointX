@@ -4,9 +4,11 @@ import { MidpointXState } from "./state";
 import { reflectNode, analyzeNode, learnNode, silentAssessmentNode } from "../nodes/cognitiveNodes";
 import { justifyNode, regressNode, verificationNode } from "../nodes/safeguardNodes";
 import { modifyNode } from "../nodes/modifyNode";
+import { compilerNode } from "../nodes/compilerNode";
 import { selectionActor, executionActor } from "../nodes/executionNodes";
 import { compactionNode } from "../nodes/compactionNode";
 import { pruningNode } from "../nodes/pruningNode";
+import { researchWorkerNode, developerWorkerNode, testerWorkerNode } from "../nodes/swarmWorkerNodes";
 
 // 1. Persistent Checkpointer for Human-in-the-Loop
 const checkpointer = new MemorySaver();
@@ -15,18 +17,22 @@ const checkpointer = new MemorySaver();
 const builder = new StateGraph(MidpointXState);
 
 // 3. Add Nodes
-builder.addNode("SilentAssessmentActor", silentAssessmentNode);
-builder.addNode("ReflectionActor", reflectNode);
-builder.addNode("AnalysisActor", analyzeNode);
-builder.addNode("LearnActor", learnNode);
+builder.addNode("SilentAssessmentActor", (state) => silentAssessmentNode(state));
+builder.addNode("ReflectionActor", (state) => reflectNode(state));
+builder.addNode("AnalysisActor", (state) => analyzeNode(state));
+builder.addNode("LearnActor", (state) => learnNode(state));
 builder.addNode("CompactionActor", compactionNode);
 builder.addNode("ModifyActor", modifyNode);
+builder.addNode("CompilerActor", compilerNode);
 builder.addNode("JustificationProtocol", justifyNode);
 builder.addNode("VerificationNode", verificationNode);
 builder.addNode("RegressionTester", regressNode);
 builder.addNode("SelectionActor", selectionActor);
 builder.addNode("ExecutionActor", executionActor);
 builder.addNode("PruningActor", pruningNode);
+builder.addNode("ResearcherActor", (state) => researchWorkerNode(state));
+builder.addNode("DeveloperActor", (state) => developerWorkerNode(state));
+builder.addNode("TesterActor", (state) => testerWorkerNode(state));
 
 /**
  * Security: Human-in-the-Loop Breakpoint
@@ -63,7 +69,28 @@ builder.addConditionalEdges(
 );
 
 builder.addEdge("ReflectionActor", "AnalysisActor");
-builder.addEdge("AnalysisActor", "CompactionActor");
+
+builder.addConditionalEdges(
+  "AnalysisActor",
+  (state) => {
+    if (state.isTaskComplete) return "compaction";
+    if (state.activeWorker === "researcher") return "researcher";
+    if (state.activeWorker === "developer") return "developer";
+    if (state.activeWorker === "tester") return "tester";
+    return "compaction";
+  },
+  {
+    compaction: "CompactionActor",
+    researcher: "ResearcherActor",
+    developer: "DeveloperActor",
+    tester: "TesterActor"
+  }
+);
+
+builder.addEdge("ResearcherActor", "AnalysisActor");
+builder.addEdge("DeveloperActor", "AnalysisActor");
+builder.addEdge("TesterActor", "AnalysisActor");
+
 builder.addEdge("CompactionActor", "SelectionActor");
 
 // 5. Execution Loop with Security Gates
@@ -109,7 +136,17 @@ builder.addConditionalEdges(
 builder.addEdge("JustificationProtocol", "VerificationNode");
 builder.addEdge("VerificationNode", "RegressionTester");
 builder.addEdge("RegressionTester", "ModifyActor");
-builder.addEdge("ModifyActor", "PruningActor");
+builder.addEdge("ModifyActor", "CompilerActor");
+
+builder.addConditionalEdges(
+  "CompilerActor",
+  (state) => state.needsRecompile ? "modify" : "prune",
+  {
+    modify: "ModifyActor",
+    prune: "PruningActor"
+  }
+);
+
 builder.addEdge("PruningActor", END);
 
 // 8. Compile the Graph with Interrupts
