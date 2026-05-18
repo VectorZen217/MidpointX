@@ -81,6 +81,9 @@ a2aRouter.post("/delegate", async (req: Request, res: Response) => {
     const signature = crypto.sign(undefined, trailBuffer, privateKey).toString("hex");
     const hostPublicKey = publicKey.export({ format: "der", type: "spki" }).toString("hex");
 
+    // Persist log into the central audit ledger for UI queries
+    A2AService.addAuditLog(auditTrail);
+
     res.json({
       success: true,
       auditTrail,

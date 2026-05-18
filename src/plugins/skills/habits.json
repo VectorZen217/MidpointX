@@ -1,12 +1,12 @@
 {
-  "LivePolyTraderSandbox": {
+  "LiveNexusTraderSandbox": {
     "count": 5,
     "titles": [
-      "PolyTrader Engine Dashboard"
+      "NexusTrader Engine Dashboard"
     ],
     "hourlyDistribution": {
-      "11": 5
+      "12": 5
     },
-    "lastSeen": "2026-05-18T16:19:21.254Z"
+    "lastSeen": "2026-05-18T17:07:13.759Z"
   }
 }

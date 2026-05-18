@@ -1170,3 +1170,159 @@ pre::-webkit-scrollbar,
 .text-muted { color: var(--text-muted); }
 .text-xs { font-size: 10px; }
 .mb-4 { margin-bottom: 16px; }
+
+/* ==========================================================================
+   🧬 MidpointX Cyber-Industrial Overhaul Visual Extensions
+   ========================================================================== */
+
+/* Low-opacity Technical Grids */
+.cyber-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Micro-animations & Gated Pulses */
+@keyframes pulse-teal {
+  0%, 100% { box-shadow: 0 0 10px rgba(23, 113, 201, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(23, 113, 201, 0.5); }
+}
+
+@keyframes pulse-neon {
+  0%, 100% { box-shadow: 0 0 10px rgba(71, 194, 81, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(71, 194, 81, 0.6); }
+}
+
+@keyframes breath-fade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pulse-glow-teal {
+  animation: pulse-teal 3s infinite ease-in-out;
+}
+
+.pulse-glow-neon {
+  animation: pulse-neon 2.5s infinite ease-in-out;
+}
+
+.breath-text {
+  animation: breath-fade 2s infinite ease-in-out;
+}
+
+/* Dynamic Gradients for premium controls */
+.gradient-bar {
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent-teal), var(--accent-neon));
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+
+/* Premium Layout Grid and Data Tables */
+.premium-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.premium-table th {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 2px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.premium-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: 'Outfit', sans-serif;
+  vertical-align: middle;
+}
+
+.premium-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Codebox panel for Cryptographic Key Exports */
+.copy-panel {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  border: 1px solid var(--border-color);
+  margin: 10px 0;
+  position: relative;
+  word-break: break-all;
+  color: #38bdf8;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Habit Miner Analytics Graphs */
+.habit-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.habit-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.habit-bar-wrapper {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.habit-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-teal), var(--accent-neon));
+  border-radius: 4px;
+  transition: width 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Stateful Sessions Drawer Card */
+.session-list-drawer {
+  position: absolute;
+  top: 76px;
+  right: 20px;
+  width: 350px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--border-radius);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  padding: 20px;
+  animation: slideInDown 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+

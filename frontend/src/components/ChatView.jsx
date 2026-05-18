@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Terminal, RefreshCw, Send, Cpu, Plus, Eye, Zap } from 'lucide-react';
+import { Terminal, RefreshCw, Send, Cpu, Plus, Eye, Zap, Globe } from 'lucide-react';
 import MidpointLogo from './MidpointLogo';
 
 const ChatView = ({ 
@@ -22,6 +22,53 @@ const ChatView = ({
   const chatEndRef = useRef(null);
   const [tracePanelWidth, setTracePanelWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
+
+  // Phase 4: Stateful browser sessions rehydration state
+  const [showSessionsDrawer, setShowSessionsDrawer] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [rehydratingId, setRehydratingId] = useState(null);
+  const [rehydrateStatus, setRehydrateStatus] = useState(null);
+
+  useEffect(() => {
+    if (showSessionsDrawer) {
+      fetchSessions();
+    }
+  }, [showSessionsDrawer]);
+
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch('/api/v1/browser/sessions');
+      const data = await res.json();
+      if (data.success) {
+        setSessions(data.sessions);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRehydrate = async (taskId) => {
+    setRehydratingId(taskId);
+    setRehydrateStatus(`Spawning headless=false Chrome engine for session '${taskId}'...`);
+    try {
+      const res = await fetch('/api/v1/browser/rehydrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await new Promise(r => setTimeout(r, 1500));
+        setRehydrateStatus(`✓ Visible Puppeteer window instantiated and cookie state injected successfully.`);
+      } else {
+        throw new Error(data.error || 'Rehydration failed');
+      }
+    } catch (e) {
+      setRehydrateStatus(`❌ Error: ${e.message}`);
+    } finally {
+      setRehydratingId(null);
+    }
+  };
   
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,6 +149,15 @@ const ChatView = ({
             <span className="badge-dot neon-glow"></span>
             <span>{systemInfo.model}</span>
           </div>
+          <button 
+            onClick={() => setShowSessionsDrawer(!showSessionsDrawer)} 
+            className="mode-toggle"
+            title="Sovereign Browser Sessions"
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 12px', background: 'rgba(23,113,201,0.15)', borderRadius: '20px', border: '1px solid var(--accent-teal)', marginTop: 0 }}
+          >
+            <Globe size={14} color="var(--accent-teal)" />
+            <span style={{fontSize: '0.8rem', color: 'var(--accent-teal)', fontWeight: 'bold'}}>SESSIONS</span>
+          </button>
         </div>
       </header>
 
@@ -160,6 +216,51 @@ const ChatView = ({
           {isRunning ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
         </button>
       </div>
+
+      {showSessionsDrawer && (
+        <div className="session-list-drawer glass-panel cyber-grid">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 'bold', color: 'var(--accent-teal)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Globe size={14} /> ACTIVE BROWSER SESSIONS
+            </h4>
+            <button onClick={() => setShowSessionsDrawer(false)} className="btn-icon-small" style={{ fontSize: '10px', minWidth: 'auto', padding: '4px' }}>✕</button>
+          </div>
+          
+          <p className="text-muted" style={{ fontSize: '11px', margin: '0 0 16px 0', lineHeight: '1.4' }}>
+            Puppeteer session states serialized to persistent storage. Select any session to rehydrate cookie states into a visible, live Chrome context.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto' }}>
+            {sessions.map((sess) => (
+              <div key={sess.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px', color: 'var(--accent-neon)' }}>
+                  <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🔑 {sess.id}</span>
+                  <span>{sess.cookiesCount} cookies</span>
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {sess.url}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Mined: {new Date(sess.timestamp).toLocaleTimeString()}</span>
+                  <button 
+                    onClick={() => handleRehydrate(sess.id)}
+                    disabled={rehydratingId === sess.id}
+                    className="btn-primary" 
+                    style={{ width: 'auto', padding: '4px 10px', fontSize: '10px', marginTop: 0 }}
+                  >
+                    {rehydratingId === sess.id ? 'Rehydrating...' : 'Rehydrate (Visible)'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {rehydrateStatus && (
+            <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--accent-neon)', fontFamily: 'JetBrains Mono', background: 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '4px', border: '1px solid rgba(71,194,81,0.2)' }}>
+              {rehydrateStatus}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

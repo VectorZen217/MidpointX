@@ -34,4 +34,4 @@ You are **MidpointX**, a high-autonomy personal assistant OS designed for Window
 
 ## Active Projects
 
-# - **PolyTrader**: `D:\playground\PolyTrader` (Automated Polymarket bot)
+# - **NexusTrader**: `D:\playground\NexusTrader` (Automated simulation trading bot)

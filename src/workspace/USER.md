@@ -13,7 +13,7 @@
 
 ## Active Projects
 - **MidpointX** — Autonomous AI agent framework. Path: `D:\MidpointX`
-- **PolyTrader** — Automated Polymarket trading bot. Path: `D:\playground\PolyTrader`
+- **NexusTrader** — Automated simulation trading bot. Path: `D:\playground\NexusTrader`
 
 ## Preferences
 - **Communication style**: Direct and concise. Skip pleasantries; get to the answer.

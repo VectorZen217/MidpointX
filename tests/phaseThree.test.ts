@@ -13,7 +13,7 @@ describe("Phase III: Sovereign Interoperability & Sleep-Cycle Auto-Skills Suite"
     const { privateKey, publicKey } = crypto.generateKeyPairSync("ed25519");
     const publicKeyPem = publicKey.export({ format: "pem", type: "spki" }).toString();
 
-    const payload = "Compile PolyTrader in sandboxed mode";
+    const payload = "Compile NexusTrader in sandboxed mode";
     const signature = crypto.sign(undefined, Buffer.from(payload), privateKey).toString("hex");
 
     // Valid check
@@ -33,16 +33,16 @@ describe("Phase III: Sovereign Interoperability & Sleep-Cycle Auto-Skills Suite"
   // 🛡️ 2. Path Scoping & Tool Permission Restrictions
   test("A2AService should validate path and tool scopes according to SafetyCertificate boundaries", () => {
     const cert: SafetyCertificate = {
-      agentId: "poly_trader_connector",
+      agentId: "nexus_trader_connector",
       alignmentProof: "sha256_mock_hash",
       refusalThreshold: 0.1,
       capabilities: ["disciplined_refusal"],
-      allowedPaths: ["D:\\playground\\PolyTrader", "d:\\MidpointX\\src"],
+      allowedPaths: ["D:\\playground\\NexusTrader", "d:\\MidpointX\\src"],
       allowedTools: ["compilerNode", "run_command", "desktop__take_snapshot"]
     };
 
     // Path Allowed Checks
-    expect(A2AService.validateRequestScope(cert, "D:\\playground\\PolyTrader\\src\\index.ts", undefined)).toBe(true);
+    expect(A2AService.validateRequestScope(cert, "D:\\playground\\NexusTrader\\src\\index.ts", undefined)).toBe(true);
     expect(A2AService.validateRequestScope(cert, "d:\\MidpointX\\src\\core\\persistence.ts", undefined)).toBe(true);
 
     // Path Violation Checks
@@ -60,8 +60,8 @@ describe("Phase III: Sovereign Interoperability & Sleep-Cycle Auto-Skills Suite"
 
   // 🛰️ 3. Unsupervised Sleep-Cycle Habit Mining & Skill Synthesis
   test("Sleep Cycle should cluster repetitive user activities and generate custom auto-skill theorems", async () => {
-    const appName = "LivePolyTraderSandbox";
-    const windowTitle = "PolyTrader Engine Dashboard";
+    const appName = "LiveNexusTraderSandbox";
+    const windowTitle = "NexusTrader Engine Dashboard";
     
     // Clear and mock repetitive habit logs
     const habitsPath = path.join(process.cwd(), "src", "plugins", "skills", "habits.json");

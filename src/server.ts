@@ -21,6 +21,7 @@ import { DiscordService } from "./services/discordService";
 import { TelegramService } from "./services/telegramService";
 import { initContextCache } from "./core/cacheManager";
 import { a2aRouter } from "./routes/a2aRoutes";
+import { uiApiRouter } from "./routes/uiApiRoutes";
 
 // Global Log Filtering (Phase 4): Suppress verbose protocol logs in SILENT_MODE
 if (Config.SILENT_MODE) {
@@ -71,6 +72,7 @@ const io = new Server(httpServer, {
 
 // API Routes
 app.use("/api/v1/a2a", a2aRouter);
+app.use("/api/v1", uiApiRouter);
 app.get("/api/v1/health", (req, res) => res.json({ status: "healthy", version: "2.0.0" }));
 
 app.get("/api/v1/skills", async (req, res) => {

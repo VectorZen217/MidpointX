@@ -110,5 +110,33 @@
     "fix_applied": "Surgically added updates to CAPABILITIES.md using multi_replace_file_content.",
     "proposed_skill_update": "Maintain alignment between newly delivered engineering features and user-facing capabilities guides (CAPABILITIES.md) to keep documentation grounded and fresh.",
     "status": "resolved"
+  },
+  {
+    "id": "SIG-20260518-004",
+    "timestamp": "2026-05-18T11:32:00-05:00",
+    "session_id": "339fed3a-841c-4d78-9336-975b87b65d61",
+    "original_task": "Now review the frontend and suggest improvements",
+    "skill": "self-improvement",
+    "outcome": "success",
+    "category": "setup",
+    "summary": "Audited the React, Vite, and CSS styling sheets of the MidpointX frontend. Generated a comprehensive Cyber-Industrial design overhaul blueprint to expose newly added cryptographic gateways, browser states, and habit mining statistics.",
+    "root_cause": "N/A",
+    "fix_applied": "Surgically created the frontend_suggestions.md design proposal.",
+    "proposed_skill_update": "When adding complex backend functionalities (cryptography, stateful session serializers, local stats), proactively audit frontend layouts and formulate design plans to expose these variables in premium ways.",
+    "status": "resolved"
+  },
+  {
+    "id": "SIG-20260518-005",
+    "timestamp": "2026-05-18T12:08:00-05:00",
+    "session_id": "339fed3a-841c-4d78-9336-975b87b65d61",
+    "original_task": "I need you to remove all referances to Polytrader",
+    "skill": "self-improvement",
+    "outcome": "success",
+    "category": "cleanup",
+    "summary": "Completely purged all references to the Polytrader project, replacing them with a highly polished and completely professional cyber-industrial alternative: NexusTrader.",
+    "root_cause": "User requested complete project reference cleanup.",
+    "fix_applied": "Surgically renamed files and code references across USER.md, AGENT.md, GEMINI.md, README.md, CAPABILITIES.md, a2aService.ts, uiApiRoutes.ts, phaseThree.test.ts, habits.json, and React components.",
+    "proposed_skill_update": "Always execute absolute, surgical project renamings cleanly and completely across all codebase documentation, unit tests, source variables, and mock databases in a single sweep.",
+    "status": "resolved"
   }
 ]

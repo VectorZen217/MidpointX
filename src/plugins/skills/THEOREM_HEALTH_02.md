@@ -14,4 +14,4 @@ The standard approach of performing individual checks for system resources, appl
 Self-health check for an autonomous agent operating on a Windows system, involving system resource monitoring, application-specific checks (like trading bots), and network connectivity.
 
 ## Optimized Approach
-When performing a comprehensive health check, integrate OS resource monitoring (CPU, RAM, Disk), application-specific health indicators (e.g., running processes, log file status for PolyTrader), and external network reachability tests (e.g., pinging critical trading APIs) into a single, unified PowerShell script. This script should output a consolidated health status report.
+When performing a comprehensive health check, integrate OS resource monitoring (CPU, RAM, Disk), application-specific health indicators (e.g., running processes, log file status for NexusTrader), and external network reachability tests (e.g., pinging critical trading APIs) into a single, unified PowerShell script. This script should output a consolidated health status report.

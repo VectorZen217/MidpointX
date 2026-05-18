@@ -7,7 +7,7 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 ## 🧠 1. Cognitive Architecture (A2A)
 *   **Action-to-Action (A2A) Protocol**: Transcends traditional command execution by enabling recursive reasoning, strategy pivoting, and autonomous collaboration between agents.
 *   **Cryptographic A2A Gateway (`POST /api/v1/a2a/delegate`)**: Enables secure, programmatic task delegation between independent agents. Uses Ed25519 payload signature checks and returns signed Host Audit Trail ledgers to prove execution fidelity and alignment.
-*   **Path-Scoped Safety Envelopes**: Enforces absolute security constraints during delegation. Incoming tasks are mathematically locked to approved directory paths (e.g. `D:\playground\PolyTrader` sandbox) and authorized tool sub-sets.
+*   **Path-Scoped Safety Envelopes**: Enforces absolute security constraints during delegation. Incoming tasks are mathematically locked to approved directory paths (e.g. `D:\playground\NexusTrader` sandbox) and authorized tool sub-sets.
 *   **Hybrid Execution Architecture**: Dynamic switching between **API Mode** (stealth background automation) and **Visual Mode** (visible desktop interaction). The agent prioritizes speed via APIs but seamlessly pivots to "Hands & Eyes" when background tools hit friction.
 *   **Self-Healing Recalculation**: Integrated loop detection that monitors for repeated tool failures. If a strategy stalls, the agent automatically triggers a **Critical Strategy Correction**, recalculating its approach and switching interaction modes to bypass blockers.
 *   **LangGraph Actor System**: A modular loop involving **Reflection, Analysis, Action, and Learning** nodes for complex multi-step orchestration.

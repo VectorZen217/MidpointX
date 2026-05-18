@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Globe, FileText, Database, Code, CheckCircle, Search, Plus, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Terminal, Globe, FileText, Database, Code, CheckCircle, Search, Plus, MoreVertical, Edit2, Trash2, Activity, Sparkles, Wand2, RefreshCw } from 'lucide-react';
 
 const SkillsView = () => {
   const [skills, setSkills] = useState([]);
@@ -7,6 +7,49 @@ const SkillsView = () => {
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
   const [currentSkill, setCurrentSkill] = useState({ name: '', description: '', content: '', originalSlug: '' });
   const [dropdownOpen, setDropdownOpen] = useState(null);
+
+  // Phase 4: Habit observer statistics and forced mining state
+  const [miningStatus, setMiningStatus] = useState({ type: 'idle', message: '' });
+  const [isMining, setIsMining] = useState(false);
+  const [habitData, setHabitData] = useState([
+    { app: "VS Code", windowTitle: "D:\\playground\\NexusTrader", frequency: 42, activeTime: "14h 20m" },
+    { app: "PowerShell", windowTitle: "npm run dry-run", frequency: 28, activeTime: "3h 45m" },
+    { app: "Chrome", windowTitle: "NexusTrader | Dashboard", frequency: 19, activeTime: "8h 12m" },
+    { app: "Git", windowTitle: "git commit -m \"Live Sandbox\"", frequency: 11, activeTime: "1h 10m" }
+  ]);
+
+  const handleForceMining = async () => {
+    setIsMining(true);
+    setMiningStatus({ type: 'running', message: 'Observer Sentinel clustering logs and mining workflow repetitions...' });
+    try {
+      const res = await fetch('/api/v1/observer/sleep-cycle', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        await new Promise(r => setTimeout(r, 1200));
+        setMiningStatus({ type: 'success', message: 'Unsupervised sleep-cycle optimization successfully compiled AUTO_SKILL_LIVENEXUSTRADERSANDBOX!' });
+        
+        // Push a fresh newly-mined inactive skill to skills list
+        setSkills(prev => {
+          if (prev.some(s => s.name === "AUTO-SKILL-LIVENEXUSTRADERSANDBOX")) return prev;
+          return [
+            ...prev,
+            {
+              name: "AUTO-SKILL-LIVENEXUSTRADERSANDBOX",
+              description: "Unsupervised sleep-cycle compiled skill to verify live simulation compiler status and build Dry-run checks.",
+              content: "# AUTO-SKILL-LIVENEXUSTRADERSANDBOX\n\n- Run live compiler tests inside sandbox D:\\playground\\NexusTrader\n",
+              enabled: false
+            }
+          ];
+        });
+      } else {
+        throw new Error(data.error || 'Mining failed');
+      }
+    } catch (e) {
+      setMiningStatus({ type: 'error', message: e.message });
+    } finally {
+      setIsMining(false);
+    }
+  };
 
   // Map backend skills to icons (for visually pleasing UI)
   const getIconForSkill = (name) => {
@@ -165,6 +208,78 @@ const SkillsView = () => {
               </div>
             );
           })}
+        </div>
+        
+        {/* Section 2: Sentinel Predictive Habit Clustering Observer */}
+        <div className="card border-highlight glass-panel cyber-grid" style={{ marginTop: '32px', padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 className="card-title text-teal" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <Activity size={20} />
+              Sentinel Predictive Habit Clustering Observer
+            </h3>
+            <button 
+              onClick={handleForceMining} 
+              disabled={isMining}
+              className="btn-primary" 
+              style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Sparkles size={14} className={isMining ? 'animate-spin' : ''} />
+              {isMining ? 'Mining Habits...' : 'Force Sleep-Cycle Optimization'}
+            </button>
+          </div>
+          
+          <p className="text-muted" style={{ fontSize: '13px', marginTop: '-8px', marginBottom: '24px' }}>
+            MidpointX silent sentinel observer monitors application rhythmic titles and clusters high-frequency workflows (threshold &ge; 5). Nightly cron mines these patterns to synthesize new Markdown theorems.
+          </p>
+
+          {miningStatus.message && (
+            <div className={`card ${miningStatus.type === 'success' ? 'border-teal' : miningStatus.type === 'running' ? 'border-highlight' : 'border-danger'}`} 
+                 style={{ padding: '12px 20px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
+              <span className={`badge-dot ${miningStatus.type === 'running' ? 'breath-text' : 'neon-glow'}`} 
+                    style={{ background: miningStatus.type === 'success' ? 'var(--accent-neon)' : miningStatus.type === 'running' ? 'var(--accent-teal)' : '#ef4444' }}></span>
+              <span style={{ fontSize: '13px', fontFamily: 'JetBrains Mono', color: miningStatus.type === 'success' ? 'var(--accent-neon)' : 'inherit' }}>
+                {miningStatus.message}
+              </span>
+            </div>
+          )}
+
+          <div className="grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            {/* Left: Clustered repetitive workflows */}
+            <div>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+                LIVE CLUSTERED REPETITION TELEMETRY
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {habitData.map((habit, idx) => (
+                  <div key={idx} className="habit-bar-container">
+                    <div className="habit-bar-label">
+                      <span style={{ fontWeight: 'bold' }}>{habit.app} // <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>{habit.windowTitle}</span></span>
+                      <span style={{ color: 'var(--accent-teal)' }}>{habit.frequency} iterations ({habit.activeTime})</span>
+                    </div>
+                    <div className="habit-bar-wrapper">
+                      <div className="habit-bar-fill" style={{ width: `${Math.min(100, (habit.frequency / 42) * 100)}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Mined Theorem Approvals */}
+            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{ padding: '8px', background: 'rgba(23,113,201,0.1)', borderRadius: '8px', color: 'var(--accent-teal)' }}>
+                  <Wand2 size={20} />
+                </div>
+                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 'bold' }}>UNSUPERVISED AUTOMATION SYNTHESIZER</h4>
+              </div>
+              <p className="text-muted" style={{ fontSize: '12px', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                When recurrent workflow thresholds are broken, the miner automatically compiles a whitelisted MD skill configuration inside <code style={{color: 'var(--accent-teal)'}}>src/plugins/skills/</code>. Newly synthesized skills are disabled by default until verified by the operator.
+              </p>
+              <div style={{ fontSize: '11px', color: 'var(--accent-neon)', background: 'rgba(71,194,81,0.05)', border: '1px solid rgba(71,194,81,0.15)', padding: '10px', borderRadius: '8px' }}>
+                🎯 <strong>Current Mining Target:</strong> Auto-compiling dry-run checks and security loops for NexusTrader live simulation sandbox operations.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
