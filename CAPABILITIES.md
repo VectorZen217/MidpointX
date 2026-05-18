@@ -6,6 +6,8 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 
 ## 🧠 1. Cognitive Architecture (A2A)
 *   **Action-to-Action (A2A) Protocol**: Transcends traditional command execution by enabling recursive reasoning, strategy pivoting, and autonomous collaboration between agents.
+*   **Cryptographic A2A Gateway (`POST /api/v1/a2a/delegate`)**: Enables secure, programmatic task delegation between independent agents. Uses Ed25519 payload signature checks and returns signed Host Audit Trail ledgers to prove execution fidelity and alignment.
+*   **Path-Scoped Safety Envelopes**: Enforces absolute security constraints during delegation. Incoming tasks are mathematically locked to approved directory paths (e.g. `D:\playground\PolyTrader` sandbox) and authorized tool sub-sets.
 *   **Hybrid Execution Architecture**: Dynamic switching between **API Mode** (stealth background automation) and **Visual Mode** (visible desktop interaction). The agent prioritizes speed via APIs but seamlessly pivots to "Hands & Eyes" when background tools hit friction.
 *   **Self-Healing Recalculation**: Integrated loop detection that monitors for repeated tool failures. If a strategy stalls, the agent automatically triggers a **Critical Strategy Correction**, recalculating its approach and switching interaction modes to bypass blockers.
 *   **LangGraph Actor System**: A modular loop involving **Reflection, Analysis, Action, and Learning** nodes for complex multi-step orchestration.
@@ -26,6 +28,7 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 
 ## 🌐 4. Web & Browser Intelligence
 *   **Isolated Session Guard**: Spawns cryptographically isolated browser instances per session, ensuring strict data separation and enterprise-grade privacy.
+*   **Stateful Session Serialization & Rehydration**: Deeply serializes active browser sessions—capturing cookies, active tab URLs, HTML DOM structures, and `localStorage`/`sessionStorage` tokens. Rehydrates tabs seamlessly into visible `{ headless: false }` chrome windows.
 *   **Persistent Digital Identity**: Support for stable browser profiles, allowing the agent to maintain secure sessions in enterprise tools (Gmail, GitHub, Salesforce).
 *   **Intelligent Parameter Normalization**: Automated mapping of disparate tool schemas (e.g., `text` vs `value` or `script` vs `expression`), ensuring high-reliability execution across various MCP browser implementations.
 *   **Full-Spectrum Automation**: Expert-level navigation, form-filling, shadow DOM interaction, and custom JavaScript evaluation.
@@ -40,6 +43,7 @@ MidpointX is a high-fidelity, **Sovereign Cloud Gateway** designed for professio
 *   **State-Aware Observer Pattern**: Monitors local filesystem changes (`watchPath`), external webhooks (`webhookPath`), and **Workspace Polling** (Gmail/Drive) in real-time.
 *   **Silent Assessment Actor**: Every trigger undergoes a background "Silent Assessment" using frugal worker models (`flash-lite`) to filter noise before involving the primary reasoning engine.
 *   **Predictive Habit Learning**: A local background observer that monitors application usage rhythms to identify repetitive workflows and propose "Logic Shift" automation theorems.
+*   **Unsupervised Sleep-Cycle Habit Mining**: A background maintenance worker that clusters logged user app histories. It isolates high-repetition flows (frequency $\ge 5$), automatically synthesizes custom markdown automation skills in `src/plugins/skills/`, and alerts the operator via Telegram.
 *   **85% Confidence Gate**: Mitigates notification fatigue by automatically routing low-confidence events to a Dead-Letter Queue (DLQ).
 *   **Workspace Sentinel**: Regularly scans Google Workspace for unread messages and shared files, performing "Cognitive Labor" (drafting, summarizing) before the user even asks.
 

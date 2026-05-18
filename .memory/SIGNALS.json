@@ -96,5 +96,19 @@
     "fix_applied": "Surgically added paths to .dockerignore and added Phase III capabilities section to README.md.",
     "proposed_skill_update": "Always maintain up-to-date documentation and environment exclusions (.dockerignore) for newly introduced directories or features to prevent credential or local state leakages.",
     "status": "resolved"
+  },
+  {
+    "id": "SIG-20260518-003",
+    "timestamp": "2026-05-18T11:20:00-05:00",
+    "session_id": "339fed3a-841c-4d78-9336-975b87b65d61",
+    "original_task": "Review and update CAPABILITIES.md",
+    "skill": "self-improvement",
+    "outcome": "success",
+    "category": "setup",
+    "summary": "Reviewed and updated CAPABILITIES.md to incorporate Phase III achievements including Ed25519 Cryptographic Gateway, Puppeteer Session Rehydration, and Unsupervised Sleep-Cycle Habit Mining.",
+    "root_cause": "N/A",
+    "fix_applied": "Surgically added updates to CAPABILITIES.md using multi_replace_file_content.",
+    "proposed_skill_update": "Maintain alignment between newly delivered engineering features and user-facing capabilities guides (CAPABILITIES.md) to keep documentation grounded and fresh.",
+    "status": "resolved"
   }
 ]
