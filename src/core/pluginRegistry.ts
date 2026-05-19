@@ -43,6 +43,34 @@ export class PluginRegistry {
     await Observer.sync(); // Keep the heartbeat in sync
   }
 
+  /**
+   * Hot-reloads a single skill file into the live registry without restarting
+   * MCP connections. Called by SkillAcquisitionActor after synthesizing a new skill.
+   */
+  public static async hotReloadSkill(filePath: string): Promise<string> {
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      const nameMatch = content.match(/name:\s*(.+)/);
+      const descMatch = content.match(/description:\s*(.+)/);
+      if (!nameMatch) {
+        console.warn("⚠️ [PluginRegistry] hotReloadSkill: No 'name' field found in", filePath);
+        return "";
+      }
+      const skillName = nameMatch[1].trim();
+      this.mdSkills.set(skillName, {
+        name: skillName,
+        description: descMatch ? descMatch[1].trim() : "Synthesized agent skill",
+        content,
+        filePath,
+      });
+      console.log(`✅ [PluginRegistry] Hot-loaded synthesized skill: ${skillName}`);
+      return skillName;
+    } catch (e: any) {
+      console.error("❌ [PluginRegistry] hotReloadSkill failed:", e.message);
+      return "";
+    }
+  }
+
   private static async initMDSkills() {
     try {
       const skillsDir = path.resolve(__dirname, "../../src/plugins/skills");

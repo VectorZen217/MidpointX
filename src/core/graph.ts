@@ -9,6 +9,7 @@ import { selectionActor, executionActor } from "../nodes/executionNodes";
 import { compactionNode } from "../nodes/compactionNode";
 import { pruningNode } from "../nodes/pruningNode";
 import { researchWorkerNode, developerWorkerNode, testerWorkerNode } from "../nodes/swarmWorkerNodes";
+import { skillAcquisitionNode } from "../nodes/skillAcquisitionNode";
 
 // 1. Persistent Checkpointer for Human-in-the-Loop
 const checkpointer = new MemorySaver();
@@ -33,6 +34,7 @@ builder.addNode("PruningActor", pruningNode);
 builder.addNode("ResearcherActor", (state) => researchWorkerNode(state));
 builder.addNode("DeveloperActor", (state) => developerWorkerNode(state));
 builder.addNode("TesterActor", (state) => testerWorkerNode(state));
+builder.addNode("SkillAcquisitionActor", (state) => skillAcquisitionNode(state));
 
 /**
  * Security: Human-in-the-Loop Breakpoint
@@ -74,6 +76,8 @@ builder.addConditionalEdges(
   "AnalysisActor",
   (state) => {
     if (state.isTaskComplete) return "compaction";
+    // Skill gap takes priority — divert to acquire before assigning a worker
+    if (state.skillGapQuery) return "skill_acquisition";
     if (state.activeWorker === "researcher") return "researcher";
     if (state.activeWorker === "developer") return "developer";
     if (state.activeWorker === "tester") return "tester";
@@ -81,6 +85,7 @@ builder.addConditionalEdges(
   },
   {
     compaction: "CompactionActor",
+    skill_acquisition: "SkillAcquisitionActor",
     researcher: "ResearcherActor",
     developer: "DeveloperActor",
     tester: "TesterActor"
@@ -90,6 +95,8 @@ builder.addConditionalEdges(
 builder.addEdge("ResearcherActor", "AnalysisActor");
 builder.addEdge("DeveloperActor", "AnalysisActor");
 builder.addEdge("TesterActor", "AnalysisActor");
+// After acquiring a skill, return to the supervisor so it can retry with new knowledge
+builder.addEdge("SkillAcquisitionActor", "AnalysisActor");
 
 builder.addEdge("CompactionActor", "SelectionActor");
 
@@ -103,8 +110,8 @@ builder.addConditionalEdges(
     // If destructive action is selected and not yet approved, hit the gate
     if (state.needsApproval && state.approvalStatus === "pending") return "approval";
     
-    // Handle Re-planning Loop-back
-    if (state.failureThesis && !state.pendingAction) return "replan";
+    // Handle Loop-back to Supervisor if no action is pending
+    if (!state.pendingAction) return "replan";
 
     return "execute";
   },

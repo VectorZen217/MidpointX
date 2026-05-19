@@ -420,6 +420,30 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
 
   if (!toolCall) {
     const outcome = extractText(response.content);
+    
+    // Mark the current active step as completed since we are not calling any more tools for it
+    const updatedPlanStatus = { ...state.planStatus };
+    const currentPlan = state.strategicPlan || [];
+    const activeStep = currentPlan.find((step: string) => updatedPlanStatus[step] === 'active');
+    if (activeStep) {
+      updatedPlanStatus[activeStep] = 'completed';
+    }
+    
+    // Check if there are still pending steps in the strategic plan
+    const hasPendingSteps = currentPlan.some((step: string) => updatedPlanStatus[step] === 'pending');
+    
+    if (hasPendingSteps) {
+      console.log("🔄 [SelectionActor] Step completed. Plan has pending steps. Routing back to Supervisor...");
+      return A2AProtocol.commit("SelectionActor", {
+        isTaskComplete: false,
+        pendingAction: null,
+        needsApproval: false,
+        currentScreenshot,
+        planStatus: updatedPlanStatus,
+        ...prunedState
+      });
+    }
+
     console.log("🏁 [SelectionActor] No tool call detected. Mission concluding...");
     return A2AProtocol.commit("SelectionActor", { 
       isTaskComplete: true, 
@@ -427,6 +451,7 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
       pendingAction: null,
       needsApproval: false,
       currentScreenshot,
+      planStatus: updatedPlanStatus,
       ...prunedState
     });
   }

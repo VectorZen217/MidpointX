@@ -1,17 +1,17 @@
 ---
 name: THEOREM_FS_01
-description: User Interaction, Data Acquisition, Fallback Strategy
+description: filesystem, directory creation, powershell
 ---
 
 # Logic Shift: THEOREM_FS_01
-Trace ID: TELEGRAM-1778776508086
-Learned At: 2026-05-14T16:35:32.410Z
+Trace ID: task-1779220972053
+Learned At: 2026-05-19T20:04:40.092Z
 
 ## Justification
-The initial strategy assumed direct access to local files or browser history, which is not available. Attempting to access these would lead to failure. The optimized approach acknowledges this limitation and pivots to user-provided data, ensuring task completion.
+The standard approach of using `New-Item -ItemType Directory -Path bingo` might create the directory in the current working directory, which may not be the intended drive. Explicitly specifying the drive in the path ensures the directory is created in the correct location, preventing potential errors and ensuring task adherence.
 
 ## Discovered Pattern
-User requests file creation with content that is not directly accessible via provided tools (e.g., local filesystem, browser history).
+Creating a new directory on a specific drive using PowerShell.
 
 ## Optimized Approach
-Instead of attempting to access inaccessible data, proactively prompt the user for the required information. Once provided, proceed with the task using available tools (e.g., Google Drive API).
+When creating a new directory on a specific drive (e.g., D:), use the command `New-Item -ItemType Directory -Path D:\bingo` to ensure the directory is created at the root of the specified drive.

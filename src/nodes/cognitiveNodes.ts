@@ -178,7 +178,12 @@ export const SwarmRoutingSchema = z.object({
   rationale: z.string().describe("Explanation of why this plan/routing was chosen."),
   assignedWorker: z.enum(["researcher", "developer", "tester", "none"]).describe("The specialized worker role assigned to the current step."),
   subGoal: z.string().describe("Specific goal or instructions for the assigned worker."),
-  isTaskComplete: z.boolean().describe("True if all steps of the plan are fully executed and the overall task is complete.")
+  isTaskComplete: z.boolean().describe("True if all steps of the plan are fully executed and the overall task is complete."),
+  skillGapQuery: z.string().optional().describe(
+    "ONLY populate this when: (1) the current step has already failed at least once AND (2) no existing skill in the library covers the required domain. " +
+    "Provide a concise, searchable web query (e.g. 'puppeteer download file nodejs') that will retrieve the missing knowledge. " +
+    "Leave EMPTY if existing skills are sufficient or if this is the first attempt at the step."
+  )
 });
 
 export type SwarmRouting = z.infer<typeof SwarmRoutingSchema>;
@@ -248,6 +253,11 @@ Worker Roles:
 2. 'developer': Writing code files, making surgical edits, refactoring.
 3. 'tester': Compiling code, running linting tools, testing builds, verifying test suites.
 
+CRITICAL TOOL EXECUTION ROUTING RULE:
+- Specialized workers ('researcher', 'developer', 'tester') are pure-text cognitive nodes. They DO NOT have tool-execution capabilities. They only write reports, synthesize code, or design test procedures in text.
+- If the next step in the plan requires calling a tool, executing a shell command, writing/editing/deleting a file, creating a directory, fetching a URL, or using a Google Workspace/MCP API, you MUST set 'assignedWorker' to 'none' and describe the tool task/goals in 'subGoal'.
+- Setting 'assignedWorker' to 'none' will route the task to the tool execution layer (SelectionActor & ExecutionActor) to run the necessary tool.
+
 Select the next worker, define their focused 'subGoal', and output the updated strategicPlan. If all plan goals are fully met, set 'isTaskComplete' to true and 'assignedWorker' to 'none'.` + identityStr + skillsStr
     ),
     new HumanMessage({ content })
@@ -264,11 +274,23 @@ Select the next worker, define their focused 'subGoal', and output the updated s
   });
 
   // If activeWorker just finished a step, let's mark it as completed
-  if (state.activeWorker !== "none" && state.workerSubGoal) {
+  if (state.workerSubGoal) {
     const matchingStep = response.strategicPlan.find(s => s.toLowerCase().includes(state.workerSubGoal.toLowerCase()) || state.workerSubGoal.toLowerCase().includes(s.toLowerCase()));
     if (matchingStep) {
       newPlanStatus[matchingStep] = 'completed';
     }
+  }
+
+  // ── Skill Gap Detection ─────────────────────────────────────────────────
+  // The supervisor may declare a skill gap (reactive: only after ≥1 failure).
+  // We honour it only when failureThesis is set (i.e. at least one tool call
+  // has already failed), preventing unnecessary web calls on the happy path.
+  const skillGapQuery = (response.skillGapQuery && state.failureThesis)
+    ? response.skillGapQuery.trim()
+    : "";
+
+  if (skillGapQuery) {
+    console.log(`🧠 [SupervisorActor] Skill gap detected. Query: "${skillGapQuery}"`);
   }
 
   // Detect cited skills
@@ -290,6 +312,7 @@ Select the next worker, define their focused 'subGoal', and output the updated s
     isTaskComplete: response.isTaskComplete,
     environmentFingerprint: envFingerprint,
     citedSkills: citedSkills,
+    skillGapQuery: skillGapQuery,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     internalTurns: 1

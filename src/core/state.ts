@@ -95,4 +95,10 @@ export const MidpointXState = Annotation.Root({
   activeWorker: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "none" }),
   workerSubGoal: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   workerOutput: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+
+  // Mid-Task Skill Synthesis
+  // Set by SupervisorActor when a skill gap is detected; cleared after SkillAcquisitionActor completes.
+  skillGapQuery: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  // ID of the skill file synthesized during the current session (e.g. SYNTH_DOCKER_01).
+  synthesizedSkillId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
 });

@@ -1,0 +1,9 @@
+{
+  "taskId": "task-1779220884588",
+  "userId": "task-runner-1779220884588",
+  "status": "COMPLETED",
+  "startedAt": "2026-05-19T20:01:24.588Z",
+  "expiresAt": "2026-05-19T20:31:24.588Z",
+  "lastHeartbeat": "2026-05-19T20:01:57.676Z",
+  "stepCount": 2
+}
