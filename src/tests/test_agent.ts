@@ -7,7 +7,7 @@ import { invokeWithResilience } from "../core/resilience";
 import { LLMFactory } from "../core/llmFactory";
 import { PluginRegistry } from "../core/pluginRegistry";
 import { MIDPOINTX_SYSTEM_PROMPT } from "../core/prompt";
-import { FunctionDeclaration } from "@google/genai";
+import { FunctionDeclaration } from "../core/pluginRegistry";
 
 // @ts-ignore TS2589: LangChain tool() hits TS5.8+ instantiation depth limit — runtime behavior is correct
 const executeSystemCommand = (tool(

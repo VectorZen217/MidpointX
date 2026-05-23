@@ -36,11 +36,15 @@ async function main() {
       console.log(`\n[Executing task...]`);
 
       try {
+        const threadId = `cli-${Date.now()}`;
         const stream = await MidpointXGraph.stream({
-            taskId: `cli-${Date.now()}`,
+            taskId: threadId,
             userIntent: input,
             operatorIdentity: null
-        }, { recursionLimit: Config.MAX_RECURSION_LIMIT });
+        }, {
+            recursionLimit: Config.MAX_RECURSION_LIMIT,
+            configurable: { thread_id: threadId }
+        });
 
         let finalOutcome = "";
 
@@ -59,7 +63,7 @@ async function main() {
             }
             if (stateUpdate?.actionHistory && stateUpdate.actionHistory.length > 0) {
                  const lastAction = stateUpdate.actionHistory[stateUpdate.actionHistory.length - 1];
-                 if (nodeName === "ActionActor") {
+                 if (nodeName === "ExecutionActor") {
                     console.log(`[Action Taken]: ${lastAction.tool}`);
                  }
             }

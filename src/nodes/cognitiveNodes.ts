@@ -219,21 +219,34 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
     ? `\n\nLAST SWARM WORKER OUTPUT:\n${state.workerOutput}`
     : '';
 
+  // Bug 2 fix: include recent tool execution results so the Supervisor can see
+  // what actually ran and whether steps succeeded — without this it was blind
+  // to all ExecutionActor output and would re-assign completed work.
+  const recentToolOutputsStr = state.actionHistory && state.actionHistory.length > 0
+    ? `\n\nRECENT TOOL EXECUTION RESULTS (last ${Math.min(state.actionHistory.length, 5)}):\n${
+        state.actionHistory.slice(-5).map((h: any) => {
+          const result = typeof h.result === 'string' ? h.result : JSON.stringify(h.result || "");
+          return `[${h.tool}]: ${result.substring(0, 300)}${result.length > 300 ? '...' : ''}`;
+        }).join("\n")
+      }`
+    : '';
+
   const content: any[] = [
-    { 
-      type: "text", 
+    {
+      type: "text",
       text: `
         Original Task: ${state.userIntent}
         Concise Intent: ${state.conciseIntent}
         ${failureContext}
         ${activePlanStr}
         ${workerOutputsStr}
+        ${recentToolOutputsStr}
         Reflection Trace: ${state.reflectionTrace}
         ENVIRONMENTAL FINGERPRINT:
         ${JSON.stringify(envFingerprint, null, 2)}
-        
+
         Evaluate the overall state and assign the next logical specialized worker role to move the task forward.
-      ` 
+      `
     }
   ];
 
@@ -257,6 +270,10 @@ CRITICAL TOOL EXECUTION ROUTING RULE:
 - Specialized workers ('researcher', 'developer', 'tester') are pure-text cognitive nodes. They DO NOT have tool-execution capabilities. They only write reports, synthesize code, or design test procedures in text.
 - If the next step in the plan requires calling a tool, executing a shell command, writing/editing/deleting a file, creating a directory, fetching a URL, or using a Google Workspace/MCP API, you MUST set 'assignedWorker' to 'none' and describe the tool task/goals in 'subGoal'.
 - Setting 'assignedWorker' to 'none' will route the task to the tool execution layer (SelectionActor & ExecutionActor) to run the necessary tool.
+
+SIMPLICITY RULE: For any task that can be answered or completed with a single tool call (e.g. "write a file", "check the time", "run a command", "search the web", "send a message"), set 'assignedWorker' to 'none' IMMEDIATELY and put the tool goal in 'subGoal'. Only assign a cognitive worker when the step genuinely requires multi-step text-based research or code synthesis that cannot be done by a tool directly. Never route a simple tool-executable step through a cognitive worker first.
+
+COMPLETION DETECTION: Review 'RECENT TOOL EXECUTION RESULTS'. If those results confirm that all plan steps are fulfilled, set 'isTaskComplete' to true regardless of whether a cognitive worker has run.
 
 Select the next worker, define their focused 'subGoal', and output the updated strategicPlan. If all plan goals are fully met, set 'isTaskComplete' to true and 'assignedWorker' to 'none'.` + identityStr + skillsStr
     ),
@@ -319,8 +336,66 @@ Select the next worker, define their focused 'subGoal', and output the updated s
   });
 }
 
-// Keep export alias for backward compatibility
-export const analyzeNode = supervisorNode;
+/**
+ * NODE: AnalysisActor (Original lean strategy generator)
+ * Ingests the EnvironmentProbe fingerprint and active tools to produce a
+ * minimal, grounded strategic plan. Runs exactly once per mission start.
+ * Does NOT orchestrate swarm workers — that is the SupervisorActor's job.
+ * Keeping this lean is what preserves the original token-cost design.
+ */
+export async function analyzeNode(state: typeof MidpointXState.State) {
+  console.log("🎯 [AnalysisActor] Building grounded execution strategy...");
+
+  const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
+  const rawModel = LLMFactory.getModel({ temperature: 0.1, tier: "worker" }) as any;
+  const structuredModel = rawModel.withStructuredOutput(StrategicPlanSchema);
+
+  const agentPersona = WorkspaceLoader.getAgentPersona();
+  const userContext = WorkspaceLoader.getUserContext();
+  const availableTools = PluginRegistry.getActiveTools().map(t => t.name).join(", ");
+  const skills = PluginRegistry.getMDSkills();
+  const skillsStr = skills.length > 0
+    ? `\n\nREUSABLE SKILLS:\n${skills.map(s => `[${s.name}]: ${s.description}`).join("\n")}`
+    : '';
+  const failureContext = state.failureThesis
+    ? `\n\n⚠️ PREVIOUS FAILURE: ${state.failureThesis}\nRevise the plan to avoid this failure mode.`
+    : '';
+
+  const payload = [
+    new SystemMessage(buildAnalyzePrompt(agentPersona, userContext, state.executionMode || 'api') + skillsStr),
+    new HumanMessage(`
+Task: ${state.userIntent}
+Reflection: ${state.reflectionTrace}
+${failureContext}
+Available tools: ${availableTools}
+
+ENVIRONMENTAL FINGERPRINT:
+${JSON.stringify(envFingerprint, null, 2)}
+
+Produce a minimal, tool-grounded plan. For simple or single-step tasks, 1–2 steps is ideal. Each step must map directly to an available tool or command.
+    `)
+  ];
+
+  const response = await invokeWithResilience(structuredModel, payload) as StrategicPlan;
+
+  // All steps start as pending; SelectionActor and ExecutionActor drive completion
+  const newPlanStatus: Record<string, 'pending' | 'active' | 'completed' | 'failed'> = {};
+  response.plan.forEach((step: string) => { newPlanStatus[step] = 'pending'; });
+
+  return A2AProtocol.commit("AnalysisActor", {
+    analysisResult: response.rationale,
+    strategicPlan: response.plan,
+    planStatus: newPlanStatus,
+    activeWorker: "none",
+    workerSubGoal: state.conciseIntent,
+    isTaskComplete: false,
+    skillGapQuery: "",
+    environmentFingerprint: envFingerprint,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    internalTurns: 1
+  });
+}
 
 /**
  * NODE: SummarizeActor

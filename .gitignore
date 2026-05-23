@@ -60,3 +60,12 @@ travel_workflow_state.json
 **/assets/*.jpg
 **/assets/*.pdf
 **/references/*.pdf
+
+# Office documents and review artifacts
+*.docx
+*.xlsx
+*.pptx
+
+# Refactoring artifacts
+*.clean
+PLAN_*.md

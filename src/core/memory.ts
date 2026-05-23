@@ -16,10 +16,14 @@ export class MemoryManager {
   private static async getEmbedding(text: string): Promise<number[] | null> {
     if (!Config.ENABLE_EMBEDDINGS) return null;
     try {
-      const { GoogleGenerativeAIEmbeddings } = await import("@langchain/google-genai");
-      const embeddings = new GoogleGenerativeAIEmbeddings({
-        apiKey: Config.GEMINI_API_KEY,
-        modelName: Config.EMBEDDING_MODEL || "text-embedding-004",
+      // Provider-agnostic embedding via OpenAI-compatible API (Ollama, OpenAI, etc.)
+      const { OpenAIEmbeddings } = await import("@langchain/openai");
+      const embeddings = new OpenAIEmbeddings({
+        apiKey: Config.OPENAI_API_KEY || "ollama",
+        modelName: Config.EMBEDDING_MODEL || "nomic-embed-text",
+        configuration: Config.ACTIVE_LLM_PROVIDER === "local"
+          ? { baseURL: "http://localhost:11434/v1" }
+          : undefined,
       });
       return await embeddings.embedQuery(text);
     } catch (e) {

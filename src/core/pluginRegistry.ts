@@ -1,4 +1,29 @@
-import { FunctionDeclaration, Type } from "@google/genai";
+// Provider-agnostic tool declaration types (replaces @google/genai imports)
+export interface ToolParameterProperty {
+  type: string;
+  description?: string;
+  enum?: string[];
+  items?: ToolParameterProperty;
+}
+
+export interface FunctionDeclaration {
+  name: string;
+  description: string;
+  parameters?: {
+    type: string;
+    properties: Record<string, ToolParameterProperty>;
+    required?: string[];
+  };
+}
+
+// Type alias retained for any downstream code referencing Type.STRING etc.
+export const Type = {
+  STRING: "string",
+  NUMBER: "number",
+  BOOLEAN: "boolean",
+  ARRAY: "array",
+  OBJECT: "object",
+} as const;
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import fs from "fs/promises";
@@ -57,6 +82,10 @@ export class PluginRegistry {
         return "";
       }
       const skillName = nameMatch[1].trim();
+      if (skillName.includes('[') || skillName.includes(']')) {
+        console.warn("⚠️ [PluginRegistry] hotReloadSkill: Refusing to load template/placeholder name:", skillName);
+        return "";
+      }
       this.mdSkills.set(skillName, {
         name: skillName,
         description: descMatch ? descMatch[1].trim() : "Synthesized agent skill",
@@ -109,6 +138,10 @@ export class PluginRegistry {
           
           if (nameMatch) {
             const skillName = nameMatch[1].trim();
+            if (skillName.includes('[') || skillName.includes(']')) {
+              console.log(`⏩ [PluginRegistry] Skipping template/placeholder file: ${entry.name}`);
+              return;
+            }
             this.mdSkills.set(skillName, {
               name: skillName,
               description: descMatch ? descMatch[1].trim() : "Custom Agent Skill",

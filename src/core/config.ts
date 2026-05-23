@@ -14,7 +14,7 @@ const BoolSchema = z.preprocess((val) => {
 }, z.coerce.boolean());
 
 const ConfigSchema = z.object({
-  ACTIVE_LLM_PROVIDER: z.enum(["google", "anthropic", "openai", "openrouter", "local", "nvidia"]).default("google"),
+  ACTIVE_LLM_PROVIDER: z.enum(["google", "anthropic", "openai", "openrouter", "local", "nvidia"]).default("anthropic"),
   ACTIVE_MODEL_NAME: z.string(),
   WORKER_MODEL_NAME: z.string(),
   GEMINI_API_KEY: z.string().optional(),
@@ -29,23 +29,22 @@ const ConfigSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   TOOL_PROFILE: z.enum(["messaging", "coding", "full"]).default("full"),
-  USE_DOCKER_SANDBOX: BoolSchema.default(false),
+  USE_DOCKER_SANDBOX: BoolSchema.default(true),
   REQUIRE_APPROVAL_FOR_DESTRUCTIVE: BoolSchema.default(true),
   ELEVENLABS_API_KEY: z.string().optional(),
   ENABLE_VOICE: BoolSchema.default(false),
   ENABLE_PROACTIVE_SCHEDULER: BoolSchema.default(true),
   ENABLE_SCREENSHOTS: BoolSchema.default(true),
   ENABLE_EMBEDDINGS: BoolSchema.default(false),
-  EMBEDDING_MODEL: z.string().default("text-embedding-004"),
+  EMBEDDING_MODEL: z.string().default("nomic-embed-text"),
   ENABLE_SLEEP_CYCLE: BoolSchema.default(true),
   SLEEP_CYCLE_CRON: z.string().default("0 3 * * *"), // 3 AM local time
   SILENT_MODE: BoolSchema.default(false),
   
-  // GCP Native Integration (Phase 4)
-  GCP_PROJECT_ID: z.string().optional(),
-  GCP_LOCATION: z.string().default("us-central1"),
-  ENABLE_CLOUD_LOGGING: BoolSchema.default(false),
-  PERSISTENCE_ADAPTER: z.enum(["local", "firestore"]).default("local"),
+  PERSISTENCE_ADAPTER: z.enum(["local", "sqlite"]).default("local"),
+  SANDBOX_AUTONOMOUS_MODE: BoolSchema.default(true),
+  // Must be set to enable the /webhook/* endpoint. Min 32 chars enforced.
+  WEBHOOK_SECRET: z.string().min(32, "WEBHOOK_SECRET must be at least 32 characters").optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

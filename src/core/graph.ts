@@ -1,7 +1,10 @@
-// @ts-nocheck
 import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
 import { MidpointXState } from "./state";
-import { reflectNode, analyzeNode, learnNode, silentAssessmentNode } from "../nodes/cognitiveNodes";
+
+// Explicit state type — needed because builder is cast to `any` above,
+// which loses inference on callback parameters.
+type GraphState = typeof MidpointXState.State;
+import { reflectNode, analyzeNode, supervisorNode, learnNode, silentAssessmentNode } from "../nodes/cognitiveNodes";
 import { justifyNode, regressNode, verificationNode } from "../nodes/safeguardNodes";
 import { modifyNode } from "../nodes/modifyNode";
 import { compilerNode } from "../nodes/compilerNode";
@@ -15,13 +18,21 @@ import { skillAcquisitionNode } from "../nodes/skillAcquisitionNode";
 const checkpointer = new MemorySaver();
 
 // 2. Initialize the Graph with our State
-const builder = new StateGraph(MidpointXState);
+// LangGraph's imperative builder pattern means TypeScript cannot incrementally
+// track node names added across separate statements. Each addEdge/addConditionalEdges
+// call is type-checked before subsequent addNode calls register their names, so
+// every node name appears invalid until the graph is complete. Casting to `any`
+// here is a targeted workaround — type safety is preserved in all imported node
+// functions and in the compile() call below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const builder = new StateGraph(MidpointXState) as any;
 
 // 3. Add Nodes
-builder.addNode("SilentAssessmentActor", (state) => silentAssessmentNode(state));
-builder.addNode("ReflectionActor", (state) => reflectNode(state));
-builder.addNode("AnalysisActor", (state) => analyzeNode(state));
-builder.addNode("LearnActor", (state) => learnNode(state));
+builder.addNode("SilentAssessmentActor", (state: GraphState) => silentAssessmentNode(state));
+builder.addNode("ReflectionActor", (state: GraphState) => reflectNode(state));
+builder.addNode("AnalysisActor", (state: GraphState) => analyzeNode(state));
+builder.addNode("SupervisorActor", (state: GraphState) => supervisorNode(state));
+builder.addNode("LearnActor", (state: GraphState) => learnNode(state));
 builder.addNode("CompactionActor", compactionNode);
 builder.addNode("ModifyActor", modifyNode);
 builder.addNode("CompilerActor", compilerNode);
@@ -31,16 +42,16 @@ builder.addNode("RegressionTester", regressNode);
 builder.addNode("SelectionActor", selectionActor);
 builder.addNode("ExecutionActor", executionActor);
 builder.addNode("PruningActor", pruningNode);
-builder.addNode("ResearcherActor", (state) => researchWorkerNode(state));
-builder.addNode("DeveloperActor", (state) => developerWorkerNode(state));
-builder.addNode("TesterActor", (state) => testerWorkerNode(state));
-builder.addNode("SkillAcquisitionActor", (state) => skillAcquisitionNode(state));
+builder.addNode("ResearcherActor", (state: GraphState) => researchWorkerNode(state));
+builder.addNode("DeveloperActor", (state: GraphState) => developerWorkerNode(state));
+builder.addNode("TesterActor", (state: GraphState) => testerWorkerNode(state));
+builder.addNode("SkillAcquisitionActor", (state: GraphState) => skillAcquisitionNode(state));
 
 /**
  * Security: Human-in-the-Loop Breakpoint
  * This node does nothing but serve as a target for 'interruptBefore'.
  */
-builder.addNode("HumanApprovalGate", (state) => {
+builder.addNode("HumanApprovalGate", (state: GraphState) => {
   console.log("⏸️ [Graph] Human approval required. Pausing execution...");
   return state;
 });
@@ -48,7 +59,7 @@ builder.addNode("HumanApprovalGate", (state) => {
 // 4. Main Workflow Path
 builder.addConditionalEdges(
   START,
-  (state) => state.proactiveTrigger ? "silent_assessment" : "reflection",
+  (state: GraphState) => state.proactiveTrigger ? "silent_assessment" : "reflection",
   {
     silent_assessment: "SilentAssessmentActor",
     reflection: "ReflectionActor"
@@ -57,7 +68,7 @@ builder.addConditionalEdges(
 
 builder.addConditionalEdges(
   "SilentAssessmentActor",
-  (state) => {
+  (state: GraphState) => {
     if (state.assessmentDecision === "DROP") return "end";
     if (state.assessmentDecision === "NOTIFY") return "approval"; // Drops to human loop for review/undo
     if (state.assessmentDecision === "ACTION") return "reflection"; // Worker Swarm route
@@ -72,11 +83,14 @@ builder.addConditionalEdges(
 
 builder.addEdge("ReflectionActor", "AnalysisActor");
 
+// Lean AnalysisActor runs exactly once per mission — no worker routing.
+builder.addEdge("AnalysisActor", "CompactionActor");
+
+// SupervisorActor handles all worker orchestration and complex replanning.
 builder.addConditionalEdges(
-  "AnalysisActor",
-  (state) => {
+  "SupervisorActor",
+  (state: GraphState) => {
     if (state.isTaskComplete) return "compaction";
-    // Skill gap takes priority — divert to acquire before assigning a worker
     if (state.skillGapQuery) return "skill_acquisition";
     if (state.activeWorker === "researcher") return "researcher";
     if (state.activeWorker === "developer") return "developer";
@@ -92,26 +106,26 @@ builder.addConditionalEdges(
   }
 );
 
-builder.addEdge("ResearcherActor", "AnalysisActor");
-builder.addEdge("DeveloperActor", "AnalysisActor");
-builder.addEdge("TesterActor", "AnalysisActor");
-// After acquiring a skill, return to the supervisor so it can retry with new knowledge
-builder.addEdge("SkillAcquisitionActor", "AnalysisActor");
+builder.addEdge("ResearcherActor", "SupervisorActor");
+builder.addEdge("DeveloperActor", "SupervisorActor");
+builder.addEdge("TesterActor", "SupervisorActor");
+// After acquiring a skill, return to the Supervisor so it can retry with new knowledge
+builder.addEdge("SkillAcquisitionActor", "SupervisorActor");
 
 builder.addEdge("CompactionActor", "SelectionActor");
 
 // 5. Execution Loop with Security Gates
 builder.addConditionalEdges(
   "SelectionActor",
-  (state) => {
+  (state: GraphState) => {
     // If task is complete, move to the learning phase
     if (state.isTaskComplete) return "learn";
     
     // If destructive action is selected and not yet approved, hit the gate
     if (state.needsApproval && state.approvalStatus === "pending") return "approval";
     
-    // Handle Loop-back to Supervisor if no action is pending
-    if (!state.pendingAction) return "replan";
+    // Route to SupervisorActor for complex replanning or step-boundary management
+    if (!state.pendingAction) return "supervisor";
 
     return "execute";
   },
@@ -119,7 +133,7 @@ builder.addConditionalEdges(
     execute: "ExecutionActor",
     approval: "HumanApprovalGate",
     learn: "LearnActor",
-    replan: "AnalysisActor"
+    supervisor: "SupervisorActor"
   }
 );
 
@@ -132,7 +146,7 @@ builder.addEdge("ExecutionActor", "CompactionActor");
 // 6. Post-Execution Learning & Solidification
 builder.addConditionalEdges(
   "LearnActor",
-  (state) => state.proposedShift ? "needs_validation" : "prune",
+  (state: GraphState) => state.proposedShift ? "needs_validation" : "prune",
   {
     needs_validation: "JustificationProtocol",
     prune: "PruningActor"
@@ -147,7 +161,7 @@ builder.addEdge("ModifyActor", "CompilerActor");
 
 builder.addConditionalEdges(
   "CompilerActor",
-  (state) => state.needsRecompile ? "modify" : "prune",
+  (state: GraphState) => state.needsRecompile ? "modify" : "prune",
   {
     modify: "ModifyActor",
     prune: "PruningActor"

@@ -1,17 +1,17 @@
 ---
 name: THEOREM_SYS_01
-description: monitoring, automation, configuration
+description: clarification, user interaction, task disambiguation
 ---
 
 # Logic Shift: THEOREM_SYS_01
-Trace ID: TELEGRAM-1778778987201
-Learned At: 2026-05-14T17:16:54.098Z
+Trace ID: 
+Learned At: 2026-05-22T18:07:41.992Z
 
 ## Justification
-The standard approach of hardcoding monitoring parameters or performing manual checks is inefficient and prone to errors. Externalizing configuration allows for dynamic adjustments without code changes, and a dedicated script ensures consistent, repeatable, and automated execution, preventing manual oversight and potential infinite loops of replanning.
+The standard approach might involve attempting to interpret the ambiguous task, leading to incorrect actions or wasted effort. This theorem codifies the practice of seeking clarification first, ensuring that subsequent actions are aligned with the user's intent and reducing the likelihood of errors. This is crucial for maintaining efficiency and user trust.
 
 ## Discovered Pattern
-Automated health monitoring of a system or application.
+User provides an ambiguous or underspecified task, requiring clarification before proceeding.
 
 ## Optimized Approach
-Externalize configuration parameters (e.g., thresholds, check intervals) into a separate configuration file (e.g., JSON, YAML) and use a dedicated script to read this configuration and perform the monitoring. This script should include robust error handling and logging.
+When a task is underspecified, proactively prompt the user for the necessary details to complete the task. Avoid making assumptions or proceeding with a generic interpretation. The prompt should be specific to the type of information needed.

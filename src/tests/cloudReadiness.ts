@@ -3,72 +3,71 @@ import { PersistenceFactory } from "../core/persistence";
 import { SecretProvider } from "../core/secretProvider";
 
 async function runDryRun() {
-  console.log("☁️ [Readiness] Starting Production Cloud Dry Run...\n");
+  console.log("[Readiness] Starting Local Sandbox Dry Run...\n");
 
   // 1. Environment Validation
-  console.log("🔍 [Readiness] Step 1: Environment Validation...");
+  console.log("[Readiness] Step 1: Environment Validation...");
   const requiredEnv = [
-    "GCP_PROJECT_ID",
     "PERSISTENCE_ADAPTER",
     "ACTIVE_LLM_PROVIDER",
-    "ENABLE_CLOUD_LOGGING"
   ];
 
   let envPassed = true;
   for (const env of requiredEnv) {
     if (!(process.env as any)[env]) {
-      console.warn(`   ⚠️ Warning: ${env} is not set. Using defaults or skipping.`);
-      envPassed = false;
+      console.warn(`   Warning: ${env} is not set. Using defaults.`);
     } else {
-      console.log(`   ✅ ${env} is configured.`);
+      console.log(`   OK: ${env} = ${(process.env as any)[env]}`);
     }
   }
 
-  if (Config.PERSISTENCE_ADAPTER === "firestore" && !Config.GCP_PROJECT_ID) {
-    console.error("   ❌ ERROR: PERSISTENCE_ADAPTER is set to 'firestore' but GCP_PROJECT_ID is missing.");
-    envPassed = false;
-  }
+  console.log(`   Provider : ${Config.ACTIVE_LLM_PROVIDER}`);
+  console.log(`   Adapter  : ${Config.PERSISTENCE_ADAPTER}`);
+  console.log(`   Sandbox  : ${Config.USE_DOCKER_SANDBOX}`);
+  console.log(`   Autonomous: ${Config.SANDBOX_AUTONOMOUS_MODE}`);
 
-  // 2. Persistence Factory Logic
-  console.log("\n🔍 [Readiness] Step 2: Persistence Factory Logic...");
+  // 2. Persistence Factory
+  console.log("\n[Readiness] Step 2: Persistence Factory...");
   try {
     const adapter = PersistenceFactory.getAdapter();
-    console.log(`   ✅ Active Adapter: ${adapter.constructor.name}`);
-    
-    if (Config.PERSISTENCE_ADAPTER === "firestore") {
-       console.log("   ✅ Switching logic verified: Correctly chose Firestore implementation.");
+    console.log(`   Active Adapter: ${adapter.constructor.name}`);
+    if (Config.PERSISTENCE_ADAPTER === "sqlite") {
+      console.log("   SQLite mode active — single-file local database.");
     } else {
-       console.log("   ℹ️ Currently in 'local' mode. Set PERSISTENCE_ADAPTER=firestore for production.");
+      console.log("   Local filesystem mode active.");
     }
   } catch (err: any) {
-    console.error(`   ❌ Persistence Initialization Failed: ${err.message}`);
+    console.error(`   Persistence Initialization Failed: ${err.message}`);
     envPassed = false;
   }
 
-  // 3. Security & Secret Provider Simulation
-  console.log("\n🔍 [Readiness] Step 3: Secret Provider Verification...");
+  // 3. Secret Provider
+  console.log("\n[Readiness] Step 3: Secret Provider...");
   try {
-    // We can't hit Secret Manager in dry run without valid ADC, but we can check the provider
-    console.log("   ✅ SecretProvider initialized with TTL caching.");
-    console.log(`   ✅ Cache Duration: 5 minutes (Rotation Resilient)`);
+    const key = await SecretProvider.get("ACTIVE_LLM_PROVIDER");
+    console.log(`   SecretProvider OK — resolved ACTIVE_LLM_PROVIDER: ${key}`);
+    console.log("   Cache TTL: 5 minutes");
   } catch (err: any) {
-    console.error(`   ❌ SecretProvider Simulation Failed: ${err.message}`);
+    console.error(`   SecretProvider Failed: ${err.message}`);
     envPassed = false;
   }
 
-  // 4. A2A Protocol Readiness
-  console.log("\n🔍 [Readiness] Step 4: A2A Protocol Readiness...");
-  if (Config.ENABLE_CLOUD_LOGGING) {
-    console.log("   ✅ Cloud Logging: ENABLED. A2A handshakes will be mirrored to GCP.");
+  // 4. Sandbox Status
+  console.log("\n[Readiness] Step 4: Sandbox Configuration...");
+  if (Config.USE_DOCKER_SANDBOX) {
+    console.log("   Docker Sandbox: ENABLED — code execution isolated in container.");
+    if (Config.SANDBOX_AUTONOMOUS_MODE) {
+      console.log("   Autonomous Mode: ENABLED — sandboxed commands skip approval gate.");
+    }
   } else {
-    console.log("   ⚠️ Cloud Logging: DISABLED. Audit ledger will remain local only.");
+    console.warn("   Docker Sandbox: DISABLED — running on host shell. Set USE_DOCKER_SANDBOX=true for production.");
   }
 
   console.log("\n-------------------------------------------");
   if (envPassed) {
-    console.log("🚀 [Readiness] DRY RUN SUCCESSFUL. MidpointX is ready for deployment.");
+    console.log("[Readiness] DRY RUN SUCCESSFUL. MidpointX is ready.");
   } else {
-    console.log("⚠️ [Readiness] DRY RUN COMPLETED WITH WARNINGS. Please check your environment variables.");
+    console.log("[Readiness] DRY RUN COMPLETED WITH WARNINGS. Check environment variables.");
   }
 }
 

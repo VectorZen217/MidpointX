@@ -18,6 +18,7 @@ import { MemoryManager } from "../core/memory";
 import { ScreenCapture } from "../plugins/desktop/ScreenCapture";
 import { Config } from "../core/config";
 import { A2AProtocol } from "../core/protocol";
+import { SandboxManager } from "../core/sandboxManager";
 import { PolicyEngine } from "../core/policy";
 import { CacheManager } from "../core/cacheManager";
 
@@ -480,7 +481,11 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
   }
   
   const severity = getActionSeverity(toolCall?.name, toolCall?.args);
-  let needsApproval = Config.REQUIRE_APPROVAL_FOR_DESTRUCTIVE && severity !== null;
+  // Autonomous mode: skip approval gate when running inside the hardened sandbox.
+  // Host-level destructive ops (file deletes outside workspace, process kills) still
+  // use the approval gate via REQUIRE_APPROVAL_FOR_DESTRUCTIVE.
+  const sandboxBypasses = SandboxManager.isAutonomous() && toolCall?.name === "execute_system_command";
+  let needsApproval = !sandboxBypasses && Config.REQUIRE_APPROVAL_FOR_DESTRUCTIVE && severity !== null;
   let approvalSeverity = severity;
   
   // Anti-Looping Heuristic (Death Spiral Prevention)
@@ -598,41 +603,49 @@ export async function executionActor(state: typeof MidpointXState.State) {
   }
 
   if (action.tool === "execute_system_command") {
-    let cmd = String(action.args.command);
-    
-    // 2. Docker Sandboxing (Phase 4)
+    const cmd = String(action.args.command);
+    const cwd = action.args.workingDirectory ? String(action.args.workingDirectory) : process.cwd();
+
+    // Sandbox execution path (default: enabled)
     if (Config.USE_DOCKER_SANDBOX) {
-      console.log("🐳 [Sandbox] Wrapping command in Docker container...");
-      const workspace = process.cwd().replace(/\\/g, '/');
-      // Wrap command in a lightweight alpine container
-      cmd = `docker run --rm -v "${workspace}:/workspace" -w /workspace node:18-alpine sh -c "${cmd.replace(/"/g, '\\"')}"`;
+      const dockerAvailable = await SandboxManager.isDockerAvailable();
+      if (!dockerAvailable) {
+        console.warn("[Sandbox] Docker not found — falling back to host shell. Set USE_DOCKER_SANDBOX=false to suppress.");
+      } else {
+        console.log("[Sandbox] Executing inside hardened Docker container...");
+        const result = await SandboxManager.runInSandbox(cmd, cwd);
+        if (result.timedOut) {
+          finalMessage = JSON.stringify({ status: "error", errors: "Sandbox execution timed out." });
+        } else {
+          finalMessage = JSON.stringify({ status: "success", output: result.stdout, errors: result.stderr });
+        }
+        // Skip the host-shell path below
+        // @ts-ignore — intentional early assign; falls through to A2AProtocol.commit
+        finalMessage = finalMessage;
+      }
     }
 
-    try {
-      const isWindows = os.platform() === "win32";
-      const detectedShell = state.environmentFingerprint?.capabilities?.shell || (isWindows ? "powershell.exe" : "/bin/bash");
-      const defaultShell = !Config.USE_DOCKER_SANDBOX ? detectedShell : "/bin/bash";
-      
-      // 3. Windows-Native Restricted Shell (Phase 4 - OpenClaw Parity)
-      if (isWindows && !Config.USE_DOCKER_SANDBOX) {
-        const isMessaging = Config.TOOL_PROFILE === "messaging";
-        const executionPolicy = isMessaging ? "Restricted" : "Bypass";
-        
-        console.log(`🛡️ [Security] Hardening PowerShell (Policy: ${executionPolicy})...`);
-        
-        // Wrap command to suppress progress bars and use basic parsing flags for web requests if possible
-        // We use -NoProfile -NonInteractive to avoid blocking on setup screens/prompts
-        const wrappedCmd = `$ProgressPreference = 'SilentlyContinue'; ${cmd}`;
-        cmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy ${executionPolicy} -Command "${wrappedCmd.replace(/"/g, '\"')}"`;
-      }
+    // Host shell path: runs when sandbox is disabled OR Docker is unavailable
+    if (!finalMessage || finalMessage === "") {
+      try {
+        const isWindows = os.platform() === "win32";
+        const detectedShell = state.environmentFingerprint?.capabilities?.shell || (isWindows ? "powershell.exe" : "/bin/bash");
 
-      const { stdout, stderr } = await execAsync(cmd, { 
-        cwd: action.args.workingDirectory ? String(action.args.workingDirectory) : process.cwd(),
-        shell: defaultShell
-      });
-      finalMessage = JSON.stringify({ status: "success", output: stdout.trim(), errors: stderr.trim() });
-    } catch (err: any) {
-      finalMessage = JSON.stringify({ status: "error", errors: err.message });
+        // Windows-Native Restricted Shell
+        let hostCmd = cmd;
+        if (isWindows) {
+          const isMessaging = Config.TOOL_PROFILE === "messaging";
+          const executionPolicy = isMessaging ? "Restricted" : "Bypass";
+          console.log(`[Security] Hardening PowerShell (Policy: ${executionPolicy})...`);
+          const wrappedCmd = `$ProgressPreference = 'SilentlyContinue'; ${cmd}`;
+          hostCmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy ${executionPolicy} -Command "${wrappedCmd.replace(/"/g, '\"')}"`;
+        }
+
+        const { stdout, stderr } = await execAsync(hostCmd, { cwd, shell: detectedShell });
+        finalMessage = JSON.stringify({ status: "success", output: stdout.trim(), errors: stderr.trim() });
+      } catch (err: any) {
+        finalMessage = JSON.stringify({ status: "error", errors: err.message });
+      }
     }
   } else {
     try {
@@ -703,13 +716,38 @@ export async function executionActor(state: typeof MidpointXState.State) {
     }
   }
 
+  // Bug 1 fix: increment from state rather than resetting to 1
+  const nextTurns = (state.internalTurns || 0) + 1;
+
+  // Bug 3 fix: mark the currently-active plan step completed on tool success
+  let toolSucceeded = false;
+  try {
+    const parsed = JSON.parse(finalMessage);
+    toolSucceeded = parsed.status === "success";
+  } catch { /* non-JSON result treated as neutral */ }
+
+  const updatedPlanStatus = { ...state.planStatus };
+  const activePlanStep = (state.strategicPlan || []).find(
+    (s: string) => updatedPlanStatus[s] === 'active'
+  );
+  if (activePlanStep && toolSucceeded) {
+    updatedPlanStatus[activePlanStep] = 'completed';
+  }
+
+  // Flaw 2 fix: clear stale cognitive worker output after successful execution
+  // so the Supervisor doesn't re-read a developer's old code plan as "current" context.
+  // On failure, preserve it so the Supervisor can still see the plan that was being executed.
+  const nextWorkerOutput = toolSucceeded ? "" : state.workerOutput;
+
   return A2AProtocol.commit("ExecutionActor", {
     actionHistory: [...state.actionHistory, ...newHistoryRecord],
     pendingAction: null,
     needsApproval: false,
     approvalStatus: null,
-    internalTurns: 1,
+    internalTurns: nextTurns,
     outputArtifacts: artifacts,
-    temporalInsight: temporalInsight
+    temporalInsight: temporalInsight,
+    planStatus: updatedPlanStatus,
+    workerOutput: nextWorkerOutput,
   });
 }

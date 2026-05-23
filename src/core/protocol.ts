@@ -1,7 +1,5 @@
 import * as crypto from "crypto";
 import { PersistenceFactory } from "./persistence";
-import { Logging } from "@google-cloud/logging";
-import { Config } from "./config";
 import { MidpointXState } from "./state";
 import { SessionManager } from "./sessionManager";
 
@@ -60,36 +58,12 @@ export class A2AProtocol {
       const hash = crypto.createHash("sha256").update(JSON.stringify(entryData)).digest("hex");
       const logEntry = { ...entryData, hash };
 
-      // 1. Local/Persistence Persistence
       await adapter.appendAudit(JSON.stringify(logEntry));
-
-      // 2. Cloud Logging Integration (Phase 4)
-      if (Config.ENABLE_CLOUD_LOGGING && Config.GCP_PROJECT_ID) {
-        this.pushToCloudLogging(logEntry);
-      }
 
       return hash;
     } catch (err) {
       console.error(`⚠️ [A2A Protocol] Audit failed for node ${nodeName}:`, err);
       return "0";
-    }
-  }
-
-  /**
-   * Pushes the A2A handshake to Google Cloud Logging for CISO-level auditability.
-   */
-  private static async pushToCloudLogging(entry: any) {
-    try {
-      const logging = new Logging({ projectId: Config.GCP_PROJECT_ID });
-      const log = logging.log("midpointx-a2a-handshake");
-      const metadata = {
-        resource: { type: "global" },
-        severity: "INFO"
-      };
-      const cloudEntry = log.entry(metadata, entry);
-      await log.write(cloudEntry);
-    } catch (err) {
-      console.error("⚠️ [A2A Protocol] Cloud Logging failed:", err);
     }
   }
 

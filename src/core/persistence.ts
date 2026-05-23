@@ -1,12 +1,11 @@
 import * as fs from "fs/promises";
 import { existsSync } from "fs";
 import * as path from "path";
-import { Firestore } from "@google-cloud/firestore";
 import { Config } from "./config";
 
 /**
  * PersistenceAdapter: Abstract interface for all MidpointX data storage.
- * Enables switching between local filesystem (Dev) and Google Cloud Firestore (Production).
+ * Local filesystem (default) or SQLite for production-grade single-file persistence.
  */
 export interface PersistenceAdapter {
   // Memory Logs
@@ -253,128 +252,147 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
 }
 
 /**
- * Firestore implementation for Production Cloud Deployment.
+ * SQLitePersistenceAdapter: Production-grade local persistence using better-sqlite3.
+ * Zero network dependencies — fully self-contained in a single .db file.
+ * Install: npm install better-sqlite3 && npm install -D @types/better-sqlite3
  */
-export class FirestorePersistenceAdapter implements PersistenceAdapter {
-  private db: Firestore;
+export class SQLitePersistenceAdapter implements PersistenceAdapter {
+  private db: any; // typed as any until better-sqlite3 types are installed
+  private dbPath: string;
 
-  constructor() {
-    this.db = new Firestore({
-      projectId: Config.GCP_PROJECT_ID,
-    });
+  constructor(dbPath = path.resolve(__dirname, "../../src/workspace/midpointx.db")) {
+    this.dbPath = dbPath;
+    const dir = path.dirname(dbPath);
+    if (!existsSync(dir)) {
+      require("fs").mkdirSync(dir, { recursive: true });
+    }
+    // Lazy require so the build doesn't fail if better-sqlite3 isn't installed yet
+    const Database = require("better-sqlite3");
+    this.db = new Database(dbPath);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS logs (
+        id TEXT PRIMARY KEY,
+        content TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS skills (
+        name TEXT PRIMARY KEY,
+        content TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS stats (
+        key TEXT PRIMARY KEY,
+        data TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry TEXT NOT NULL,
+        hash TEXT,
+        timestamp TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        task_id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS vector_store (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        key TEXT NOT NULL,
+        vector TEXT NOT NULL,
+        metadata TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      );
+    `);
+    console.log(`🗄️ [SQLite] Initialized database at ${dbPath}`);
   }
 
   async appendLog(category: string, key: string, content: string): Promise<void> {
-    const docRef = this.db.collection("logs").doc(`${category}_${key}`);
-    await docRef.set({
-      content: (await this.readLogs(category, key)) + content,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
+    const id = `${category}_${key}`;
+    const existing = this.db.prepare("SELECT content FROM logs WHERE id = ?").get(id);
+    const newContent = (existing?.content || "") + content;
+    this.db.prepare("INSERT OR REPLACE INTO logs (id, content, updated_at) VALUES (?, ?, ?)").run(id, newContent, new Date().toISOString());
   }
 
   async readLogs(category: string, key: string): Promise<string> {
-    const doc = await this.db.collection("logs").doc(`${category}_${key}`).get();
-    return doc.exists ? doc.data()?.content || "" : "";
+    const row = this.db.prepare("SELECT content FROM logs WHERE id = ?").get(`${category}_${key}`);
+    return row?.content || "";
   }
 
   async listLogs(category: string): Promise<string[]> {
-    const snapshot = await this.db.collection("logs").where("category", "==", category).get();
-    return snapshot.docs.map(doc => doc.id);
+    const rows = this.db.prepare("SELECT id FROM logs WHERE id LIKE ?").all(`${category}_%`);
+    return rows.map((r: any) => r.id.replace(`${category}_`, ""));
   }
 
   async saveSkill(name: string, content: string): Promise<void> {
-    await this.db.collection("skills").doc(name).set({
-      content,
-      updatedAt: new Date().toISOString()
-    });
+    this.db.prepare("INSERT OR REPLACE INTO skills (name, content, updated_at) VALUES (?, ?, ?)").run(name, content, new Date().toISOString());
   }
 
   async readSkill(name: string): Promise<string | null> {
-    const doc = await this.db.collection("skills").doc(name).get();
-    return doc.exists ? doc.data()?.content || null : null;
+    const row = this.db.prepare("SELECT content FROM skills WHERE name = ?").get(name);
+    return row?.content || null;
   }
 
   async listSkills(): Promise<string[]> {
-    const snapshot = await this.db.collection("skills").get();
-    return snapshot.docs.map(doc => doc.id);
+    return this.db.prepare("SELECT name FROM skills").all().map((r: any) => r.name);
   }
 
   async saveStats(key: string, data: any): Promise<void> {
-    await this.db.collection("stats").doc(key).set(data);
+    this.db.prepare("INSERT OR REPLACE INTO stats (key, data) VALUES (?, ?)").run(key, JSON.stringify(data));
   }
 
   async readStats(key: string): Promise<any> {
-    const doc = await this.db.collection("stats").doc(key).get();
-    return doc.exists ? doc.data() : {};
+    const row = this.db.prepare("SELECT data FROM stats WHERE key = ?").get(key);
+    return row ? JSON.parse(row.data) : {};
   }
 
   async appendAudit(entry: string): Promise<void> {
-    const data = JSON.parse(entry);
-    await this.db.collection("audit").add({
-      ...data,
-      timestamp: data.timestamp || new Date().toISOString()
-    });
+    const parsed = JSON.parse(entry);
+    this.db.prepare("INSERT INTO audit (entry, hash, timestamp) VALUES (?, ?, ?)").run(entry, parsed.hash || null, parsed.timestamp || new Date().toISOString());
   }
 
   async getLatestAuditHash(): Promise<string> {
-    const snapshot = await this.db.collection("audit")
-      .orderBy("timestamp", "desc")
-      .limit(1)
-      .get();
-    
-    if (snapshot.empty) return "0";
-    return snapshot.docs[0].data().hash || "0";
+    const row = this.db.prepare("SELECT hash FROM audit ORDER BY id DESC LIMIT 1").get();
+    return row?.hash || "0";
   }
 
   async saveSession(session: any): Promise<void> {
-    await this.db.collection("sessions").doc(session.taskId).set({
-      ...session,
-      updatedAt: new Date().toISOString()
-    });
+    this.db.prepare("INSERT OR REPLACE INTO sessions (task_id, data, updated_at) VALUES (?, ?, ?)").run(session.taskId, JSON.stringify(session), new Date().toISOString());
   }
 
   async getSession(taskId: string): Promise<any | null> {
-    const doc = await this.db.collection("sessions").doc(taskId).get();
-    return doc.exists ? doc.data() : null;
+    const row = this.db.prepare("SELECT data FROM sessions WHERE task_id = ?").get(taskId);
+    return row ? JSON.parse(row.data) : null;
   }
 
   async listActiveSessions(): Promise<string[]> {
-    const snapshot = await this.db.collection("sessions").get();
-    return snapshot.docs.map(doc => doc.id);
+    return this.db.prepare("SELECT task_id FROM sessions").all().map((r: any) => r.task_id);
   }
 
   async searchLogs(category: string, queryTerms: string[]): Promise<Array<{ date: string; entry: string; score: number }>> {
-    // Basic Firestore implementation: fetch all and filter client-side (Simplified for MVP)
-    // Production note: For true search, integrate with Vertex AI Vector Search
-    const snapshot = await this.db.collection("logs").get();
+    const rows = this.db.prepare("SELECT id, content FROM logs WHERE id LIKE ?").all(`${category}_%`);
     const results: Array<{ date: string; entry: string; score: number }> = [];
-
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      const content = data.content || "";
-      const date = doc.id.replace(`${category}_`, "");
-      
-      const entries = content.split(/\n(?=## \[)|^(?=## \[)/m).filter((e: string) => e.trim().length > 10);
+    for (const row of rows) {
+      const date = row.id.replace(`${category}_`, "");
+      const entries = row.content.split(/\n(?=## \[)|^(?=## \[)/m).filter((e: string) => e.trim().length > 10);
       for (const entry of entries) {
-        const entryLower = entry.toLowerCase();
-        const score = queryTerms.reduce((acc, term) => acc + (entryLower.includes(term) ? 1 : 0), 0);
-        if (score > 0) {
-          results.push({ date, entry: entry.trim(), score });
-        }
+        const lower = entry.toLowerCase();
+        const score = queryTerms.reduce((acc: number, term: string) => acc + (lower.includes(term) ? 1 : 0), 0);
+        if (score > 0) results.push({ date, entry: entry.trim(), score });
       }
     }
     return results;
   }
 
   async deleteLog(category: string, key: string): Promise<void> {
-    await this.db.collection("logs").doc(`${category}_${key}`).delete();
+    this.db.prepare("DELETE FROM logs WHERE id = ?").run(`${category}_${key}`);
   }
 
   async moveSkill(source: string, destination: string): Promise<void> {
     const skill = await this.readSkill(source);
     if (skill) {
       await this.saveSkill(destination, skill);
-      await this.db.collection("skills").doc(source).delete();
+      this.db.prepare("DELETE FROM skills WHERE name = ?").run(source);
     }
   }
 
@@ -383,27 +401,18 @@ export class FirestorePersistenceAdapter implements PersistenceAdapter {
   }
 
   async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
-    await this.db.collection("vector_store").doc(`${category}_${key}`).set({
-      category,
-      key,
-      vector,
-      metadata,
-      timestamp: new Date().toISOString()
-    });
+    const id = `${category}_${key}`;
+    this.db.prepare("INSERT OR REPLACE INTO vector_store (id, category, key, vector, metadata, timestamp) VALUES (?, ?, ?, ?, ?, ?)").run(id, category, key, JSON.stringify(vector), JSON.stringify(metadata), new Date().toISOString());
   }
 
   async queryVectorIndex(category: string, vector: number[], limit: number): Promise<Array<{ key: string; score: number; metadata: any }>> {
-    const snapshot = await this.db.collection("vector_store").where("category", "==", category).get();
-    const results: Array<{ key: string; score: number; metadata: any }> = [];
-    
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      const docVector = data.vector || [];
-      const score = cosineSimilarity(vector, docVector);
-      results.push({ key: data.key, score, metadata: data.metadata });
-    }
-    
-    return results.sort((a, b) => b.score - a.score).slice(0, limit);
+        const rows = this.db.prepare("SELECT key, vector, metadata FROM vector_store WHERE category = ?").all(category);
+    const results = rows.map((row: any) => ({
+      key: row.key,
+      score: cosineSimilarity(vector, JSON.parse(row.vector)),
+      metadata: JSON.parse(row.metadata)
+    }));
+    return results.sort((a: any, b: any) => b.score - a.score).slice(0, limit);
   }
 }
 
@@ -415,15 +424,15 @@ export class PersistenceFactory {
 
   static getAdapter(): PersistenceAdapter {
     if (this.instance) return this.instance;
-    
-    if (Config.PERSISTENCE_ADAPTER === "firestore") {
-      console.log("☁️ [Persistence] Initializing FirestorePersistenceAdapter...");
-      this.instance = new FirestorePersistenceAdapter();
+
+    if (Config.PERSISTENCE_ADAPTER === "sqlite") {
+      console.log("\u{1F5C4}\uFE0F [Persistence] Initializing SQLitePersistenceAdapter...");
+      this.instance = new SQLitePersistenceAdapter();
     } else {
-      console.log("📂 [Persistence] Initializing LocalPersistenceAdapter...");
+      console.log("\u{1F4C2} [Persistence] Initializing LocalPersistenceAdapter...");
       this.instance = new LocalPersistenceAdapter();
     }
-    
+
     return this.instance;
   }
 }

@@ -4,6 +4,7 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
 import fs from "fs/promises";
+import crypto from "crypto";
 import cors from "cors";
 import axios from "axios";
 
@@ -20,6 +21,7 @@ import { PersistenceFactory } from "./core/persistence";
 import { DiscordService } from "./services/discordService";
 import { TelegramService } from "./services/telegramService";
 import { initContextCache } from "./core/cacheManager";
+import { SandboxManager } from "./core/sandboxManager";
 import { a2aRouter } from "./routes/a2aRoutes";
 import { uiApiRouter } from "./routes/uiApiRoutes";
 
@@ -218,8 +220,50 @@ app.get("/api/v1/ollama-models", async (req, res) => {
   }
 });
 
+// Webhook Authentication Middleware
+// Validates the X-Webhook-Secret header against WEBHOOK_SECRET using a
+// timing-safe comparison to prevent secret oracle / timing attacks.
+function webhookAuth(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): void {
+  const secret = Config.WEBHOOK_SECRET;
+
+  if (!secret) {
+    console.error("⛔ [Security] WEBHOOK_SECRET is not configured. Rejecting all /webhook/* requests.");
+    res.status(503).json({ error: "Webhook endpoint not configured" });
+    return;
+  }
+
+  const provided = req.headers["x-webhook-secret"];
+  if (typeof provided !== "string" || provided.length === 0) {
+    console.warn(`⚠️ [Security] Rejected unauthenticated webhook request from ${req.ip}`);
+    res.status(401).json({ error: "Missing X-Webhook-Secret header" });
+    return;
+  }
+
+  // timingSafeEqual requires equal-length buffers; intentional length check
+  // prevents a short-circuit that would itself leak length information.
+  const secretBuf = Buffer.from(secret, "utf8");
+  const providedBuf = Buffer.from(provided, "utf8");
+  const lengthsMatch = secretBuf.length === providedBuf.length;
+  // Always run timingSafeEqual to prevent timing oracle on length
+  const safeCompare = crypto.timingSafeEqual(
+    secretBuf,
+    lengthsMatch ? providedBuf : secretBuf  // fallback keeps same length for constant time
+  );
+  if (!lengthsMatch || !safeCompare) {
+    console.warn(`⚠️ [Security] Rejected webhook request with invalid secret from ${req.ip}`);
+    res.status(401).json({ error: "Invalid X-Webhook-Secret" });
+    return;
+  }
+
+  next();
+}
+
 // Webhook Listener for Proactive Sentinel Triggers
-app.post("/webhook/*", async (req, res) => {
+app.post("/webhook/*", webhookAuth, async (req, res) => {
   try {
     const webhookPath = req.path.replace(/^\/webhook\//, ""); // e.g. test-trigger
     console.log(`🪝 [Server] Received webhook request for ${webhookPath}`);
@@ -349,6 +393,18 @@ async function startServer() {
     await TelegramService.init(io);
     await DiscordService.init(io);
     await initContextCache();
+
+    // Sandbox boot check: verify Docker is available and pre-pull base image
+    if (Config.USE_DOCKER_SANDBOX) {
+      const dockerReady = await SandboxManager.isDockerAvailable();
+      if (!dockerReady) {
+        console.warn("[SandboxManager] Docker daemon not found. Sandbox is DISABLED for this session. Install Docker Desktop to enable isolation.");
+      } else {
+        console.log("[SandboxManager] Docker available. Ensuring base image is present...");
+        await SandboxManager.ensureBaseImage();
+        console.log("[SandboxManager] Sandbox ready. Autonomous mode:", Config.SANDBOX_AUTONOMOUS_MODE);
+      }
+    }
 
     httpServer.listen(PORT, () => {
       console.log(`\n🚀 MidpointX Production Server running on port ${PORT}`);

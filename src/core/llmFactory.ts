@@ -2,11 +2,9 @@ import { Config } from "./config";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { ChatVertexAI } from "@langchain/google-vertexai";
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { AIMessageChunk } from "@langchain/core/messages";
-import { CacheManager } from "./cacheManager";
 
 export class LLMFactory {
   /**
@@ -86,31 +84,20 @@ export class LLMFactory {
         });
       }
 
-      case "vertex": {
-        return new ChatVertexAI({
-          model: modelName,
-          temperature: temperature,
-          maxOutputTokens: maxTokens,
-        } as any);
-      }
-
-      case "google":
-      default: {
-        // Gemini 2.5+: thinkingConfig enabled but thoughts NOT included in output
-        // include_thoughts:true causes the model to return a mixed array of parts
-        // which breaks content parsing and structured output parsers
-        const cachedContent = CacheManager.getActiveCacheId();
-        const model = new ChatGoogleGenerativeAI({
+      case "google": {
+        // Gemini via direct Google AI API (no Vertex, no Cloud infra)
+        return new ChatGoogleGenerativeAI({
           apiKey: Config.GEMINI_API_KEY,
           model: modelName,
           temperature: temperature,
           maxOutputTokens: maxTokens,
         });
+      }
 
-        if (cachedContent) {
-          return (model as any).bind({ cachedContent });
-        }
-        return model;
+      default: {
+        throw new Error(
+          `[LLMFactory] Unknown provider: "${provider}". Valid options: google, anthropic, openai, openrouter, nvidia, local`
+        );
       }
     }
   }

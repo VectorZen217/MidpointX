@@ -44,7 +44,7 @@ export class SessionManager {
       stepCount: 0
     };
 
-    // In a production scenario, this would write to Redis or Firestore
+    // In a production scenario, this would write to Redis or SQLite (see SQLitePersistenceAdapter)
     // For now, we utilize the PersistenceAdapter abstraction
     await adapter.saveSession(session);
     console.log(`🚀 [SessionManager] Created session ${taskId} for user ${userId}. Expires at ${session.expiresAt}`);
