@@ -46,8 +46,13 @@ export interface PersistenceAdapter {
  * Local implementation using the Node.js filesystem.
  */
 export class LocalPersistenceAdapter implements PersistenceAdapter {
-  private baseDir = path.resolve(__dirname, "../../src/workspace");
+  private baseDir: string;
   private sessions: Map<string, any> = new Map();
+  private vectorWriteQueue: Promise<void> = Promise.resolve();
+
+  constructor(baseDir?: string) {
+    this.baseDir = baseDir ?? path.resolve(__dirname, "../../src/workspace");
+  }
 
   async appendLog(category: string, key: string, content: string): Promise<void> {
     const dir = path.join(this.baseDir, category);
@@ -112,13 +117,13 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   }
 
   async appendAudit(entry: string): Promise<void> {
-    const auditDir = path.resolve(__dirname, "../../logs/audit");
+    const auditDir = path.join(this.baseDir, "audit");
     if (!existsSync(auditDir)) await fs.mkdir(auditDir, { recursive: true });
     await fs.appendFile(path.join(auditDir, "a2a_handshake.jsonl"), entry + "\n");
   }
 
   async getLatestAuditHash(): Promise<string> {
-    const auditDir = path.resolve(__dirname, "../../logs/audit");
+    const auditDir = path.join(this.baseDir, "audit");
     const logPath = path.join(auditDir, "a2a_handshake.jsonl");
     if (!existsSync(logPath)) return "0";
 
@@ -205,9 +210,16 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   }
 
   async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
+    this.vectorWriteQueue = this.vectorWriteQueue.then(() =>
+      this._writeVectorEntry(category, key, vector, metadata)
+    );
+    return this.vectorWriteQueue;
+  }
+
+  private async _writeVectorEntry(category: string, key: string, vector: number[], metadata: any): Promise<void> {
     const filePath = path.join(this.baseDir, "vector_store.json");
     let store: Record<string, Array<{ key: string; vector: number[]; metadata: any }>> = {};
-    
+
     if (existsSync(filePath)) {
       try {
         const raw = await fs.readFile(filePath, "utf-8");
@@ -216,15 +228,11 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
         console.warn("⚠️ [Persistence] Failed to parse vector_store.json, resetting.", e);
       }
     }
-    
-    if (!store[category]) {
-      store[category] = [];
-    }
-    
-    // Remove existing item to avoid duplicates
-    store[category] = store[category].filter(item => item.key !== key);
+
+    if (!store[category]) store[category] = [];
+    store[category] = store[category].filter((item) => item.key !== key);
     store[category].push({ key, vector, metadata });
-    
+
     await fs.mkdir(this.baseDir, { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(store, null, 2), "utf-8");
   }
@@ -426,6 +434,15 @@ export class PersistenceFactory {
     if (this.instance) return this.instance;
 
     if (Config.PERSISTENCE_ADAPTER === "sqlite") {
+      try {
+        require.resolve("better-sqlite3");
+      } catch {
+        throw new Error(
+          "[PersistenceFactory] better-sqlite3 is not installed.\n" +
+          "  Run: npm install better-sqlite3\n" +
+          "  Or set PERSISTENCE_ADAPTER=local in .env to use the filesystem adapter."
+        );
+      }
       console.log("\u{1F5C4}\uFE0F [Persistence] Initializing SQLitePersistenceAdapter...");
       this.instance = new SQLitePersistenceAdapter();
     } else {
