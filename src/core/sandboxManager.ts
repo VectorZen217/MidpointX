@@ -1,9 +1,9 @@
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
-import * as os from "os";
 import { Config } from "./config";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface SandboxResult {
   stdout: string;
@@ -55,50 +55,57 @@ export class SandboxManager {
   }
 
   /**
-   * Builds the hardened docker run command string.
-   * Security constraints applied:
-   *   --network=none          no outbound internet from inside the container
-   *   --memory=512m           hard memory cap
-   *   --cpus=0.5              half a CPU core max
-   *   --pids-limit=64         prevent fork bombs
-   *   --read-only             immutable container filesystem
-   *   --tmpfs /tmp            writable scratch space in RAM only
-   *   --security-opt          prevent privilege escalation
-   *   --cap-drop=ALL          drop every Linux capability
+   * Returns the docker run argv array for execFile.
+   * cmd is passed as a literal argv element to sh -c — no outer-shell
+   * re-parsing occurs, so $(...), backticks, and quotes in cmd are safe.
+   *
+   * Security constraints:
+   *   --network=none      no outbound internet from inside the container
+   *   --memory=512m       hard memory cap
+   *   --cpus=0.5          half a CPU core max
+   *   --pids-limit=64     prevent fork bombs
+   *   --read-only         immutable container filesystem
+   *   --tmpfs /tmp        writable scratch space in RAM only (64 MB)
+   *   :ro                 workspace bind-mount is read-only; container cannot
+   *                       modify host files — use /tmp for intermediate output
    */
-  static buildDockerCommand(cmd: string, workspacePath: string): string {
-    const escapedCmd = cmd.replace(/"/g, '\\"');
+  static buildDockerArgs(cmd: string, workspacePath: string): string[] {
     const mountPath = workspacePath.replace(/\\/g, "/");
-
     return [
-      "docker run --rm",
+      "run", "--rm",
       "--network=none",
       "--memory=512m",
       "--cpus=0.5",
       "--pids-limit=64",
       "--read-only",
-      "--tmpfs /tmp:rw,noexec,nosuid,size=64m",
+      "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
       "--security-opt=no-new-privileges",
       "--cap-drop=ALL",
-      `--volume "${mountPath}:/workspace:rw"`,
-      `--workdir /workspace`,
+      "--volume", `${mountPath}:/workspace:ro`,
+      "--workdir", "/workspace",
       this.BASE_IMAGE,
-      `sh -c "${escapedCmd}"`
-    ].join(" ");
+      "sh", "-c", cmd,
+    ];
   }
 
   /**
    * Runs a shell command inside the Docker sandbox.
-   * @param cmd      The shell command to execute
-   * @param cwd      Host path to mount as /workspace inside the container
+   * Uses execFile (not exec) so the argv array is passed directly to the OS
+   * without any shell re-parsing of the docker arguments.
+   *
+   * @param cmd       The shell command to execute inside the container
+   * @param cwd       Host path to mount as /workspace (read-only)
    * @param timeoutMs Execution timeout in milliseconds (default: 60s)
    */
   static async runInSandbox(cmd: string, cwd: string, timeoutMs = 60_000): Promise<SandboxResult> {
-    const dockerCmd = this.buildDockerCommand(cmd, cwd);
+    const args = this.buildDockerArgs(cmd, cwd);
     console.log(`[SandboxManager] Executing in sandbox...`);
 
     try {
-      const { stdout, stderr } = await execAsync(dockerCmd, { timeout: timeoutMs });
+      const { stdout, stderr } = await execFileAsync("docker", args, {
+        timeout: timeoutMs,
+        maxBuffer: 10 * 1024 * 1024,
+      });
       return { stdout: stdout.trim(), stderr: stderr.trim(), timedOut: false };
     } catch (err: any) {
       if (err.killed || err.signal === "SIGTERM") {
@@ -111,6 +118,8 @@ export class SandboxManager {
   /**
    * Returns true if sandbox mode is active AND autonomous mode is enabled.
    * When true, sandboxed commands skip the destructive-action approval gate.
+   * NOTE: callers must independently confirm Docker is available before relying
+   * on this flag — isAutonomous() does not check Docker availability.
    */
   static isAutonomous(): boolean {
     return Config.USE_DOCKER_SANDBOX && Config.SANDBOX_AUTONOMOUS_MODE;
