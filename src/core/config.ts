@@ -41,6 +41,7 @@ const ConfigSchema = z.object({
   SLEEP_CYCLE_CRON: z.string().default("0 3 * * *"), // 3 AM local time
   SILENT_MODE: BoolSchema.default(false),
   
+  PRIMARY_USER_ID: z.string().optional(), // FIX Bug3: user ID to check for active tasks before proactive triggers
   PERSISTENCE_ADAPTER: z.enum(["local", "sqlite"]).default("local"),
   SANDBOX_AUTONOMOUS_MODE: BoolSchema.default(true),
   // Must be set to enable the /webhook/* endpoint. Min 32 chars enforced.
@@ -54,8 +55,12 @@ export function reloadConfig(newEnv?: any) {
   try {
     Config = ConfigSchema.parse(newEnv || process.env);
     console.log("✅ [Config] Environment variables reloaded successfully.");
+    // Invalidate PersistenceFactory singleton so next getAdapter() uses the updated config.
+    // Inline require avoids a circular dependency (persistence.ts imports config.ts).
+    const { PersistenceFactory } = require("./persistence");
+    PersistenceFactory.reset();
   } catch (error: any) {
-    console.error("❌ [Config] Configuration reload failed:");
+    console.error("❄ [Config] Configuration reload failed:");
     if (error instanceof z.ZodError) {
       error.errors.forEach((err) => {
         console.error(`   - ${err.path.join(".")}: ${err.message}`);
@@ -67,9 +72,9 @@ export function reloadConfig(newEnv?: any) {
 // Initial load
 try {
   Config = ConfigSchema.parse(process.env);
-  console.log("✅ [Config] Environment variables validated successfully.");
+  console.log("℅ [Config] Environment variables validated successfully.");
 } catch (error: any) {
-  console.error("❌ [Config] Configuration validation failed:");
+  console.error("❄ [Config] Configuration validation failed:");
   if (error instanceof z.ZodError) {
     error.errors.forEach((err) => {
       console.error(`   - ${err.path.join(".")}: ${err.message}`);
@@ -79,4 +84,3 @@ try {
   }
   process.exit(1);
 }
-

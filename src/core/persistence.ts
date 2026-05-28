@@ -206,7 +206,18 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   }
 
   async listActiveSessions(): Promise<string[]> {
-    return Array.from(this.sessions.keys());
+    const memIds = Array.from(this.sessions.keys());
+    const diskIds: string[] = [];
+    const sessionDir = path.join(this.baseDir, "sessions");
+    try {
+      const files = await fs.readdir(sessionDir);
+      for (const f of files) {
+        if (f.endsWith(".json")) diskIds.push(f.replace(".json", ""));
+      }
+    } catch {
+      // Session directory doesn't exist yet — that's fine
+    }
+    return [...new Set([...memIds, ...diskIds])];
   }
 
   async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
@@ -453,6 +464,14 @@ export class PersistenceFactory {
     }
 
     return this.instance;
+  }
+
+  /**
+   * Clears the cached adapter instance. Call after reloadConfig() so the
+   * next getAdapter() picks up the updated PERSISTENCE_ADAPTER setting.
+   */
+  static reset(): void {
+    this.instance = null;
   }
 }
 

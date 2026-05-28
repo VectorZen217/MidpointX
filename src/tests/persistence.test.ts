@@ -63,3 +63,46 @@ describe("LocalPersistenceAdapter constructor base directory", () => {
     expect(entries).toContain("key.md");
   });
 });
+
+describe("PersistenceFactory.reset()", () => {
+  afterEach(() => {
+    PersistenceFactory.reset();
+  });
+
+  it("reset() clears the cached instance so getAdapter() creates a new one", () => {
+    const a = PersistenceFactory.getAdapter();
+    PersistenceFactory.reset();
+    const b = PersistenceFactory.getAdapter();
+    expect(a).not.toBe(b);
+  });
+
+  it("getAdapter() returns the same instance on repeated calls without reset", () => {
+    const a = PersistenceFactory.getAdapter();
+    const b = PersistenceFactory.getAdapter();
+    expect(a).toBe(b);
+  });
+});
+
+describe("LocalPersistenceAdapter.listActiveSessions()", () => {
+  it("returns sessions stored to disk even after the in-memory map is cleared", async () => {
+    const { adapter } = await makeTempAdapter();
+    await adapter.saveSession({ taskId: "task-abc", status: "running" });
+    // Simulate process restart by clearing in-memory map
+    (adapter as any).sessions.clear();
+    const sessions = await adapter.listActiveSessions();
+    expect(sessions).toContain("task-abc");
+  });
+
+  it("returns union of in-memory and disk sessions without duplicates", async () => {
+    const { adapter } = await makeTempAdapter();
+    await adapter.saveSession({ taskId: "disk-only", status: "done" });
+    (adapter as any).sessions.clear();
+    // Add an in-memory-only session (never persisted to disk)
+    (adapter as any).sessions.set("mem-only", { taskId: "mem-only" });
+    const sessions = await adapter.listActiveSessions();
+    expect(sessions).toContain("disk-only");
+    expect(sessions).toContain("mem-only");
+    // No duplicates
+    expect(new Set(sessions).size).toBe(sessions.length);
+  });
+});
