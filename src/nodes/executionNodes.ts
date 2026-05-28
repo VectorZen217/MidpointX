@@ -474,17 +474,18 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
       const fetchUrl = toolCall.args?.url || "";
       console.warn(`🔄 [SelectionActor] FETCH INTERCEPT: fetch__fetch was previously blocked by robots.txt. Auto-converting to PowerShell Invoke-WebRequest for: ${fetchUrl}`);
       toolCall.name = "execute_system_command";
+      const safeUrl = fetchUrl.replace(/'/g, "''");
       toolCall.args = {
-        command: `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '${fetchUrl}' -UseBasicParsing | Select-Object -ExpandProperty Content`
+        command: `$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '${safeUrl}' -UseBasicParsing | Select-Object -ExpandProperty Content`
       };
     }
   }
   
   const severity = getActionSeverity(toolCall?.name, toolCall?.args);
-  // Autonomous mode: skip approval gate when running inside the hardened sandbox.
-  // Host-level destructive ops (file deletes outside workspace, process kills) still
-  // use the approval gate via REQUIRE_APPROVAL_FOR_DESTRUCTIVE.
-  const sandboxBypasses = SandboxManager.isAutonomous() && toolCall?.name === "execute_system_command";
+  // Autonomous mode: skip approval gate ONLY when Docker is confirmed available.
+  // isDockerAvailable() is cached after first call so this is a fast path.
+  const dockerConfirmed = Config.USE_DOCKER_SANDBOX && await SandboxManager.isDockerAvailable();
+  const sandboxBypasses = dockerConfirmed && Config.SANDBOX_AUTONOMOUS_MODE && toolCall?.name === "execute_system_command";
   let needsApproval = !sandboxBypasses && Config.REQUIRE_APPROVAL_FOR_DESTRUCTIVE && severity !== null;
   let approvalSeverity = severity;
   
@@ -502,23 +503,39 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
     }
     
     // Redundant success detection: If the agent already got the data 2x, stop.
+    // EXEMPTION: system__read_skill and system__list_skills are SETUP steps, not
+    // result-producing steps. Reading a skill twice without acting means the agent
+    // has the instructions but is not applying them. Forcing task-complete here is
+    // wrong -- force a replan instead so the agent acts on what it already read.
+    const SETUP_TOOLS = new Set(["system__read_skill", "system__list_skills"]);
     const last2 = state.actionHistory.slice(-2);
     if (last2.length >= 2 && last2.every((a: any) => a.tool === toolCall.name && JSON.stringify(a.args) === JSON.stringify(toolCall.args))) {
-      // Check if the previous calls actually succeeded
       const allSucceeded = last2.every((a: any) => {
         try { return JSON.parse(a.result)?.status === "success"; } catch { return false; }
       });
       if (allSucceeded) {
-        console.warn(`⚠️ [SelectionActor] REDUNDANT CALL DETECTED: ${toolCall.name} already succeeded 2x with same args. The data you need is already in your history. Synthesize a final answer.`);
-        // Don't force replan — force completion. The data is there.
-        return A2AProtocol.commit("SelectionActor", { 
-          isTaskComplete: true, 
-          finalOutcome: `I have already successfully retrieved the required data using ${toolCall.name}. Reviewing my action history to synthesize the answer now.`,
-          pendingAction: null,
-          needsApproval: false,
-          currentScreenshot,
-          ...prunedState
-        });
+        if (SETUP_TOOLS.has(toolCall.name)) {
+          // Agent read the skill/list twice but has not applied the instructions.
+          // Force a replan that demands execution, not more reading.
+          console.warn(`⚠️ [SelectionActor] SKILL-READ LOOP: Agent called ${toolCall.name} twice with same args but has not applied the skill. Forcing execution replan.`);
+          toolCall.name = "system__request_replanning";
+          toolCall.args = {
+            thesis: `I have already read the skill/list using ${toolCall.name} twice. ` +
+              `Reading it again is not progress. I now MUST apply the skill instructions using ` +
+              `my available action tools (execute_system_command, file__write, etc.). ` +
+              `I will not call ${toolCall.name} again -- I will act on what I already read.`
+          };
+        } else {
+          console.warn(`⚠️ [SelectionActor] REDUNDANT CALL DETECTED: ${toolCall.name} already succeeded 2x with same args. The data you need is already in your history. Synthesize a final answer.`);
+          return A2AProtocol.commit("SelectionActor", {
+            isTaskComplete: true,
+            finalOutcome: `I have already successfully retrieved the required data using ${toolCall.name}. Reviewing my action history to synthesize the answer now.`,
+            pendingAction: null,
+            needsApproval: false,
+            currentScreenshot,
+            ...prunedState
+          });
+        }
       }
     }
   }
@@ -619,9 +636,6 @@ export async function executionActor(state: typeof MidpointXState.State) {
         } else {
           finalMessage = JSON.stringify({ status: "success", output: result.stdout, errors: result.stderr });
         }
-        // Skip the host-shell path below
-        // @ts-ignore — intentional early assign; falls through to A2AProtocol.commit
-        finalMessage = finalMessage;
       }
     }
 
@@ -638,7 +652,8 @@ export async function executionActor(state: typeof MidpointXState.State) {
           const executionPolicy = isMessaging ? "Restricted" : "Bypass";
           console.log(`[Security] Hardening PowerShell (Policy: ${executionPolicy})...`);
           const wrappedCmd = `$ProgressPreference = 'SilentlyContinue'; ${cmd}`;
-          hostCmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy ${executionPolicy} -Command "${wrappedCmd.replace(/"/g, '\"')}"`;
+          const encoded = Buffer.from(wrappedCmd, "utf16le").toString("base64");
+          hostCmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy ${executionPolicy} -EncodedCommand ${encoded}`;
         }
 
         const { stdout, stderr } = await execAsync(hostCmd, { cwd, shell: detectedShell });
@@ -653,8 +668,52 @@ export async function executionActor(state: typeof MidpointXState.State) {
       
       // Handle MCP specific error reporting
       if (out && typeof out === 'object' && out.isError) {
-        const faultMsg = formatFault(action.tool, String(out.content), "Tool returned isError flag.");
-        finalMessage = JSON.stringify({ status: "error", errors: faultMsg });
+        // MCP errors return content as [{ type: "text", text: "..." }] -- extract properly
+        // so the FAULT log is human-readable rather than "[object Object]".
+        const errorText = Array.isArray(out.content)
+          ? out.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n")
+          : String(out.content);
+
+        // ── ERROR-CLASS HANDLERS ──────────────────────────────────────────────
+        // Each class injects a concrete fix into failureThesis so the Supervisor
+        // can replan with actionable guidance rather than generic "try again".
+
+        let fixHint = "Identify the root cause and retry with corrected arguments.";
+
+        // Class A: Invalid URL scheme -- tool expected https:// but received a
+        // notebook ID, file path, or bare string. Reconstruct the URL from args.
+        if (errorText.toLowerCase().includes("url scheme") ||
+            errorText.toLowerCase().includes("invalid url") ||
+            errorText.toLowerCase().includes("url is not valid")) {
+          const badUrl = Object.values(action.args as Record<string, unknown>)
+            .find((v): v is string => typeof v === "string" && (v.includes("://") || v.startsWith("/"))) as string | undefined;
+          fixHint =
+            `INVALID_URL_SCHEME: The tool "${action.tool}" received a malformed URL. ` +
+            `Bad value: "${badUrl ?? JSON.stringify(action.args)}". ` +
+            `Fix: ensure the URL starts with "https://" and is a fully-qualified public URL, ` +
+            `not a notebook ID, file path, or bare text string. ` +
+            `If no public URL exists for this content, use a text-based source argument instead.`;
+          console.warn(`⚠️ [ExecutionActor] INVALID_URL_SCHEME on ${action.tool} -- injecting fix hint.`);
+        }
+
+        // Class B: 403 / bot-blocked fetch -- permanent external block.
+        if (action.tool === "fetch__fetch" && errorText.includes("403")) {
+          fixHint =
+            `FETCH_BLOCKED_403: ${action.args?.url} returned 403 (bot protection). ` +
+            `Try searching for cached or alternative sources instead of fetching directly.`;
+          console.warn(`⚠️ [ExecutionActor] 403 on ${action.args?.url}.`);
+        }
+
+        // Class C: Rate limit -- transient, retry after delay.
+        if (errorText.toLowerCase().includes("rate limit") || errorText.toLowerCase().includes("429")) {
+          fixHint =
+            `RATE_LIMITED: Tool "${action.tool}" hit a rate limit. ` +
+            `Wait at least 30 seconds before retrying. Do not call this tool again immediately.`;
+          console.warn(`⚠️ [ExecutionActor] Rate limit hit on ${action.tool}.`);
+        }
+
+        const faultMsg = formatFault(action.tool, errorText, "Tool returned isError flag.", fixHint);
+        finalMessage = JSON.stringify({ status: "error", errors: faultMsg, failureThesis: fixHint });
         console.error(`❌ [ExecutionActor] ${faultMsg}`);
       } else {
         // ═══════════════════════════════════════════════════════════════
@@ -682,6 +741,34 @@ export async function executionActor(state: typeof MidpointXState.State) {
       const faultMsg = formatFault(action.tool, err.message, "Unhandled exception during MCP tool execution.");
       finalMessage = JSON.stringify({ status: "error", errors: faultMsg });
       console.error(`❌ [ExecutionActor] ${faultMsg}`);
+
+      // TOOL-NOT-FOUND ESCAPE HATCH: If the registry cannot find the tool at all,
+      // retrying is pointless. Force a replan immediately so the agent does not burn
+      // its entire turn budget on a tool that will never exist.
+      // Root cause: agent confused a Markdown skill with a callable MCP tool,
+      // e.g. tried "strategic_planner__generate_plan" which is never registered.
+      if (err.message && err.message.includes("not found in registry")) {
+        const missingTool = action.tool;
+        console.error(
+          `🚫 [ExecutionActor] TOOL_NOT_FOUND_ABORT: "${missingTool}" is not a registered tool. ` +
+          `Forcing immediate replan -- do NOT retry this tool name.`
+        );
+        const thesis =
+          `TOOL_NOT_FOUND: "${missingTool}" does not exist in the tool registry and cannot be called. ` +
+          `This is a Markdown skill (reasoning guide), not an MCP-registered function. ` +
+          `I must NOT retry this tool name. Instead I will call system__list_skills to see valid names, ` +
+          `then system__read_skill with the correct hyphenated name, then apply its instructions.`;
+        return A2AProtocol.commit("ExecutionActor", {
+          replanCount: 1,
+          failureThesis: thesis,
+          abandonedPlans: [{ plan: state.strategicPlan, thesis }],
+          pendingAction: null,
+          actionHistory: [
+            ...state.actionHistory,
+            { tool: action.tool, args: action.args, result: JSON.stringify({ status: "error", errors: `TOOL_NOT_FOUND: ${missingTool} is not registered.` }) }
+          ]
+        });
+      }
     }
   }
 
