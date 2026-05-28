@@ -210,10 +210,12 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   }
 
   async saveVectorIndex(category: string, key: string, vector: number[], metadata: any): Promise<void> {
-    this.vectorWriteQueue = this.vectorWriteQueue.then(() =>
-      this._writeVectorEntry(category, key, vector, metadata)
-    );
-    return this.vectorWriteQueue;
+    const next = this.vectorWriteQueue
+      .then(() => this._writeVectorEntry(category, key, vector, metadata));
+    // Queue head always settles resolved so future writes are not blocked by this error.
+    // The caller still receives the real rejection if _writeVectorEntry throws.
+    this.vectorWriteQueue = next.catch(() => {});
+    return next;
   }
 
   private async _writeVectorEntry(category: string, key: string, vector: number[], metadata: any): Promise<void> {

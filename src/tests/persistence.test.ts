@@ -21,6 +21,28 @@ describe("LocalPersistenceAdapter.saveVectorIndex — concurrency", () => {
     expect(results.map((r) => r.key).sort()).toEqual(["k1", "k2"]);
   });
 
+  it("queue remains functional after a _writeVectorEntry error", async () => {
+    const { adapter } = await makeTempAdapter();
+    // Override _writeVectorEntry to simulate a throw on first call only
+    let firstCall = true;
+    const orig = (adapter as any)._writeVectorEntry.bind(adapter);
+    (adapter as any)._writeVectorEntry = async (...args: any[]) => {
+      if (firstCall) {
+        firstCall = false;
+        throw new Error("simulated write failure");
+      }
+      return orig(...args);
+    };
+
+    // First write fails — caller should see rejection
+    await expect(adapter.saveVectorIndex("cat", "k1", [1, 0], {})).rejects.toThrow("simulated write failure");
+
+    // Second write must succeed — queue was not permanently broken
+    await expect(adapter.saveVectorIndex("cat", "k2", [0, 1], {})).resolves.toBeUndefined();
+    const results = await adapter.queryVectorIndex("cat", [1, 0], 10);
+    expect(results.some((r) => r.key === "k2")).toBe(true);
+  });
+
   it("preserves existing entries when adding a new one", async () => {
     const { adapter } = await makeTempAdapter();
     await adapter.saveVectorIndex("cat", "a", [1, 0], {});
