@@ -190,8 +190,25 @@ Output ONLY the raw markdown content. No code fences, no preamble.`;
   }
 
   // ── 3. Write Skill File ──────────────────────────────────────────────────
+  // Validate that the generated skill ID is safe for use as a filename
+  if (!/^[A-Z0-9_]{1,80}$/.test(skillId)) {
+    console.error(`❌ [SkillAcquisitionActor] Generated skillId "${skillId}" contains unsafe characters. Aborting.`);
+    return A2AProtocol.commit("SkillAcquisitionActor", {
+      skillGapQuery: "",
+      failureThesis: `Skill synthesis aborted: skillId "${skillId}" failed validation for query "${query}"`
+    });
+  }
+
   await fs.mkdir(SKILLS_DIR, { recursive: true });
   const filePath = path.join(SKILLS_DIR, `${skillId}.md`);
+  // Verify resolved path stays within SKILLS_DIR as defense-in-depth
+  if (!filePath.startsWith(SKILLS_DIR + path.sep)) {
+    console.error(`❌ [SkillAcquisitionActor] Skill path escapes skills directory: ${filePath}`);
+    return A2AProtocol.commit("SkillAcquisitionActor", {
+      skillGapQuery: "",
+      failureThesis: `Skill path traversal detected for query "${query}"`
+    });
+  }
 
   try {
     await fs.writeFile(filePath, skillContent, "utf-8");
