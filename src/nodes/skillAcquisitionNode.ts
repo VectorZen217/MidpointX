@@ -1,18 +1,15 @@
 import "dotenv/config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
-import { exec } from "child_process";
-import { promisify } from "util";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as crypto from "crypto";
+import axios from "axios";
 
 import { MidpointXState } from "../core/state";
 import { LLMFactory } from "../core/llmFactory";
 import { PluginRegistry } from "../core/pluginRegistry";
 import { invokeWithResilience } from "../core/resilience";
 import { A2AProtocol } from "../core/protocol";
-
-const execAsync = promisify(exec);
 
 const SKILLS_DIR = path.resolve(__dirname, "../../src/plugins/skills");
 const MAX_SEARCH_CHARS = 6000; // Truncate web results to keep prompt tight
@@ -34,20 +31,17 @@ function queryToId(query: string): string {
 }
 
 /**
- * Fetch web content for a search query using PowerShell Invoke-WebRequest.
+ * Fetch web content for a search query via axios (DuckDuckGo HTML endpoint).
  * Falls back gracefully if the request fails.
  */
 async function webSearch(query: string): Promise<string> {
   const encoded = encodeURIComponent(query);
-  const cmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `
-    + `"$ProgressPreference='SilentlyContinue'; `
-    + `$r = Invoke-WebRequest -Uri 'https://html.duckduckgo.com/html/?q=${encoded}' -UseBasicParsing; `
-    + `$r.Content"`;
-
   try {
-    const { stdout } = await execAsync(cmd, { timeout: 15000 });
-    // Strip HTML tags and collapse whitespace for a clean text corpus
-    const stripped = stdout
+    const response = await axios.get<string>(
+      `https://html.duckduckgo.com/html/?q=${encoded}`,
+      { timeout: 15000, responseType: "text", headers: { "User-Agent": "MidpointX/2.0" } }
+    );
+    const stripped = String(response.data)
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
       .replace(/<[^>]+>/g, " ")
@@ -63,14 +57,29 @@ async function webSearch(query: string): Promise<string> {
 /**
  * Use a targeted fetch to grab a documentation page (e.g. npm page, MDN, GitHub README).
  * Used as a supplemental source when the LLM proposes a specific URL.
+ * URL is validated before use to prevent injection via non-HTTP schemes.
  */
 async function fetchDocPage(url: string): Promise<string> {
-  const cmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `
-    + `"$ProgressPreference='SilentlyContinue'; `
-    + `Invoke-WebRequest -Uri '${url}' -UseBasicParsing | Select-Object -ExpandProperty Content"`;
+  let parsed: URL;
   try {
-    const { stdout } = await execAsync(cmd, { timeout: 12000 });
-    const stripped = stdout
+    parsed = new URL(url);
+  } catch {
+    console.warn("⚠️ [SkillAcquisitionActor] Invalid URL rejected:", url);
+    return "";
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    console.warn("⚠️ [SkillAcquisitionActor] Non-HTTP URL rejected:", url);
+    return "";
+  }
+
+  try {
+    const response = await axios.get<string>(parsed.href, {
+      timeout: 12000,
+      responseType: "text",
+      headers: { "User-Agent": "MidpointX/2.0 (+research)" },
+      maxRedirects: 3
+    });
+    const stripped = String(response.data)
       .replace(/<[^>]+>/g, " ")
       .replace(/\s{3,}/g, "\n")
       .trim();
