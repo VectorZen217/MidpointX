@@ -288,7 +288,13 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     // Always look on turn 1 to get bearings
     if (isFirstTurn) {
       console.log("👁️ [SelectionActor] Initial visual grounding (Turn 1)...");
-      currentScreenshot = await ScreenCapture.captureBase64();
+      try {
+        currentScreenshot = await ScreenCapture.captureBase64();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("⚠️ [SelectionActor] Screenshot capture failed (non-fatal):", msg);
+        currentScreenshot = "";
+      }
     } else if (explicitSnapshot) {
       console.log("👁️ [SelectionActor] Manual visual sync detected in history.");
       // The snapshot data is stored in the action history result
@@ -780,8 +786,14 @@ export async function executionActor(state: typeof MidpointXState.State) {
     console.log(`👁️ [ExecutionActor] Triggering Region-Locked Motion Probe for verification...`);
     // Region-Locking: If args contain x,y, use them as anchor
     const region = (action.args.x && action.args.y) ? { x: action.args.x - 50, y: action.args.y - 50, w: 100, h: 100 } : undefined;
-    const frames = await ScreenCapture.captureBurst(1, 3, region);
-    temporalInsight = await ScreenCapture.getVisualDiff(frames, region);
+    try {
+      const frames = await ScreenCapture.captureBurst(1, 3, region);
+      temporalInsight = await ScreenCapture.getVisualDiff(frames, region);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("⚠️ [ExecutionActor] Temporal verification failed (non-fatal):", msg);
+      temporalInsight = "";
+    }
   }
 
   const isSnapshotTool = action.tool === "desktop__take_snapshot" || action.tool === "browser__screenshot";
