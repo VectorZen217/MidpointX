@@ -16,6 +16,17 @@ import { MemoryManager } from "../core/memory";
 import { A2AProtocol } from "../core/protocol";
 import { z } from "zod";
 
+/**
+ * Wraps a promise with a timeout. If the promise doesn't settle within ms milliseconds,
+ * resolves with the fallback value instead. Prevents hanging memory calls from blocking the cognitive loop.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
 export const SilentAssessmentSchema = z.object({
   action: z.enum(["DROP", "NOTIFY", "ACTION"]),
   confidence: z.number().describe("0-100 score indicating confidence in taking autonomous action"),
@@ -110,7 +121,11 @@ export async function reflectNode(state: typeof MidpointXState.State) {
   const userContext = WorkspaceLoader.getUserContext();
 
   // Recall relevant past sessions (last 7 days)
-  const memoryContext = await MemoryManager.recallRecent(state.userIntent, 7);
+  const memoryContext = await withTimeout(
+    MemoryManager.recallRecent(state.userIntent, 7),
+    5000,
+    ""
+  );
   
   // Archive Search (Last Resort): If active library feels insufficient or mission seems novel
   let archiveContext = "";
@@ -122,11 +137,19 @@ export async function reflectNode(state: typeof MidpointXState.State) {
 
   if (!activeSkillMatch || memoryContext.length < 50) {
     console.log("🔍 [ReflectionActor] Working memory sparse. Searching cold storage archive...");
-    archiveContext = await MemoryManager.searchArchive(state.userIntent);
+    archiveContext = await withTimeout(
+      MemoryManager.searchArchive(state.userIntent),
+      5000,
+      ""
+    );
   }
 
-  const memoryBlock = (memoryContext ? `\n\n${memoryContext}` : "") + 
-                      (archiveContext ? `\n\nCOLD STORAGE MATCHES (ARCHIVED THEOREMS):\n${archiveContext}\n\nIf these archived patterns are relevant, adapt them into your strategy.` : "");
+  // FIX Bug1b: wrap recalled sessions with explicit label so downstream actors (SupervisorActor)
+  // cannot mistake historical context for the current task being evaluated
+  const memoryBlock = (memoryContext
+    ? `\n\nHISTORICAL CONTEXT (past sessions — for reference only, NOT the current task):\n${memoryContext}\nEND HISTORICAL CONTEXT`
+    : "") +
+    (archiveContext ? `\n\nCOLD STORAGE MATCHES (ARCHIVED THEOREMS):\n${archiveContext}\n\nIf these archived patterns are relevant, adapt them into your strategy.` : "");
 
   const identityStr = state.operatorIdentity
     ? `\n\nCURRENT OPERATOR IDENTITY:\nName: ${state.operatorIdentity.name}\nEmail: ${state.operatorIdentity.email}\nUID: ${state.operatorIdentity.uid}`
@@ -137,7 +160,9 @@ export async function reflectNode(state: typeof MidpointXState.State) {
     : '';
 
   const content: any[] = [
-    { type: "text", text: `Task Intent: ${state.userIntent}${memoryBlock}\n\nCritically reflect on this task. What are the hidden complexities, required system states, and potential failure points?` }
+    // FIX Bug1b: CURRENT TASK appears first and is labeled separately from historical context
+    // so SupervisorActor cannot classify this session as a past sentinel event
+    { type: "text", text: `CURRENT TASK (from user): ${state.userIntent}${memoryBlock}\n\nCritically reflect on the CURRENT TASK above. What are the hidden complexities, required system states, and potential failure points?` }
   ];
 
   if (state.highFidelityContext && state.highFidelityContext.length > 0) {
@@ -155,10 +180,12 @@ export async function reflectNode(state: typeof MidpointXState.State) {
   const response = await invokeWithResilience(model, payload);
 
   const fullContent = extractText(response.content);
-  
+
   // Extract the concise intent from the formatted response
   const coreIntentMatch = fullContent.match(/CONCISE INTENT: (.*)/i);
-  const conciseIntent = coreIntentMatch ? coreIntentMatch[1].trim() : fullContent.split('\n')[0].trim();
+  const conciseIntent = coreIntentMatch
+    ? coreIntentMatch[1].trim()
+    : (fullContent?.split('\n')[0] ?? "").trim() || state.userIntent;
 
   if (memoryContext) {
     console.log(`🔮 [ReflectionActor] Injected ${memoryContext.split("##").length - 1} relevant past session(s) into context.`);
@@ -318,15 +345,27 @@ Select the next worker, define their focused 'subGoal', and output the updated s
     }
   });
 
+  // Guard: if every step in the INCOMING plan is already completed/failed, the task is
+  // done even if the LLM generated a new "confirmation" step. Overriding here prevents
+  // the infinite Supervisor → SelectionActor → Supervisor loop.
+  const existingPlanAllDone = (state.strategicPlan?.length ?? 0) > 0 &&
+    state.strategicPlan.every(
+      (step: string) => ['completed', 'failed'].includes(state.planStatus[step] ?? 'pending')
+    );
+  const effectiveIsTaskComplete = response.isTaskComplete || existingPlanAllDone;
+  if (existingPlanAllDone && !response.isTaskComplete) {
+    console.log("🏁 [SupervisorActor] All original plan steps completed. Overriding isTaskComplete -> true.");
+  }
+
   console.log(`👑 [SupervisorActor] Step assigned: "${response.subGoal}" -> Role: [${response.assignedWorker}]`);
 
-  return A2AProtocol.commit("SupervisorActor", { 
+  return A2AProtocol.commit("SupervisorActor", {
     analysisResult: response.rationale,
     strategicPlan: response.strategicPlan,
     planStatus: newPlanStatus,
     activeWorker: response.assignedWorker,
     workerSubGoal: response.subGoal,
-    isTaskComplete: response.isTaskComplete,
+    isTaskComplete: effectiveIsTaskComplete,
     environmentFingerprint: envFingerprint,
     citedSkills: citedSkills,
     skillGapQuery: skillGapQuery,
