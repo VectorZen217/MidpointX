@@ -7,6 +7,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import cors from "cors";
 import axios from "axios";
+import rateLimit from "express-rate-limit";
 
 import { Config, reloadConfig } from "./core/config";
 import { WorkspaceLoader } from "./core/workspaceLoader";
@@ -16,6 +17,7 @@ import { Observer } from "./core/observer";
 import { ChannelRouter } from "./core/channelRouter";
 import { EnvManager } from "./core/envManager";
 import { PersistenceFactory } from "./core/persistence";
+import { initFileLogger } from "./core/logger";
 
 // Phase 3: Messaging Services
 import { DiscordService } from "./services/discordService";
@@ -55,6 +57,10 @@ if (Config.SILENT_MODE) {
   };
 }
 
+// File logger wraps console AFTER SILENT_MODE so every message reaches disk
+// regardless of terminal filtering.
+initFileLogger();
+
 const app = express();
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(",") 
@@ -62,6 +68,25 @@ const allowedOrigins = process.env.CORS_ORIGIN
 
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
+
+const standardLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please slow down." }
+});
+
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Webhook rate limit exceeded." }
+});
+
+app.use("/api/v1", standardLimiter);
+app.use("/webhook", webhookLimiter);
 
 // Serve static UI if built
 const publicPath = path.resolve(__dirname, "../public");
