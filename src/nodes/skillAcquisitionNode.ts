@@ -48,8 +48,9 @@ async function webSearch(query: string): Promise<string> {
       .replace(/\s{3,}/g, "\n")
       .trim();
     return stripped.slice(0, MAX_SEARCH_CHARS);
-  } catch (err: any) {
-    console.warn("⚠️ [SkillAcquisitionActor] Web search failed:", err.message);
+  } catch (err) {
+    const msg = axios.isAxiosError(err) ? err.message : String(err);
+    console.warn("⚠️ [SkillAcquisitionActor] Web search failed:", msg);
     return "";
   }
 }
