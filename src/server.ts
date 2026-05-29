@@ -6,17 +6,14 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import cors from "cors";
-import axios from "axios";
 import rateLimit from "express-rate-limit";
 
-import { Config, reloadConfig } from "./core/config";
+import { Config } from "./core/config";
 import { WorkspaceLoader } from "./core/workspaceLoader";
 import { PluginRegistry } from "./core/pluginRegistry";
 import { MidpointXGraph } from "./core/graph";
 import { Observer } from "./core/observer";
 import { ChannelRouter } from "./core/channelRouter";
-import { EnvManager } from "./core/envManager";
-import { PersistenceFactory } from "./core/persistence";
 import { initFileLogger } from "./core/logger";
 
 // Phase 3: Messaging Services
@@ -26,34 +23,27 @@ import { initContextCache } from "./core/cacheManager";
 import { SandboxManager } from "./core/sandboxManager";
 import { a2aRouter } from "./routes/a2aRoutes";
 import { uiApiRouter } from "./routes/uiApiRoutes";
+import { skillRoutes } from "./routes/skillRoutes";
+import { schedulerRoutes } from "./routes/schedulerRoutes";
+import { makeConfigRoutes } from "./routes/configRoutes";
 
-// Global Log Filtering (Phase 4): Suppress verbose protocol logs in SILENT_MODE
-if (Config.SILENT_MODE) {
+// Log level: set LOG_LEVEL=silent in .env to suppress verbose output.
+// Uses structured filtering instead of emoji matching for portability across
+// terminals, log aggregators (GCP Cloud Logging), and CI systems.
+const LOG_LEVEL = process.env.LOG_LEVEL || (Config.SILENT_MODE ? "silent" : "verbose");
+
+if (LOG_LEVEL === "silent") {
   const originalLog = console.log;
   console.log = (...args: any[]) => {
     const message = args.map(arg => String(arg)).join(" ");
-    
-    // Critical Whitelist: ONLY whitelist security alerts, hard failures, and startup
-    const criticalIcons = ["🚀", "❌", "⛔", "🔔", "⚠️", "🔌", "✅"];
-    const isCritical = criticalIcons.some(icon => message.includes(icon));
-    
-    // Blacklist: Suppress timestamped child logs and common internal noise
     const isTimestamp = /^\[\d{4}-\d{2}-\d{2}T/.test(message);
     const isNodeInternal = message.includes("node-telegram-bot-api") || message.includes("DeprecationWarning");
-    
-    if (isCritical || (!isTimestamp && !isNodeInternal)) {
-      originalLog(...args);
-    }
+    if (!isTimestamp && !isNodeInternal) originalLog(...args);
   };
-  
-  // Also filter warnings but keep errors
   const originalWarn = console.warn;
   console.warn = (...args: any[]) => {
     const message = args.map(arg => String(arg)).join(" ");
-    const criticalIcons = ["🚨", "⚠️", "❌"];
-    if (criticalIcons.some(icon => message.includes(icon))) {
-      originalWarn(...args);
-    }
+    if (/error|fail|critical/i.test(message)) originalWarn(...args);
   };
 }
 
@@ -102,148 +92,9 @@ app.use("/api/v1/a2a", a2aRouter);
 app.use("/api/v1", uiApiRouter);
 app.get("/api/v1/health", (req, res) => res.json({ status: "healthy", version: "2.0.0" }));
 
-app.get("/api/v1/skills", async (req, res) => {
-  try {
-    const skills = await PluginRegistry.getMDSkills();
-    res.json(skills);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/v1/skills", async (req, res) => {
-  try {
-    const { name, description, content } = req.body;
-    if (!name || !content) return res.status(400).json({ error: "Missing name or content" });
-    
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const adapter = PersistenceFactory.getAdapter();
-    
-    const fileContent = `---\nname: ${name}\ndescription: ${description || "Custom skill"}\n---\n\n${content}\n`;
-    await adapter.saveSkill(slug, fileContent);
-    await PluginRegistry.reloadMDSkills();
-    res.json({ success: true, slug });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/v1/skills/:slug", async (req, res) => {
-  try {
-    const { slug } = req.params;
-    const { name, description, content } = req.body;
-    const skills = await PluginRegistry.getMDSkills();
-    const skill = skills.find(s => s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === slug);
-    
-    if (!skill) return res.status(404).json({ error: "Skill not found" });
-    
-    const scheduleMatch = skill.content.match(/schedule:\s*["']?([^"'\s][^"']*)["']?/);
-    const schedule = scheduleMatch ? scheduleMatch[1] : undefined;
-    
-    let frontmatter = `---\nname: ${name}\ndescription: ${description || "Custom skill"}\n`;
-    if (schedule) frontmatter += `schedule: "${schedule}"\n`;
-    frontmatter += `---`;
-    
-    const newContent = `${frontmatter}\n\n${content}\n`;
-    const adapter = PersistenceFactory.getAdapter();
-    await adapter.saveSkill(slug, newContent);
-    await PluginRegistry.reloadMDSkills();
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/v1/skills/:slug", async (req, res) => {
-  try {
-    const { slug } = req.params;
-    const adapter = PersistenceFactory.getAdapter();
-    await adapter.deleteLog("skills", slug); // Reusing deleteLog for skill removal
-    await PluginRegistry.reloadMDSkills();
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/v1/scheduler", async (req, res) => {
-  try {
-    const skills = await PluginRegistry.getMDSkills();
-    const scheduledTasks = skills.map(skill => {
-      const scheduleMatch = skill.content.match(/schedule:\s*["']?([^"'\s][^"']*)["']?/);
-      const isCommented = skill.content.includes(`# schedule:`) || skill.content.includes(`// schedule:`); // Rough check
-      
-      return {
-        name: skill.name,
-        description: skill.description,
-        schedule: scheduleMatch ? scheduleMatch[1] : null,
-        enabled: !!scheduleMatch && !isCommented,
-        slug: skill.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      };
-    });
-    res.json(scheduledTasks);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/v1/scheduler/toggle", async (req, res) => {
-  try {
-    const { slug, enabled } = req.body;
-    const adapter = PersistenceFactory.getAdapter();
-    let content = await adapter.readSkill(slug);
-    
-    if (!content) return res.status(404).json({ error: "Skill not found" });
-    
-    if (enabled) {
-      content = content.replace(/#\s*schedule:/, "schedule:");
-    } else {
-      content = content.replace(/schedule:/, "# schedule:");
-    }
-    
-    await adapter.saveSkill(slug, content);
-    await PluginRegistry.reloadMDSkills();
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/v1/config", async (req, res) => {
-  try {
-    const env = await EnvManager.readEnv();
-    res.json(env);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/v1/config", async (req, res) => {
-  try {
-    await EnvManager.updateEnv(req.body);
-    const newEnv = await EnvManager.readEnv();
-    reloadConfig(newEnv);
-    
-    // Re-init services with new credentials if changed
-    TelegramService.init(io);
-    DiscordService.init(io);
-    
-    res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/v1/ollama-models", async (req, res) => {
-  try {
-    const response = await axios.get("http://localhost:11434/api/tags");
-    const models = response.data.models.map((m: any) => m.name);
-    res.json({ success: true, models });
-  } catch (err: any) {
-    console.warn("Ollama unreachable:", err.message);
-    res.json({ success: false, error: "Ollama not reachable", models: [] });
-  }
-});
+app.use("/api/v1/skills", skillRoutes);
+app.use("/api/v1/scheduler", schedulerRoutes);
+app.use("/api/v1", makeConfigRoutes(io));
 
 // Webhook Authentication Middleware
 // Validates the X-Webhook-Secret header against WEBHOOK_SECRET using a
