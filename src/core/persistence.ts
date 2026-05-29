@@ -249,7 +249,17 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
         const raw = await fs.readFile(filePath, "utf-8");
         store = JSON.parse(raw);
       } catch (e) {
-        console.warn("⚠️ [Persistence] Failed to parse vector_store.json, resetting.", e);
+        const backupPath = filePath + ".corrupt_backup";
+        console.warn(
+          `⚠️ [Persistence] Failed to parse vector_store.json. Backing up corrupted file to ${backupPath} and resetting.`,
+          e
+        );
+        try {
+          await fs.copyFile(filePath, backupPath);
+        } catch (copyErr) {
+          console.error("⚠️ [Persistence] Could not write corruption backup:", copyErr);
+        }
+        // store remains {} — start fresh with valid state
       }
     }
 

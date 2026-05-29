@@ -110,6 +110,30 @@ describe("LocalPersistenceAdapter.deleteSkill()", () => {
   });
 });
 
+describe("LocalPersistenceAdapter._writeVectorEntry — corruption recovery", () => {
+  it("backs up corrupted vector_store.json before resetting", async () => {
+    const { adapter, dir } = await makeTempAdapter();
+    const vectorPath = path.join(dir, "vector_store.json");
+
+    // Write corrupted vector store content
+    await fs.writeFile(vectorPath, "{ this is not valid json }", "utf-8");
+
+    // Writing a new entry should survive the corruption
+    await adapter.saveVectorIndex("test-category", "key1", [0.1, 0.2, 0.3], { label: "test" });
+
+    // The backup should exist
+    const backupPath = vectorPath + ".corrupt_backup";
+    const backupExists = await fs.access(backupPath).then(() => true).catch(() => false);
+    expect(backupExists).toBe(true);
+
+    // The store should be valid now and contain the new entry
+    const raw = await fs.readFile(vectorPath, "utf-8");
+    const store = JSON.parse(raw);
+    expect(store["test-category"]).toHaveLength(1);
+    expect(store["test-category"][0].key).toBe("key1");
+  });
+});
+
 describe("LocalPersistenceAdapter.listActiveSessions()", () => {
   it("returns sessions stored to disk even after the in-memory map is cleared", async () => {
     const { adapter } = await makeTempAdapter();
