@@ -388,29 +388,77 @@ export class PluginRegistry {
         });
     }
 
-    // Natively inject our new OpenClaw desktop and filesystem tools
+    // Natively inject filesystem tools with per-tool schemas and explicit type coverage
     console.log("🛠️ [PluginRegistry] Injecting OpenClaw desktop and filesystem tools...");
-    const builtinFS = ["list_directory", "read_text_file", "write_text_file", "search_files", "delete_file", "exists"];
-    builtinFS.forEach(fsTool => {
-       const toolName = `filesystem__${fsTool}`;
-       if (rawTools.some(t => t.name === toolName)) return;
-       
-       let description = `Cross-platform native filesystem operation: ${fsTool}`;
-       if (fsTool === "write_text_file") {
-         description = "Write content to a file. Automatically creates parent directories recursively if they do not exist.";
-       }
-       if (fsTool === "exists") {
-         description = "Check if a file or directory exists at the specified path.";
-       }
 
-       rawTools.push({
-         name: toolName,
-         description: description,
-         parameters: {
-             type: "object", properties: { path: { type: "string" }, content: { type: "string" }, pattern: { type: "string" } }
-         } as any
-       });
-    });
+    const fsToolDefs: Array<{ name: string; description: string; parameters: object }> = [
+      {
+        name: "filesystem__list_directory",
+        description: "List the contents of a directory. Returns an array of {name, type} entries.",
+        parameters: {
+          type: "object",
+          properties: { path: { type: "string", description: "Absolute or relative path to the directory." } },
+          required: ["path"]
+        }
+      },
+      {
+        name: "filesystem__read_text_file",
+        description: "Read the full contents of ANY file as UTF-8 text. Works with all text-based formats: .html, .json, .py, .js, .ts, .css, .csv, .xml, .yaml, .md, .txt, .sh, .ps1, .sql, .toml, .ini, and more. Use this for any file whose content can be represented as a string.",
+        parameters: {
+          type: "object",
+          properties: { path: { type: "string", description: "Absolute or relative path to the file." } },
+          required: ["path"]
+        }
+      },
+      {
+        name: "filesystem__write_text_file",
+        description: "Write a string to ANY file, creating it (and all parent directories) if needed. Works with all text-based formats: .html, .json, .py, .js, .ts, .css, .csv, .xml, .yaml, .md, .txt, .sh, .ps1, .sql, .toml, .ini, and more. The 'content' field MUST be provided and non-empty; omitting it will return an error and leave no file on disk.",
+        parameters: {
+          type: "object",
+          properties: {
+            path: { type: "string", description: "Absolute or relative path to write to." },
+            content: { type: "string", description: "Full text content to write. Must not be empty." }
+          },
+          required: ["path", "content"]
+        }
+      },
+      {
+        name: "filesystem__search_files",
+        description: "Recursively search a directory for files whose name contains the given pattern string.",
+        parameters: {
+          type: "object",
+          properties: {
+            path: { type: "string", description: "Root directory to search from." },
+            pattern: { type: "string", description: "Substring to match against file names." }
+          },
+          required: ["path", "pattern"]
+        }
+      },
+      {
+        name: "filesystem__delete_file",
+        description: "Permanently delete a file at the given path.",
+        parameters: {
+          type: "object",
+          properties: { path: { type: "string", description: "Absolute or relative path to the file to delete." } },
+          required: ["path"]
+        }
+      },
+      {
+        name: "filesystem__exists",
+        description: "Check whether a file or directory exists at the given path. Returns {exists: boolean, path: string}.",
+        parameters: {
+          type: "object",
+          properties: { path: { type: "string", description: "Path to check." } },
+          required: ["path"]
+        }
+      }
+    ];
+
+    for (const def of fsToolDefs) {
+      if (!rawTools.some(t => t.name === def.name)) {
+        rawTools.push(def as FunctionDeclaration);
+      }
+    }
 
     const desktopToolSchemas: Record<string, any> = {
       "mouse_move": { 
@@ -512,9 +560,15 @@ export class PluginRegistry {
     });
 
     rawTools.push({
+      name: "system__list_skills",
+      description: "List all available skill names. Call this FIRST if unsure of a skill name or if system__read_skill returned not-found. Returns JSON array of {name, description}. Skill names always use hyphens (e.g. 'strategic-planner', 'writing-plans') -- never underscores, never MCP-style suffixes like '__generate_plan'.",
+      parameters: { type: "object", properties: {} } as any
+    });
+
+    rawTools.push({
       name: "system__read_skill",
-      description: "Read the full technical content of an existing theorem/skill.",
-      parameters: { type: "object", properties: { skillName: { type: "string" } } } as any
+      description: "Read the full content of a skill by its exact name. Names use hyphens not underscores (e.g. 'strategic-planner' not 'strategic_planner'). Never append tool suffixes. If unsure of the name, call system__list_skills first. After reading a skill you MUST apply its instructions -- do NOT call system__read_skill on the same skill again.",
+      parameters: { type: "object", properties: { skillName: { type: "string", description: "Exact skill name with hyphens (e.g. 'strategic-planner'). Use system__list_skills first if unsure." } } } as any
     });
 
     rawTools.push({
@@ -552,20 +606,45 @@ export class PluginRegistry {
   }
 
   public static async routeAndExecute(name: string, args: any, userId?: string, executionMode: string = 'api'): Promise<any> {
+    if (name === "system__list_skills") {
+      const list = Array.from(this.mdSkills.values()).map(s => ({
+        name: s.name,
+        description: s.description
+      }));
+      return JSON.stringify({ status: "success", skills: list });
+    }
+
     if (name === "system__read_skill") {
       const skill = this.mdSkills.get(args.skillName);
       if (skill) return skill.content;
-      return "Error: Skill not found.";
+      // Return available names so the agent can self-correct instead of retrying with a bad guess.
+      // Common mistake: using MCP-style names with underscores or tool suffixes
+      // e.g. "strategic_planner__generate_plan" instead of "strategic-planner".
+      const available = Array.from(this.mdSkills.keys()).sort().join(", ");
+      return (
+        `Error: Skill "${args.skillName}" not found. ` +
+        `Skill names use hyphens, not underscores, and have no tool suffix. ` +
+        `Available skills: [${available}]. ` +
+        `Call system__read_skill again with the correct name from that list.`
+      );
     }
 
     if (name === "system__update_skill") {
-      let skillPath;
+      // Security: validate skillName to prevent path traversal
+      if (!args.skillName || !/^[a-zA-Z0-9_\-\.]+$/.test(String(args.skillName))) {
+        return `Error: Invalid skill name "${args.skillName}". Only alphanumeric, hyphen, underscore, and dot are allowed.`;
+      }
+      const skillsDir = path.resolve(__dirname, "../../src/plugins/skills");
+      let skillPath: string;
       const skill = this.mdSkills.get(args.skillName);
       if (skill && skill.filePath) {
         skillPath = skill.filePath;
       } else {
-        // Upsert: Create a new skill file
-        skillPath = path.resolve(__dirname, "../../src/plugins/skills", `${args.skillName}.md`);
+        skillPath = path.join(skillsDir, `${args.skillName}.md`);
+      }
+      // Ensure resolved path stays inside the skills directory
+      if (!path.resolve(skillPath).startsWith(skillsDir + path.sep)) {
+        return `Error: Skill path escapes the skills directory.`;
       }
       await fs.writeFile(skillPath, args.newContent, "utf-8");
       await this.reloadMDSkills();
@@ -576,7 +655,12 @@ export class PluginRegistry {
       const FileSystemController = require("../plugins/desktop/FileSystemController").FileSystemController;
       if (name === "filesystem__list_directory") return await FileSystemController.listDirectory(args.path);
       if (name === "filesystem__read_text_file") return await FileSystemController.readFileContent(args.path);
-      if (name === "filesystem__write_text_file") return await FileSystemController.writeFileContent(args.path, args.content);
+      if (name === "filesystem__write_text_file") {
+        if (args.content === undefined || args.content === null) {
+          return "Error: filesystem__write_text_file requires a 'content' argument. You must include the full file content as a string. Received undefined — the file was NOT written.";
+        }
+        return await FileSystemController.writeFileContent(args.path, args.content);
+      }
       if (name === "filesystem__delete_file") return await FileSystemController.deleteFile(args.path);
       if (name === "filesystem__exists") return await FileSystemController.exists(args.path);
       if (name === "filesystem__search_files") return await FileSystemController.searchFiles(args.path, args.pattern);
