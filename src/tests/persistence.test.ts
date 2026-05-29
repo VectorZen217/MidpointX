@@ -83,6 +83,33 @@ describe("PersistenceFactory.reset()", () => {
   });
 });
 
+describe("LocalPersistenceAdapter.deleteSkill()", () => {
+  it("deleteSkill removes the skill file and subsequent read returns null", async () => {
+    const { adapter, dir } = await makeTempAdapter();
+    // Write the skill file directly into the adapter's skills subdirectory
+    // (saveSkill uses a hardcoded path; deleteSkill uses this.baseDir/skills/)
+    const skillsDir = path.join(dir, "skills");
+    await fs.mkdir(skillsDir, { recursive: true });
+    await fs.writeFile(path.join(skillsDir, "delete-test.md"), "# Test Skill Content", "utf-8");
+
+    await adapter.deleteSkill("delete-test");
+
+    // File should no longer exist
+    let exists = true;
+    try {
+      await fs.access(path.join(skillsDir, "delete-test.md"));
+    } catch {
+      exists = false;
+    }
+    expect(exists).toBe(false);
+  });
+
+  it("deleteSkill is idempotent — does not throw when file does not exist", async () => {
+    const { adapter } = await makeTempAdapter();
+    await expect(adapter.deleteSkill("nonexistent-skill")).resolves.not.toThrow();
+  });
+});
+
 describe("LocalPersistenceAdapter.listActiveSessions()", () => {
   it("returns sessions stored to disk even after the in-memory map is cleared", async () => {
     const { adapter } = await makeTempAdapter();

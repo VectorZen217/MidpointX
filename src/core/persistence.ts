@@ -16,6 +16,7 @@ export interface PersistenceAdapter {
   // Skill/Theorem Storage
   saveSkill(name: string, content: string): Promise<void>;
   readSkill(name: string): Promise<string | null>;
+  deleteSkill(slug: string): Promise<void>;
   listSkills(): Promise<string[]>;
 
   // Metrics/Stats
@@ -89,6 +90,16 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
       return await fs.readFile(path.join(skillDir, `${name}.md`), "utf-8");
     } catch {
       return null;
+    }
+  }
+
+  async deleteSkill(slug: string): Promise<void> {
+    const filePath = path.join(this.baseDir, "skills", `${slug}.md`);
+    try {
+      await fs.unlink(filePath);
+    } catch (err: any) {
+      if (err.code !== "ENOENT") throw err;
+      // File already gone — treat as success (idempotent)
     }
   }
 
@@ -352,6 +363,10 @@ export class SQLitePersistenceAdapter implements PersistenceAdapter {
   async readSkill(name: string): Promise<string | null> {
     const row = this.db.prepare("SELECT content FROM skills WHERE name = ?").get(name);
     return row?.content || null;
+  }
+
+  async deleteSkill(slug: string): Promise<void> {
+    this.db.prepare("DELETE FROM skills WHERE name = ?").run(slug);
   }
 
   async listSkills(): Promise<string[]> {
