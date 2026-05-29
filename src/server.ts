@@ -304,6 +304,9 @@ app.post("/webhook/*", webhookAuth, async (req, res) => {
   }
 });
 
+// Server-side undo timer registry: prevents stale callbacks after socket disconnect
+const pendingUndoTimers = new Map<string, { timer: NodeJS.Timeout; socketId: string }>();
+
 // Socket.io Real-time Communication
 io.on("connection", (socket) => {
   console.log(`User/Agent connected: ${socket.id}`);
@@ -341,6 +344,7 @@ io.on("connection", (socket) => {
               // the user clicking "cancel" or "approve" will fire a new loop:resume event.
               // We need a way to clear this timeout if they act manually.
               const autoResumeTimer = setTimeout(async () => {
+                pendingUndoTimers.delete(payload.taskId);
                 console.log(`⏱️ [Server] Auto-approving undoable action for task: ${payload.taskId}`);
                 try {
                   const autoResult = await ChannelRouter.resume(payload.taskId, true, (update) => {
@@ -359,9 +363,7 @@ io.on("connection", (socket) => {
                 }
               }, 30000); // 30 seconds
 
-              // Store timer reference on the socket object (quick and dirty) so we can clear it
-              (socket as any).undoTimers = (socket as any).undoTimers || {};
-              (socket as any).undoTimers[payload.taskId] = autoResumeTimer;
+              pendingUndoTimers.set(payload.taskId, { timer: autoResumeTimer, socketId: socket.id });
             }
 
         } else {
@@ -381,9 +383,10 @@ io.on("connection", (socket) => {
   // Support for Resuming from UI
   socket.on("loop:resume", async (payload: { taskId: string, approved: boolean }) => {
     // Clear the auto-resume timer if one exists
-    if ((socket as any).undoTimers && (socket as any).undoTimers[payload.taskId]) {
-      clearTimeout((socket as any).undoTimers[payload.taskId]);
-      delete (socket as any).undoTimers[payload.taskId];
+    const pending = pendingUndoTimers.get(payload.taskId);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pendingUndoTimers.delete(payload.taskId);
     }
 
     try {
@@ -401,6 +404,16 @@ io.on("connection", (socket) => {
       }
     } catch (err) {
       socket.emit("agent:error", { message: "Resumption Failed", error: String(err) });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    for (const [taskId, entry] of pendingUndoTimers) {
+      if (entry.socketId === socket.id) {
+        clearTimeout(entry.timer);
+        pendingUndoTimers.delete(taskId);
+        console.log(`⏱️ [Server] Cleared undo timer for task ${taskId} on disconnect.`);
+      }
     }
   });
 });
