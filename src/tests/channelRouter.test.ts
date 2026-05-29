@@ -122,7 +122,8 @@ describe("ChannelRouter", () => {
       expect.stringContaining("TELEGRAM"),
       "Read a file and summarize",
       "Done!",
-      expect.arrayContaining(["fetch__fetch", "filesystem__read_text_file"])
+      expect.arrayContaining(["fetch__fetch", "filesystem__read_text_file"]),
+      expect.any(Object)  // optional metadata (e.g. { proactive: false })
     );
   });
 
