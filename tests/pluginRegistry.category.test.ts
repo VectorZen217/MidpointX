@@ -20,8 +20,13 @@ describe("MDSkill category extraction", () => {
     expect(extractCategory(content)).toBe("orchestration");
   });
 
-  it("does not match category inside the body, only frontmatter lines", () => {
+  it("does not match a markdown heading line (# prefix)", () => {
     const content = "---\nname: test\n---\n# category: not-this-one";
     expect(extractCategory(content)).toBeUndefined();
+  });
+
+  it("captures category values that contain spaces", () => {
+    const content = "---\ncategory: error recovery\n---";
+    expect(extractCategory(content)).toBe("error recovery");
   });
 });
