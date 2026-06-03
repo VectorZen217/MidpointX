@@ -443,12 +443,16 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
   if (!toolCall) {
     const outcome = extractText(response.content);
     
-    // Mark the current active step as completed since we are not calling any more tools for it
+    // Mark the current step as completed. If a step was promoted to 'active' in the
+    // tool-call path this turn, use that. Otherwise mark the first 'pending' step —
+    // this handles text-only steps assigned by Supervisor that never go through the
+    // tool-call path and would otherwise stay 'pending' forever, causing an infinite loop.
     const updatedPlanStatus = { ...state.planStatus };
     const currentPlan = state.strategicPlan || [];
     const activeStep = currentPlan.find((step: string) => updatedPlanStatus[step] === 'active');
-    if (activeStep) {
-      updatedPlanStatus[activeStep] = 'completed';
+    const stepToComplete = activeStep ?? currentPlan.find((step: string) => updatedPlanStatus[step] === 'pending');
+    if (stepToComplete) {
+      updatedPlanStatus[stepToComplete] = 'completed';
     }
     
     // Check if there are still pending steps in the strategic plan
