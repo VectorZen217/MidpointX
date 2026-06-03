@@ -105,7 +105,7 @@ ${shift.optimization}
    * Appends a structured session entry to today's memory log file.
    * File path: src/workspace/memory/YYYY-MM-DD.md
    */
-  static async logSession(taskId: string, intent: string, outcome: string, toolsUsed: string[]): Promise<void> {
+  static async logSession(taskId: string, intent: string, outcome: string, toolsUsed: string[], _metadata?: Record<string, any>): Promise<void> {
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
       const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/Chicago" });

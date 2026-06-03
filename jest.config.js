@@ -8,7 +8,7 @@ module.exports = {
   roots: ["<rootDir>/tests", "<rootDir>/src/tests"],
   transform: {
     ...tsJestTransformCfg,
-    "^.+\\.[tj]sx?$": ["ts-jest", {}],
+    "^.+\\.[tj]sx?$": ["ts-jest", { isolatedModules: true }],
   },
   testPathIgnorePatterns: [
     "/node_modules/",

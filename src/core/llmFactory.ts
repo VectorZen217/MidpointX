@@ -2,16 +2,14 @@ import { Config } from "./config";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { Runnable } from "@langchain/core/runnables";
-import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
-import { AIMessageChunk } from "@langchain/core/messages";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export class LLMFactory {
   /**
    * Generates the normalized LangChain Chat Model interface based on centralized config.
    * Provider-specific thinking kwargs are injected at construction time (LangChain v1.x pattern).
    */
-  static getModel(options?: { temperature?: number, tier?: "expert" | "worker", maxTokens?: number }): Runnable<BaseLanguageModelInput, AIMessageChunk, any> {
+  static getModel(options?: { temperature?: number, tier?: "expert" | "worker", maxTokens?: number }): BaseChatModel {
     const provider = Config.ACTIVE_LLM_PROVIDER;
     const tier = options?.tier || "expert";
     const maxTokens = options?.maxTokens || (tier === "worker" ? 512 : 8192);

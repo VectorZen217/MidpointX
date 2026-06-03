@@ -165,7 +165,8 @@ export class ChannelRouter {
           `${message.channel.toUpperCase()}-${Date.now()}`,
           message.intent,
           outcome,
-          toolsUsed
+          toolsUsed,
+          { proactive: false }
         ).catch(() => {}); // Fire-and-forget, never block the response
       }
 

@@ -12,6 +12,12 @@ jest.mock("../plugins/desktop/ScreenCapture", () => ({
 jest.mock("../core/resilience", () => ({
   invokeWithResilience: jest.fn()
 }));
+jest.mock("../core/sandboxManager", () => ({
+  SandboxManager: {
+    isDockerAvailable: jest.fn().mockResolvedValue(true),
+    runInSandbox: jest.fn().mockResolvedValue({ stdout: "mock sandbox output", stderr: "", timedOut: false }),
+  }
+}));
 
 const { invokeWithResilience } = require("../core/resilience");
 
