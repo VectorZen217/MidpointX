@@ -61,6 +61,10 @@ export class PluginRegistry {
     return Array.from(this.mdSkills.values());
   }
 
+  public static getSkillContent(name: string): string | null {
+    return this.mdSkills.get(name)?.content ?? null;
+  }
+
   public static async reloadMDSkills() {
     console.log("🧩 [PluginRegistry] Hot-reloading MD Skills...");
     this.mdSkills.clear();
@@ -614,7 +618,8 @@ export class PluginRegistry {
     if (name === "system__list_skills") {
       const list = Array.from(this.mdSkills.values()).map(s => ({
         name: s.name,
-        description: s.description
+        description: s.description,
+        category: s.category ?? "uncategorized",
       }));
       return JSON.stringify({ status: "success", skills: list });
     }

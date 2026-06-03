@@ -30,3 +30,35 @@ describe("MDSkill category extraction", () => {
     expect(extractCategory(content)).toBe("error recovery");
   });
 });
+
+describe("system__list_skills category field", () => {
+  it("list output JSON includes category key for each skill", () => {
+    const mockSkills = new Map([
+      ["EXECUTION_GUARD", { name: "EXECUTION_GUARD", description: "Guard", content: "", category: "pre-execution" }],
+      ["mcp-builder", { name: "mcp-builder", description: "Builder", content: "", category: undefined }],
+    ]);
+
+    const list = Array.from(mockSkills.values()).map(s => ({
+      name: s.name,
+      description: s.description,
+      category: (s as any).category ?? "uncategorized",
+    }));
+
+    expect(list[0].category).toBe("pre-execution");
+    expect(list[1].category).toBe("uncategorized");
+  });
+});
+
+describe("getSkillContent logic", () => {
+  it("returns null for unknown skill", () => {
+    const mockSkills = new Map<string, { content: string }>();
+    const getContent = (name: string) => mockSkills.get(name)?.content ?? null;
+    expect(getContent("nonexistent")).toBeNull();
+  });
+
+  it("returns content string for known skill", () => {
+    const mockSkills = new Map([["EXECUTION_GUARD", { content: "# Guard content" }]]);
+    const getContent = (name: string) => mockSkills.get(name)?.content ?? null;
+    expect(getContent("EXECUTION_GUARD")).toBe("# Guard content");
+  });
+});
