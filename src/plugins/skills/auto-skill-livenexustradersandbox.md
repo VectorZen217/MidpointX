@@ -1,6 +1,7 @@
----
+﻿---
 name: AUTO_SKILL_LIVENEXUSTRADERSANDBOX
 description: Mined automation skill for highly repeated workflow in LiveNexusTraderSandbox.
+category: domain
 # enabled: true
 ---
 

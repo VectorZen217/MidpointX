@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_OUTPUT_VALIDATION_01
 description: Before returning finalOutcome, verify all claimed artifacts actually exist and are valid. Prevents silent failures from being reported as successes.
+category: meta
 conceptualTags: [output-validation, artifact-verification, quality-assurance]
 ---
 

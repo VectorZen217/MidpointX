@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_SECRET_ROTATION_01
 description: Connects the resilience layer's 401/403 abort signals to a structured API key rotation and recovery workflow. Prevents the agent from silently failing on expired credentials.
+category: meta
 conceptualTags: [security, credentials, resilience]
 ---
 

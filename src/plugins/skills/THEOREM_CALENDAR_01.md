@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CALENDAR_01
 description: calendar, scheduling, information retrieval
+category: domain
 ---
 
 # Logic Shift: THEOREM_CALENDAR_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_PS_001
 description: powershell, json, idempotency
+category: domain
 ---
 
 # Logic Shift: THEOREM_PS_001

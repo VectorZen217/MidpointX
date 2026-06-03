@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_PLANNING_01
 description: planning, state-management, user-communication
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_PLANNING_01

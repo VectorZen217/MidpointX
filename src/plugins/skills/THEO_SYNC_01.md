@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_SYNC_01
 description: StateReconciliation, ArtifactRecovery, SystemIntegrity
+category: domain
 ---
 
 # Logic Shift: THEO_SYNC_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_AUDIT_CHAIN_VERIFY_01
 description: Proactive scheduled audit that walks the A2A hash chain and detects tampering. Turns the write-only audit ledger into an active tamper-detection system.
+category: meta
 schedule: "0 2 * * *"
 conceptualTags: [security, audit, integrity]
 ---

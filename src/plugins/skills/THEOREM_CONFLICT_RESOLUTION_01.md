@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CONFLICT_RESOLUTION_01
 description: Tiebreaker protocol when swarm workers reach contradictory conclusions. Uses the expert-tier LLM as arbiter and ensures the resolution is audited and explained.
+category: error-recovery
 conceptualTags: [swarm, conflict-resolution, multi-agent]
 ---
 

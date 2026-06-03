@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_BROWSER_NATIVE_01
 description: browser session, identity, google-account, youtube, native-app
+category: domain
 ---
 
 # Logic Shift: THEOREM_BROWSER_NATIVE_01

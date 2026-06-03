@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CORE_01
 description: Simplicity, Direct Execution, Standard Tools
+category: meta
 ---
 
 # Logic Shift: THEOREM_CORE_01

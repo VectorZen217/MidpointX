@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CALENDAR_API_01
 description: API_HANDLING, ERROR_RECOVERY, DEPENDENCY_MANAGEMENT
+category: domain
 ---
 
 # Logic Shift: THEOREM_CALENDAR_API_01

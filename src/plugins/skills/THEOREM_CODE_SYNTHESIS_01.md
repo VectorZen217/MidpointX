@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CODE_SYNTHESIS_01
 description: code-generation, app-building, multi-line-files, verification
+category: domain
 ---
 
 # Logic Shift: THEOREM_CODE_SYNTHESIS_01

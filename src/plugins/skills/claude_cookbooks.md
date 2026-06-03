@@ -1,6 +1,7 @@
----
+﻿---
 name: claude_cookbooks
 description: Deep-knowledge index of Anthropic Claude patterns, recipes, and capabilities.
+category: domain
 ---
 
 # 📚 Claude Cookbooks Reference Index

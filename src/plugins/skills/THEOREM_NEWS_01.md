@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_NEWS_01
 description: news aggregation, api integration, content retrieval
+category: domain
 ---
 
 # Logic Shift: THEOREM_NEWS_01

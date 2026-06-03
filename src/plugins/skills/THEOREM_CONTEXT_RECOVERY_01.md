@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CONTEXT_RECOVERY_01
 description: Recovery procedure when session context is corrupted, over-compressed, or a MemorySaver checkpoint is invalid. Re-anchors the agent from the last valid audit hash without losing the mission.
+category: error-recovery
 conceptualTags: [context-recovery, resilience, session]
 ---
 

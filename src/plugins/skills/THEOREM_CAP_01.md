@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CAP_01
 description: fallback, capabilities, system prompt
+category: meta
 ---
 
 # Logic Shift: THEOREM_CAP_01

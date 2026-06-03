@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_WEB_SEARCH_01
 description: web scraping, search optimization, multi-location search
+category: domain
 ---
 
 # Logic Shift: THEOREM_WEB_SEARCH_01

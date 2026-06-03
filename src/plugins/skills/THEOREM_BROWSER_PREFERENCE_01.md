@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_BROWSER_PREFERENCE_01
 description: Browser Automation, Tool Preference, Web Interaction
+category: domain
 ---
 
 # Logic Shift: THEOREM_BROWSER_PREFERENCE_01

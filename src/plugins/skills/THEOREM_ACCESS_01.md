@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_ACCESS_01
 description: AccessStrategy, ResourceDiscovery, Efficiency
+category: domain
 ---
 
 # Logic Shift: THEOREM_ACCESS_01

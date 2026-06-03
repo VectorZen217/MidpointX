@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_AMBIGUITY_RESOLUTION_01
 description: ambiguity-resolution, user-intent, constraint-conflict
+category: error-recovery
 ---
 
 # Logic Shift: THEOREM_AMBIGUITY_RESOLUTION_01

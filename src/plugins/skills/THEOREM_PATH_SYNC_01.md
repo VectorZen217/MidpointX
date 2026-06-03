@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_PATH_SYNC_01
 description: Filesystem, Automation, Initialization
+category: domain
 ---
 
 # Logic Shift: THEOREM_PATH_SYNC_01

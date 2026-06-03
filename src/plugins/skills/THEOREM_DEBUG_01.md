@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DEBUG_01
 description: debugging, code-analysis, systematic-triage
+category: error-recovery
 ---
 
 # Logic Shift: THEOREM_DEBUG_01

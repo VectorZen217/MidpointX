@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_EMAIL_01
 description: email analysis, user intent clarification, workflow optimization
+category: domain
 ---
 
 # Logic Shift: THEOREM_EMAIL_01

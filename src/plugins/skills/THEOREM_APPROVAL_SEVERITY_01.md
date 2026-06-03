@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_APPROVAL_SEVERITY_01
 description: Defines the classification criteria for approvalSeverity — which actions are 'undoable' vs 'destructive' — and the corresponding UX and audit requirements for each class.
+category: orchestration
 conceptualTags: [human-in-the-loop, approval, security]
 ---
 

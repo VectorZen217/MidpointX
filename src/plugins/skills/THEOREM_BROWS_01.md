@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_BROWS_01
 description: browser automation, web navigation, direct access
+category: domain
 ---
 
 # Logic Shift: THEOREM_BROWS_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: FILE_BROWSER_001
 description: file management, browser automation, system commands
+category: domain
 ---
 
 # Logic Shift: FILE_BROWSER_001

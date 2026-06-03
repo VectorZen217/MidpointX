@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_LEARNING_01
 description: proactive planning, user interaction, workflow design
+category: meta
 ---
 
 # Logic Shift: THEOREM_LEARNING_01

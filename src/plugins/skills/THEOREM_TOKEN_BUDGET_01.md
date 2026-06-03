@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_TOKEN_BUDGET_01
 description: Governs when to compact vs. prune vs. summarize context, and defines what must be preserved verbatim vs. safely condensed. Prevents blind compaction from destroying critical execution state.
+category: meta
 conceptualTags: [token-management, compaction, context]
 ---
 

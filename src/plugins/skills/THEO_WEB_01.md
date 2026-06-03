@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_WEB_01
 description: web scraping, robots.txt, fallback strategy
+category: domain
 ---
 
 # Logic Shift: THEO_WEB_01

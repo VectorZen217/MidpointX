@@ -1,6 +1,7 @@
----
+﻿---
 name: PROACTIVE_HEARTBEAT
 description: System health check and heartbeat.
+category: sentinel
 schedule: "0 */12 * * *"
 ---
 

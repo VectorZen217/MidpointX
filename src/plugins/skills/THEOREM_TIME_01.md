@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_TIME_01
 description: time, system, utility
+category: domain
 ---
 
 # Logic Shift: THEOREM_TIME_01

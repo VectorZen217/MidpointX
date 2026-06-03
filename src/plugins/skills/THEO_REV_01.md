@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_REV_01
 description: revenue-modeling, strategic-planning, ai-business-operations
+category: domain
 ---
 
 # Logic Shift: THEO_REV_01

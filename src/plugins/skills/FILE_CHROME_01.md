@@ -1,6 +1,7 @@
----
+﻿---
 name: FILE_CHROME_01
 description: file operations, browser automation, system commands
+category: domain
 ---
 
 # Logic Shift: FILE_CHROME_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_COMM_01
 description: user interaction, clarification, efficiency
+category: domain
 ---
 
 # Logic Shift: THEOREM_COMM_01

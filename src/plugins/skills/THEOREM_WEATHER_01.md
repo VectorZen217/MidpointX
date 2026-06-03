@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_WEATHER_01
 description: weather, api, curl
+category: domain
 ---
 
 # Logic Shift: THEOREM_WEATHER_01

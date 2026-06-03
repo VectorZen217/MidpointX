@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_SKILL_DEDUPLICATION_01
 description: Before synthesizing a new skill, query the existing registry for semantic overlap. Prevents the skills directory from accumulating redundant theorems that dilute RAG retrieval quality.
+category: meta
 conceptualTags: [skill-management, deduplication, rag]
 ---
 

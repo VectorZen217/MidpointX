@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_LEARN_01
 description: workflow-design, email-management, user-input-optimization
+category: meta
 ---
 
 # Logic Shift: THEOREM_LEARN_01

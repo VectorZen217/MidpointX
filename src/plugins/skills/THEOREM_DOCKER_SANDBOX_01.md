@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DOCKER_SANDBOX_01
 description: Defines tiered execution fallback when Docker is unavailable. Ensures code execution never silently runs outside the intended security boundary.
+category: domain
 conceptualTags: [sandbox, docker, security]
 ---
 

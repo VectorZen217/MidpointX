@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_CAL_01
 description: calendar, automation, workflow
+category: domain
 ---
 
 # Logic Shift: THEOREM_CAL_01

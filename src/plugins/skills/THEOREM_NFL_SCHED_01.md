@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_NFL_SCHED_01
 description: DataValidation, ResourceEfficiency, ProactivePlanning
+category: domain
 ---
 
 # Logic Shift: THEOREM_NFL_SCHED_01

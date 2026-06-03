@@ -1,6 +1,7 @@
----
+﻿---
 name: TEST_WATCHER
 description: A test skill to verify the FS observer trigger.
+category: sentinel
 watchPath: ./test_watch_folder
 webhookPath: test-trigger
 ---

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_TOOL_01
 description: web-browsing, tool-limitation, user-interaction
+category: domain
 ---
 
 # Logic Shift: THEOREM_TOOL_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_ENV_VERIFY_01
 description: Environment, Automation, Resilience
+category: domain
 ---
 
 # Logic Shift: THEO_ENV_VERIFY_01

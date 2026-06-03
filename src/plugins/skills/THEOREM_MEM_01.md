@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_MEM_01
 description: memory management, user intent simulation, tool limitation workaround
+category: meta
 ---
 
 # Logic Shift: THEOREM_MEM_01

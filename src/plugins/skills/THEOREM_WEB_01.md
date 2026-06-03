@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_WEB_01
 description: web-scraping, information-gathering, marketing-strategy
+category: domain
 ---
 
 # Logic Shift: THEOREM_WEB_01

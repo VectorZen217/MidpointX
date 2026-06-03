@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_SWARM_HANDOFF_01
 description: Defines the required handoff envelope when swarm workers pass control between ResearcherActor, DeveloperActor, and TesterActor. Prevents silent context loss at worker boundaries.
+category: orchestration
 conceptualTags: [swarm, multi-agent, handoff]
 ---
 

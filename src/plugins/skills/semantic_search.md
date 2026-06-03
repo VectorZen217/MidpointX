@@ -1,6 +1,7 @@
----
+﻿---
 name: semantic_search
 description: Protocol for retrieving historical theorems and memory context.
+category: domain
 ---
 
 # Semantic Search Skill

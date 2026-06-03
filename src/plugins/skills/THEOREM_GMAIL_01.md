@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_GMAIL_01
 description: email, api, automation
+category: domain
 ---
 
 # Logic Shift: THEOREM_GMAIL_01

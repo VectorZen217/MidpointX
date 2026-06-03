@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_LOCAL_FALLBACK_01
 description: Resilience, Data-Persistence, Error-Handling
+category: domain
 ---
 
 # Logic Shift: THEO_LOCAL_FALLBACK_01

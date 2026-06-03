@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_ERROR_TAXONOMY_01
 description: Classifies execution failures into actionable categories (transient, permanent, logic, permission) so the SupervisorActor can route to retry, replan, or escalate rather than always replanning from scratch.
+category: error-recovery
 conceptualTags: [error-handling, failure-classification, resilience]
 ---
 

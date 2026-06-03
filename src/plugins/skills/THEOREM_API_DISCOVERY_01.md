@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_API_DISCOVERY_01
 description: Procedure for ingesting external API documentation and generating a new dynamic skill without RAG infrastructure.
+category: domain
 ---
 
 # Logic Shift: API Discovery and Skill Synthesis

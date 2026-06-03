@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_PROC_01
 description: process management, user interaction, efficiency
+category: domain
 ---
 
 # Logic Shift: THEOREM_PROC_01

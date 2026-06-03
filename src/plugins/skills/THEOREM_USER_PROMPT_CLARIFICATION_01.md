@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_USER_PROMPT_CLARIFICATION_01
 description: user interaction, clarification, artifact management
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_USER_PROMPT_CLARIFICATION_01

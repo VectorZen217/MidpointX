@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_STRAT_01
 description: strategic planning, project management, workflow optimization
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_STRAT_01

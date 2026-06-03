@@ -1,6 +1,7 @@
----
+﻿---
 name: THEO_CODE_REVIEW_01
 description: code-analysis, optimization, skill-selection
+category: error-recovery
 ---
 
 # Logic Shift: THEO_CODE_REVIEW_01

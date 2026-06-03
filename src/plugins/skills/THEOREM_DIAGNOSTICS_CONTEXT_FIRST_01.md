@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DIAGNOSTICS_CONTEXT_FIRST_01
 description: debugging, diagnostics, root-cause-analysis
+category: error-recovery
 ---
 
 # Logic Shift: THEOREM_DIAGNOSTICS_CONTEXT_FIRST_01

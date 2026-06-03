@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DOC_01
 description: google docs, research, automation
+category: domain
 ---
 
 # Logic Shift: THEOREM_DOC_01

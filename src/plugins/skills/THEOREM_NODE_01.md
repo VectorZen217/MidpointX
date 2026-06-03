@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_NODE_01
 description: node, version check, cli
+category: domain
 ---
 
 # Logic Shift: THEOREM_NODE_01

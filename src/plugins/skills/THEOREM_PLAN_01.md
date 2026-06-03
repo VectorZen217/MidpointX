@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_PLAN_01
 description: financial planning, revenue generation, strategic planning
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_PLAN_01

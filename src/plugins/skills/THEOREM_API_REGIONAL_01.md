@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_API_REGIONAL_01
 description: API, Regionalization, Authentication
+category: domain
 ---
 
 # Logic Shift: THEOREM_API_REGIONAL_01

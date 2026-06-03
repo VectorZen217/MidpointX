@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_FILE_01
 description: filesystem automation, scripting efficiency, GUI bypass
+category: domain
 ---
 
 # Logic Shift: THEOREM_FILE_01

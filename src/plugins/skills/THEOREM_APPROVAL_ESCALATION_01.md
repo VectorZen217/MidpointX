@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_APPROVAL_ESCALATION_01
 description: Defines what happens when the HumanApprovalGate receives no response within a timeout window. Prevents the agent from hanging indefinitely on an unattended approval request.
+category: orchestration
 conceptualTags: [human-in-the-loop, approval, escalation]
 ---
 

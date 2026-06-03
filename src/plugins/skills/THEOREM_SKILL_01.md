@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_SKILL_01
 description: skill verification, proactive planning, error prevention
+category: meta
 ---
 
 # Logic Shift: THEOREM_SKILL_01

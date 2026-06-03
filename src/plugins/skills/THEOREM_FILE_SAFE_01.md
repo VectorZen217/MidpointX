@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_FILE_SAFE_01
 description: filesystem-safety, data-integrity, automation-resilience
+category: domain
 ---
 
 # Logic Shift: THEOREM_FILE_SAFE_01

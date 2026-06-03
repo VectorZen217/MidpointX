@@ -1,6 +1,7 @@
----
+﻿---
 name: WORKSPACE_SENTINEL
 description: Proactively monitors Gmail and Google Drive for items requiring operator attention.
+category: sentinel
 schedule: "0 */1 * * *"
 ---
 

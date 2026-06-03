@@ -1,6 +1,7 @@
----
+﻿---
 name: HABIT_SENTINEL
 description: Monitors active applications and window titles to learn user habits and rhythms.
+category: sentinel
 schedule: "0 */1 * * *"
 ---
 

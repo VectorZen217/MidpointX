@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_SKILL_EXEC_01
 description: skill execution, direct invocation, task optimization
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_SKILL_EXEC_01

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DOC_GEN_01
 description: AutomationEfficiency, API-First, Reliability
+category: domain
 ---
 
 # Logic Shift: THEOREM_DOC_GEN_01

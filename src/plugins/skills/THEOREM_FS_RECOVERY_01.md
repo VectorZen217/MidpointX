@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_FS_RECOVERY_01
 description: Prevents path hallucination when accessing internal agent skills.
+category: error-recovery
 ---
 
 # Logic Shift: THEOREM_FS_RECOVERY_01

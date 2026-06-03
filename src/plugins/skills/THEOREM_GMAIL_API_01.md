@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_GMAIL_API_01
 description: gmail, browser automation, fallback strategy
+category: domain
 ---
 
 # Logic Shift: THEOREM_GMAIL_API_01

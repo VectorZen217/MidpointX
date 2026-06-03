@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_DATA_VERIFY_01
 description: DataIntegrity, PreemptiveValidation, WorkflowEfficiency
+category: error-recovery
 ---
 
 # Logic Shift: THEOREM_DATA_VERIFY_01

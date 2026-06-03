@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_NFL_DATA_01
 description: Temporal-Validation, Pre-emptive-Filtering, Efficiency-Optimization
+category: domain
 ---
 
 # Logic Shift: THEOREM_NFL_DATA_01

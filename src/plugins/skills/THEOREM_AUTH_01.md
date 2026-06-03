@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_AUTH_01
 description: authentication, api-calls, error-handling
+category: domain
 ---
 
 # Logic Shift: THEOREM_AUTH_01

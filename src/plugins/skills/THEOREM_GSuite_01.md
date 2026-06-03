@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_GSuite_01
 description: Google Workspace, Document Creation, Automation
+category: domain
 ---
 
 # Logic Shift: THEOREM_GSuite_01

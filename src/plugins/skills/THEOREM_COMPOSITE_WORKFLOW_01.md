@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_COMPOSITE_WORKFLOW_01
 description: multi-step, data-synthesis, workflow-chaining
+category: orchestration
 ---
 
 # Logic Shift: THEOREM_COMPOSITE_WORKFLOW_01

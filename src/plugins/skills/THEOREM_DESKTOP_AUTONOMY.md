@@ -1,6 +1,7 @@
-# Skill: Desktop Autonomy & Visual Grounding
+﻿# Skill: Desktop Autonomy & Visual Grounding
 name: THEOREM_DESKTOP_AUTONOMY
 description: Coordination of visual perception (Eyes) and mechanical execution (Hands) for desktop automation.
+category: domain
 
 ## Core Logic
 When operating in VISUAL MODE or when standard API/filesystem tools are insufficient, follow the Visual Grounding Protocol:

@@ -1,6 +1,7 @@
----
+﻿---
 name: THEOREM_BROWSER_01
 description: web scraping, automation, cloud storage
+category: domain
 ---
 
 # Logic Shift: THEOREM_BROWSER_01
