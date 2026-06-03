@@ -1,17 +1,17 @@
 ---
 name: THEOREM_WEB_01
-description: web-search, google-docs, automation
+description: web-scraping, information-gathering, marketing-strategy
 ---
 
 # Logic Shift: THEOREM_WEB_01
-Trace ID: TELEGRAM-1778790600151
-Learned At: 2026-05-14T20:30:17.492Z
+Trace ID: TELEGRAM-1780074420446
+Learned At: 2026-05-29T17:07:12.555Z
 
 ## Justification
-The standard approach of simply performing a web search and then manually instructing the agent to copy to Google Docs can be inefficient. This theorem codifies a more direct method where the search results are immediately processed into a Google Doc, reducing the number of steps and potential for error. It leverages the integrated Google Docs capability more effectively.
+The standard approach of directly analyzing a website failed because the website itself contained no actionable information. Relying solely on the provided URL led to an incomplete task. Initiating a broader search proactively addresses this data deficiency, enabling the agent to fulfill the user's request more effectively.
 
 ## Discovered Pattern
-User requests web search for specific items with a requirement to save to Google Docs.
+When a website provides minimal or no content, and a marketing plan is requested, the standard approach of analyzing the website directly is insufficient. A broader web search should be initiated to gather contextual information about the business before attempting to create a marketing plan.
 
 ## Optimized Approach
-When a user requests a web search for specific items and also requires saving the results to Google Docs, prioritize using the browser tool to perform the search and extract data. After obtaining the necessary information, use the 'google_docs__create_document' tool to create a new document, populate it with the extracted data, and save it to Google Drive. This ensures a streamlined workflow by directly integrating search results into the desired document format, avoiding intermediate manual copying or redundant steps.
+If a target website yields insufficient information for a requested task (e.g., marketing plan, competitive analysis), automatically perform a broader web search using the business name and relevant keywords before proceeding. This ensures a more comprehensive understanding and a higher quality output.
