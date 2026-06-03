@@ -39,6 +39,7 @@ export interface MDSkill {
   schedule?: string; // Cron expression for proactive tasks
   watchPath?: string; // Directory to watch for file system events
   webhookPath?: string; // Endpoint path for webhook listener
+  category?: string;
 }
 
 export class PluginRegistry {
@@ -77,6 +78,7 @@ export class PluginRegistry {
       const content = await fs.readFile(filePath, "utf-8");
       const nameMatch = content.match(/name:\s*(.+)/);
       const descMatch = content.match(/description:\s*(.+)/);
+      const categoryMatch = content.match(/^category:\s*(.+)$/m);
       if (!nameMatch) {
         console.warn("⚠️ [PluginRegistry] hotReloadSkill: No 'name' field found in", filePath);
         return "";
@@ -91,6 +93,7 @@ export class PluginRegistry {
         description: descMatch ? descMatch[1].trim() : "Synthesized agent skill",
         content,
         filePath,
+        category: categoryMatch ? categoryMatch[1].trim() : undefined,
       });
       console.log(`✅ [PluginRegistry] Hot-loaded synthesized skill: ${skillName}`);
       return skillName;
@@ -135,7 +138,8 @@ export class PluginRegistry {
           const scheduleMatch = content.match(/schedule:\s*["']?([^"'\n\r]+)["']?/);
           const watchPathMatch = content.match(/watchPath:\s*["']?([^"'\n\r]+)["']?/);
           const webhookPathMatch = content.match(/webhookPath:\s*["']?([^"'\n\r]+)["']?/);
-          
+          const categoryMatch = content.match(/^category:\s*(.+)$/m);
+
           if (nameMatch) {
             const skillName = nameMatch[1].trim();
             if (skillName.includes('[') || skillName.includes(']')) {
@@ -149,7 +153,8 @@ export class PluginRegistry {
               filePath: filePath,
               schedule: scheduleMatch ? scheduleMatch[1].trim() : undefined,
               watchPath: watchPathMatch ? watchPathMatch[1].trim() : undefined,
-              webhookPath: webhookPathMatch ? webhookPathMatch[1].trim() : undefined
+              webhookPath: webhookPathMatch ? webhookPathMatch[1].trim() : undefined,
+              category: categoryMatch ? categoryMatch[1].trim() : undefined
             });
             console.log(`✅ [PluginRegistry] Loaded MD Skill: ${skillName} (${entry.isDirectory() ? 'DIR' : 'FILE'})`);
             if (scheduleMatch) console.log(`   └─ ⏰ Schedule: ${scheduleMatch[1].trim()}`);
