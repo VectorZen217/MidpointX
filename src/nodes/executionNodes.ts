@@ -417,7 +417,22 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
 
   const payload = [];
   if (!isCacheActive) {
-    payload.push(new SystemMessage(buildActionPrompt(agentPersona, userContext, state.executionMode || 'api')));
+    let systemPromptText = buildActionPrompt(agentPersona, userContext, state.executionMode || 'api');
+
+    // Auto-inject EXECUTION_GUARD when 2+ plan steps are pending so the agent
+    // always has execution discipline scaffolding without needing to call system__read_skill.
+    const pendingSteps = state.strategicPlan.filter(
+      (step: string) => (state.planStatus[step] || "pending") === "pending"
+    );
+    if (pendingSteps.length >= 2) {
+      const guard = PluginRegistry.getSkillContent("EXECUTION_GUARD");
+      if (guard) {
+        systemPromptText = `<skill name="EXECUTION_GUARD">\n${guard}\n</skill>\n\n` + systemPromptText;
+        console.log("🛡️ [SelectionActor] EXECUTION_GUARD injected into system prompt.");
+      }
+    }
+
+    payload.push(new SystemMessage(systemPromptText));
   }
   payload.push(...historyMessages);
   payload.push(new HumanMessage({ content: messageContent } as any));
