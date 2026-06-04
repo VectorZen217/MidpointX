@@ -4,3 +4,7 @@ import { configure } from '@testing-library/dom';
 // Exclude aria-hidden elements from text queries so filter buttons are
 // unambiguous when trace badges share the same label text (e.g. "SYS", "ERR").
 configure({ defaultIgnore: 'script, style, [aria-hidden="true"]' });
+
+// jsdom does not implement scrollIntoView — stub it globally so ChatView's
+// auto-scroll useEffect does not throw in test environments.
+window.HTMLElement.prototype.scrollIntoView = () => {};

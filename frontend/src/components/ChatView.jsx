@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Terminal, RefreshCw, Send, Cpu, Plus, Eye, Zap, Globe } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import MidpointLogo from './MidpointLogo';
 
 const ChatView = ({ 
@@ -175,22 +177,30 @@ const ChatView = ({
           <div className="messages-list">
             {chatMessages.map((msg, idx) => (
               <div key={idx} className={`message-bubble ${msg.sender === 'user' ? 'user' : 'agent'} ${msg.isSovereignMode ? 'sovereign-mode' : ''}`}>
-                <div className="message-text">{msg.text}</div>
+                {msg.sender === 'agent' ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        return inline
+                          ? <code className="md-inline-code" {...props}>{children}</code>
+                          : <pre className="md-code-block"><code {...props}>{children}</code></pre>;
+                      },
+                    }}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
+                ) : (
+                  <div className="message-text">{msg.text}</div>
+                )}
                 <span className="message-meta">{msg.time}</span>
               </div>
             ))}
             
             {pendingApproval && (
-              <div className="approval-card glass-panel neon-glow-amber">
-                <div className="approval-header">
-                  <div className="badge-amber">SECURITY CHALLENGE</div>
-                </div>
-                <div className="approval-body">
-                  <pre>{pendingApproval.tool === 'execute_system_command' ? pendingApproval.args.command : JSON.stringify(pendingApproval.args, null, 2)}</pre>
-                </div>
-                <div className="approval-footer">
-                  <button onClick={() => handleResume(true)} className="btn-approve">APPROVE</button>
-                  <button onClick={() => handleResume(false)} className="btn-deny">DENY</button>
+              <div className="message-bubble agent">
+                <div className="message-text" style={{ color: 'var(--accent-amber)' }}>
+                  ⚠ Awaiting approval for: <strong>{pendingApproval.tool}</strong>
                 </div>
               </div>
             )}
@@ -198,6 +208,27 @@ const ChatView = ({
           </div>
         )}
       </div>
+
+      {/* Floating Approval Panel */}
+      {pendingApproval && (
+        <div className="approval-float glass-panel neon-glow-amber">
+          <div className="approval-float-header">
+            <div className="badge-amber">SECURITY CHALLENGE</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Tool: <strong style={{ color: 'var(--text-primary)' }}>{pendingApproval.tool}</strong>
+            </div>
+          </div>
+          <pre className="approval-float-cmd">
+            {pendingApproval.tool === 'execute_system_command'
+              ? pendingApproval.args.command
+              : JSON.stringify(pendingApproval.args, null, 2)}
+          </pre>
+          <div className="approval-float-btns">
+            <button onClick={() => handleResume(true)}  className="btn-approve">APPROVE</button>
+            <button onClick={() => handleResume(false)} className="btn-deny">DENY</button>
+          </div>
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="chat-input-container glass-panel">
