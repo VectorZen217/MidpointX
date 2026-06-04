@@ -181,10 +181,14 @@ const ChatView = ({
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      code({ node, inline, className, children, ...props }) {
-                        return inline
-                          ? <code className="md-inline-code" {...props}>{children}</code>
-                          : <pre className="md-code-block"><code {...props}>{children}</code></pre>;
+                      pre({ children }) {
+                        return <pre className="md-code-block">{children}</pre>;
+                      },
+                      code({ className, children, ...props }) {
+                        if (!className) {
+                          return <code className="md-inline-code" {...props}>{children}</code>;
+                        }
+                        return <code className={className} {...props}>{children}</code>;
                       },
                     }}
                   >

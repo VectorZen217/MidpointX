@@ -28,6 +28,14 @@ test('agent messages render Markdown bold', () => {
   expect(bold.tagName).toBe('STRONG');
 });
 
+test('agent messages render inline code', () => {
+  const msgs = [{ sender: 'agent', text: '`hello`', time: '10:00' }];
+  render(<ChatView {...baseProps} chatMessages={msgs} />);
+  const code = screen.getByText('hello');
+  expect(code.tagName).toBe('CODE');
+  expect(code.className).toBe('md-inline-code');
+});
+
 test('approval panel does NOT appear when pendingApproval is null', () => {
   render(<ChatView {...baseProps} />);
   expect(screen.queryByText('SECURITY CHALLENGE')).not.toBeInTheDocument();
