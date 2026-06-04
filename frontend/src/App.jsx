@@ -6,7 +6,7 @@ import SettingsView from './components/SettingsView';
 import SkillsView from './components/SkillsView';
 import ScheduledTasksView from './components/ScheduledTasksView';
 import Planner from './components/Planner';
-import ReasoningTree from './components/ReasoningTree';
+import ActivityFeed from './components/ActivityFeed';
 import { Cpu, LayoutDashboard } from 'lucide-react';
 import SystemBar from './components/SystemBar';
 
@@ -337,7 +337,7 @@ const App = () => {
               setExecutionMode={setExecutionMode}
             />
             <div className="resizer" onMouseDown={startResizingReasoning}></div>
-            <ReasoningTree trace={trace} tokenUsage={tokenUsage} width={reasoningWidth} />
+            <ActivityFeed trace={trace} tokenUsage={tokenUsage} width={reasoningWidth} />
           </div>
         )}
 
