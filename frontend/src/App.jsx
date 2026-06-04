@@ -8,6 +8,7 @@ import ScheduledTasksView from './components/ScheduledTasksView';
 import Planner from './components/Planner';
 import ReasoningTree from './components/ReasoningTree';
 import { Cpu, LayoutDashboard } from 'lucide-react';
+import SystemBar from './components/SystemBar';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -45,6 +46,8 @@ const App = () => {
 
   const [plannerWidth, setPlannerWidth] = useState(320);
   const [reasoningWidth, setReasoningWidth] = useState(320);
+  const [socketConnected, setSocketConnected] = useState(true);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   
   const startResizingPlanner = (e) => {
     e.preventDefault();
@@ -123,6 +126,9 @@ const App = () => {
 
   useEffect(() => {
     // Socket real-time events
+    socket.on('connect', () => setSocketConnected(true));
+    socket.on('disconnect', () => setSocketConnected(false));
+
     socket.on('agent:progress', (payload) => {
       const nodeStage = String(payload.stage).toLowerCase();
       if (nodeStage.includes('reflection')) setActiveNode('reflection');
@@ -246,6 +252,8 @@ const App = () => {
     });
 
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
       socket.off('agent:progress');
       socket.off('agent:complete');
       socket.off('agent:error');
@@ -300,11 +308,18 @@ const App = () => {
       <Sidebar activeView={activeView} setActiveView={setActiveView} activeUser={activeUser} clearChat={clearChat} />
       
       <div className="main-content">
+        <SystemBar
+          activeNode={activeNode}
+          tokenUsage={tokenUsage}
+          systemInfo={systemInfo}
+          isRunning={isRunning}
+          socketConnected={socketConnected}
+        />
         {activeView === 'chat' && (
           <div className="mission-control-layout">
             <Planner strategicPlan={strategicPlan} planStatus={planStatus} width={plannerWidth} />
             <div className="resizer" onMouseDown={startResizingPlanner}></div>
-            <ChatView 
+            <ChatView
               task={task}
               setTask={setTask}
               handleStart={handleStart}
@@ -325,7 +340,7 @@ const App = () => {
             <ReasoningTree trace={trace} tokenUsage={tokenUsage} width={reasoningWidth} />
           </div>
         )}
-        
+
         {activeView === 'settings' && <SettingsView />}
         {activeView === 'skills' && <SkillsView />}
         {activeView === 'schedule' && <ScheduledTasksView />}
