@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar } from 'lucide-react';
+import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar, Clock } from 'lucide-react';
 import MidpointLogo from './MidpointLogo';
 
-const Sidebar = ({ activeView, setActiveView, activeUser, clearChat }) => {
+const Sidebar = ({ activeView, setActiveView, activeUser, clearChat, toggleHistoryDrawer, historyDrawerOpen }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = [
     { id: 'chat', label: 'OPERATIONS', icon: MessageSquare },
@@ -62,6 +62,19 @@ const Sidebar = ({ activeView, setActiveView, activeUser, clearChat }) => {
       </div>
 
       <div className="sidebar-footer">
+        <button
+          onClick={toggleHistoryDrawer}
+          className="btn-icon-small"
+          title="Toggle Session History"
+          style={{
+            marginRight: isCollapsed ? 0 : 8,
+            background: historyDrawerOpen ? 'rgba(23,113,201,0.15)' : undefined,
+            borderColor: historyDrawerOpen ? 'var(--accent-teal)' : undefined,
+            color: historyDrawerOpen ? 'var(--accent-teal)' : undefined,
+          }}
+        >
+          <Clock size={14} />
+        </button>
         <div className="user-avatar">
           {activeUser?.name?.[0] || 'O'}
         </div>

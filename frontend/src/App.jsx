@@ -9,6 +9,7 @@ import Planner from './components/Planner';
 import ActivityFeed from './components/ActivityFeed';
 import { Cpu, LayoutDashboard } from 'lucide-react';
 import SystemBar from './components/SystemBar';
+import HistoryDrawer from './components/HistoryDrawer';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -48,6 +49,8 @@ const App = () => {
   const [reasoningWidth, setReasoningWidth] = useState(320);
   const [socketConnected, setSocketConnected] = useState(true);
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [historyWidth, setHistoryWidth] = useState(200);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   
   const startResizingPlanner = (e) => {
     e.preventDefault();
@@ -85,6 +88,31 @@ const App = () => {
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const startResizingHistory = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = historyWidth;
+    const onMouseMove = (moveEvent) => {
+      const newWidth = Math.max(160, Math.min(300, startWidth + (moveEvent.clientX - startX)));
+      setHistoryWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleSelectSession = (sessionId) => {
+    setActiveSessionId(sessionId);
+    setTrace(prev => [...prev, {
+      type: 'system',
+      message: `>> [ SESSION LOADED ] Session ${sessionId}`,
+      time: new Date().toLocaleTimeString(),
+    }]);
   };
 
   const handleResume = (approved) => {
@@ -305,7 +333,14 @@ const App = () => {
 
   return (
     <div className="app-container">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} activeUser={activeUser} clearChat={clearChat} />
+      <Sidebar
+        activeView={activeView}
+        setActiveView={setActiveView}
+        activeUser={activeUser}
+        clearChat={clearChat}
+        toggleHistoryDrawer={() => setHistoryDrawerOpen(o => !o)}
+        historyDrawerOpen={historyDrawerOpen}
+      />
       
       <div className="main-content">
         <SystemBar
@@ -317,6 +352,16 @@ const App = () => {
         />
         {activeView === 'chat' && (
           <div className="mission-control-layout">
+            {historyDrawerOpen && (
+              <>
+                <HistoryDrawer
+                  width={historyWidth}
+                  onSelectSession={handleSelectSession}
+                  activeSessionId={activeSessionId}
+                />
+                <div className="resizer" onMouseDown={startResizingHistory} />
+              </>
+            )}
             <Planner strategicPlan={strategicPlan} planStatus={planStatus} width={plannerWidth} />
             <div className="resizer" onMouseDown={startResizingPlanner}></div>
             <ChatView
