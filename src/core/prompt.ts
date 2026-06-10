@@ -1,4 +1,22 @@
 import * as os from "os";
+import { AgentMemory } from "./agentMemory";
+
+/**
+ * Returns a compact memory context block prepended to the system prompt.
+ * Falls back to empty string if AgentMemory is unavailable or empty.
+ */
+export function buildMemoryContextBlock(): string {
+  try {
+    const memories = AgentMemory.summarize(10);
+    if (memories.length === 0) return "";
+    const lines = memories
+      .map(m => `- [${m.type.toUpperCase()}] ${m.key}: ${m.value}`)
+      .join("\n");
+    return `\n\n## Persistent Memory (context about you and your projects)\n${lines}\n`;
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Builds the base identity block by combining:
@@ -33,7 +51,7 @@ You are a precision instrument. Every tool call is a deliberate act. Follow thes
   if (agentPersona) parts.push(agentPersona);
   if (userContext) parts.push(`---\n## ACTIVE USER CONTEXT\n${userContext}`);
 
-  return parts.join("\n\n");
+  return parts.join("\n\n") + buildMemoryContextBlock();
 }
 
 /**
