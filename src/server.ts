@@ -26,6 +26,7 @@ import { uiApiRouter } from "./routes/uiApiRoutes";
 import { skillRoutes } from "./routes/skillRoutes";
 import { schedulerRoutes } from "./routes/schedulerRoutes";
 import { makeConfigRoutes } from "./routes/configRoutes";
+import { memoryRoutes } from "./routes/memoryRoutes";
 import { SwarmBus } from "./core/swarmBus";
 
 // Log level: set LOG_LEVEL=silent in .env to suppress verbose output.
@@ -97,6 +98,7 @@ app.get("/api/v1/health", (req, res) => res.json({ status: "healthy", version: "
 
 app.use("/api/v1/skills", skillRoutes);
 app.use("/api/v1/scheduler", schedulerRoutes);
+app.use("/api/v1/memories", memoryRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
 
 // Webhook Authentication Middleware
