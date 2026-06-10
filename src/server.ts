@@ -26,6 +26,7 @@ import { uiApiRouter } from "./routes/uiApiRoutes";
 import { skillRoutes } from "./routes/skillRoutes";
 import { schedulerRoutes } from "./routes/schedulerRoutes";
 import { makeConfigRoutes } from "./routes/configRoutes";
+import { SwarmBus } from "./core/swarmBus";
 
 // Log level: set LOG_LEVEL=silent in .env to suppress verbose output.
 // Uses structured filtering instead of emoji matching for portability across
@@ -86,6 +87,8 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: allowedOrigins }
 });
+
+SwarmBus.init(io);
 
 // API Routes
 app.use("/api/v1/a2a", a2aRouter);
