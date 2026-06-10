@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Key, Cpu, Settings as SettingsIcon, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Clipboard, Check } from 'lucide-react';
+import { Save, Key, Cpu, Settings as SettingsIcon, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Clipboard, Check, PlugZap } from 'lucide-react';
 
 const SettingsView = () => {
   const [config, setConfig] = useState({});
@@ -15,6 +15,11 @@ const SettingsView = () => {
   const [generatedKeyPair, setGeneratedKeyPair] = useState(null);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
   const [copiedKey, setCopiedKey] = useState(false);
+
+  // Integrations state
+  const [integrations, setIntegrations] = useState([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [testingConnector, setTestingConnector] = useState(null);
 
   const fetchA2APoliciesAndLedger = async () => {
     try {
@@ -50,6 +55,36 @@ const SettingsView = () => {
   useEffect(() => {
     fetchA2APoliciesAndLedger();
   }, []);
+
+  useEffect(() => {
+    fetchIntegrations();
+  }, []);
+
+  const fetchIntegrations = async () => {
+    setIntegrationsLoading(true);
+    try {
+      const res = await fetch('/api/v1/integrations/status');
+      const data = await res.json();
+      if (data.success) setIntegrations(data.connectors || []);
+    } catch {
+      setIntegrations([]);
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  };
+
+  const handleTestConnector = async (id) => {
+    setTestingConnector(id);
+    try {
+      const res = await fetch(`/api/v1/integrations/${id}/test`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.success ? `✅ ${data.message}` : `❌ ${data.error}`);
+    } catch (e) {
+      alert(`❌ Network error: ${e.message}`);
+    } finally {
+      setTestingConnector(null);
+    }
+  };
 
   useEffect(() => {
     fetchConfig();
@@ -506,9 +541,48 @@ const SettingsView = () => {
           </div>
         </div>
         
+        {/* Section 5: Integration Hub */}
+        <div className="card" style={{ marginTop: '24px' }}>
+          <h3 className="card-title text-teal">
+            <PlugZap size={18} />
+            Integration Hub
+          </h3>
+          <p className="text-muted" style={{ fontSize: '13px', marginTop: '-8px', marginBottom: '20px' }}>
+            Outbound connectors for Slack, GitHub, and email. Configure credentials in the Provider Credentials panel or via environment variables.
+          </p>
+          {integrationsLoading ? (
+            <div className="text-muted" style={{ fontSize: '12px' }}>Checking connectors...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {integrations.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.healthy ? 'var(--accent-teal)' : '#6b7280', flexShrink: 0, boxShadow: c.healthy ? '0 0 6px var(--accent-teal)' : 'none' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 600, flex: 1, textTransform: 'capitalize' }}>{c.id}</span>
+                  <span style={{ fontSize: '11px', color: c.healthy ? 'var(--accent-teal)' : 'var(--text-secondary)' }}>
+                    {c.healthy ? 'Connected' : 'Not configured'}
+                  </span>
+                  <button
+                    onClick={() => handleTestConnector(c.id)}
+                    disabled={testingConnector === c.id}
+                    style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer' }}
+                  >
+                    {testingConnector === c.id ? 'Testing...' : 'Test'}
+                  </button>
+                </div>
+              ))}
+              {integrations.length === 0 && (
+                <div className="text-muted" style={{ fontSize: '12px' }}>No connectors registered.</div>
+              )}
+            </div>
+          )}
+          <button onClick={fetchIntegrations} style={{ marginTop: '12px', background: 'none', border: 'none', color: 'var(--accent-teal)', fontSize: '11px', cursor: 'pointer' }}>
+            Refresh status
+          </button>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button 
-            className="btn-outline" 
+          <button
+            className="btn-outline"
             style={{ width: 'auto', marginTop: 0 }}
             onClick={fetchConfig}
           >
