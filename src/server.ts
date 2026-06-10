@@ -28,6 +28,8 @@ import { schedulerRoutes } from "./routes/schedulerRoutes";
 import { makeConfigRoutes } from "./routes/configRoutes";
 import { memoryRoutes } from "./routes/memoryRoutes";
 import { integrationRoutes } from "./routes/integrationRoutes";
+import { pipelineRoutes } from "./routes/pipelineRoutes";
+import { PipelineRunner } from "./core/pipelineRunner";
 import { IntegrationBus } from "./core/integrationBus";
 import { SlackConnector } from "./services/slackService";
 import { GitHubConnector } from "./services/githubService";
@@ -105,7 +107,11 @@ app.use("/api/v1/skills", skillRoutes);
 app.use("/api/v1/scheduler", schedulerRoutes);
 app.use("/api/v1/memories", memoryRoutes);
 app.use("/api/v1/integrations", integrationRoutes);
+app.use("/api/v1/pipelines", pipelineRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
+
+// Load pipelines from disk on startup
+PipelineRunner.load();
 
 // Register integration connectors
 IntegrationBus.register(SlackConnector);
