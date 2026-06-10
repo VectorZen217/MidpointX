@@ -71,12 +71,12 @@ export const AgentMemory = {
     `).all(pattern, pattern, limit) as Memory[];
 
     if (rows.length > 0) {
-      const ids = rows.map(r => `'${r.id}'`).join(",");
-      db.exec(`
-        UPDATE agent_memories
-        SET last_accessed = ${now}, access_count = access_count + 1
-        WHERE id IN (${ids})
-      `);
+      const updateStmt = db.prepare(
+        "UPDATE agent_memories SET last_accessed = ?, access_count = access_count + 1 WHERE id = ?"
+      );
+      for (const row of rows) {
+        updateStmt.run(now, row.id);
+      }
     }
     return rows;
   },
@@ -98,7 +98,7 @@ export const AgentMemory = {
   },
 
   count(): number {
-    const row = getDb().prepare("SELECT COUNT(*) as n FROM agent_memories").get() as { n: number };
-    return row.n;
+    const row = getDb().prepare("SELECT COUNT(*) as n FROM agent_memories").get() as { n: number } | undefined;
+    return row?.n ?? 0;
   }
 };
