@@ -20,6 +20,24 @@ const SettingsView = () => {
   const [integrations, setIntegrations] = useState([]);
   const [integrationsLoading, setIntegrationsLoading] = useState(false);
   const [testingConnector, setTestingConnector] = useState(null);
+  const [expandedConnector, setExpandedConnector] = useState(null);
+
+  const CONNECTOR_FIELDS = {
+    slack: [
+      { key: 'SLACK_BOT_TOKEN',      label: 'Bot Token',       type: 'password', placeholder: 'xoxb-...' },
+      { key: 'SLACK_DEFAULT_CHANNEL', label: 'Default Channel', type: 'text',     placeholder: '#general' },
+    ],
+    github: [
+      { key: 'GITHUB_TOKEN',       label: 'Personal Access Token', type: 'password', placeholder: 'ghp_...' },
+      { key: 'GITHUB_DEFAULT_REPO', label: 'Default Repo',         type: 'text',     placeholder: 'owner/repo' },
+    ],
+    email: [
+      { key: 'SMTP_HOST', label: 'SMTP Host', type: 'text',     placeholder: 'smtp.gmail.com' },
+      { key: 'SMTP_PORT', label: 'SMTP Port', type: 'text',     placeholder: '587' },
+      { key: 'SMTP_USER', label: 'Username',  type: 'text',     placeholder: 'you@gmail.com' },
+      { key: 'SMTP_PASS', label: 'Password',  type: 'password', placeholder: '••••••••' },
+    ],
+  };
 
   const fetchA2APoliciesAndLedger = async () => {
     try {
@@ -70,6 +88,22 @@ const SettingsView = () => {
       setIntegrations([]);
     } finally {
       setIntegrationsLoading(false);
+    }
+  };
+
+  const handleSaveConnector = async (connectorId) => {
+    const fields = CONNECTOR_FIELDS[connectorId] || [];
+    const updates = {};
+    fields.forEach(f => { if (config[f.key] !== undefined) updates[f.key] = config[f.key]; });
+    const res = await fetch('/api/v1/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setStatus({ type: 'success', message: `${connectorId} credentials saved!` });
+      setTimeout(() => fetchIntegrations(), 800);
     }
   };
 
@@ -555,19 +589,49 @@ const SettingsView = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {integrations.map((c) => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.healthy ? 'var(--accent-teal)' : '#6b7280', flexShrink: 0, boxShadow: c.healthy ? '0 0 6px var(--accent-teal)' : 'none' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 600, flex: 1, textTransform: 'capitalize' }}>{c.id}</span>
-                  <span style={{ fontSize: '11px', color: c.healthy ? 'var(--accent-teal)' : 'var(--text-secondary)' }}>
-                    {c.healthy ? 'Connected' : 'Not configured'}
-                  </span>
-                  <button
-                    onClick={() => handleTestConnector(c.id)}
-                    disabled={testingConnector === c.id}
-                    style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer' }}
-                  >
-                    {testingConnector === c.id ? 'Testing...' : 'Test'}
-                  </button>
+                <div key={c.id}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: 'rgba(0,0,0,0.15)', borderRadius: expandedConnector === c.id ? '8px 8px 0 0' : '8px', border: '1px solid var(--border-color)', borderBottom: expandedConnector === c.id ? 'none' : undefined }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.healthy ? 'var(--accent-teal)' : '#6b7280', flexShrink: 0, boxShadow: c.healthy ? '0 0 6px var(--accent-teal)' : 'none' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, flex: 1, textTransform: 'capitalize' }}>{c.id}</span>
+                    <span style={{ fontSize: '11px', color: c.healthy ? 'var(--accent-teal)' : 'var(--text-secondary)' }}>
+                      {c.healthy ? 'Connected' : 'Not configured'}
+                    </span>
+                    <button
+                      onClick={() => setExpandedConnector(expandedConnector === c.id ? null : c.id)}
+                      style={{ padding: '4px 10px', background: expandedConnector === c.id ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${expandedConnector === c.id ? 'var(--accent-teal)' : 'var(--border-color)'}`, borderRadius: '4px', color: expandedConnector === c.id ? 'var(--accent-teal)' : 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      {expandedConnector === c.id ? 'Close' : 'Configure'}
+                    </button>
+                    <button
+                      onClick={() => handleTestConnector(c.id)}
+                      disabled={testingConnector === c.id}
+                      style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer' }}
+                    >
+                      {testingConnector === c.id ? 'Testing...' : 'Test'}
+                    </button>
+                  </div>
+                  {expandedConnector === c.id && (
+                    <div style={{ background: 'rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {(CONNECTOR_FIELDS[c.id] || []).map(field => (
+                        <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>{field.label}</label>
+                          <input
+                            type={field.type}
+                            placeholder={field.placeholder}
+                            value={config[field.key] || ''}
+                            onChange={e => handleChange(field.key, e.target.value)}
+                            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '6px 10px', color: 'var(--text-primary)', fontSize: '12px', outline: 'none' }}
+                          />
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => handleSaveConnector(c.id)}
+                        style={{ alignSelf: 'flex-end', padding: '6px 14px', background: 'var(--accent-teal)', border: 'none', borderRadius: '4px', color: '#000', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        Save Credentials
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {integrations.length === 0 && (
