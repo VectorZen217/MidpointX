@@ -31,6 +31,9 @@ const ChatView = ({
   const [rehydratingId, setRehydratingId] = useState(null);
   const [rehydrateStatus, setRehydrateStatus] = useState(null);
 
+  // Integration routing state
+  const [integrationRoute, setIntegrationRoute] = useState(null); // 'slack' | 'github' | 'email' | null
+
   useEffect(() => {
     if (showSessionsDrawer) {
       fetchSessions();
@@ -103,8 +106,20 @@ const ChatView = ({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleStart();
+      wrappedHandleStart();
     }
+  };
+
+  const wrappedHandleStart = () => {
+    if (integrationRoute && task.trim()) {
+      const suffixes = {
+        slack:  '\n\n[After completing this task, post a concise summary of the result to Slack.]',
+        github: '\n\n[After completing this task, create a GitHub issue summarizing what was done and any follow-up actions.]',
+        email:  '\n\n[After completing this task, draft a brief email summary of the result.]',
+      };
+      setTask(prev => prev + (suffixes[integrationRoute] || ''));
+    }
+    handleStart();
   };
 
   return (
@@ -235,21 +250,45 @@ const ChatView = ({
       )}
 
       {/* Input Area */}
-      <div className="chat-input-container glass-panel">
-        <textarea 
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Awaiting orders..."
-          rows={1}
-        />
-        <button 
-          onClick={handleStart}
-          disabled={isRunning || !task.trim()}
-          className="send-button"
-        >
-          {isRunning ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
-        </button>
+      <div className="chat-input-wrapper">
+        <div className="integration-route-bar">
+          <span className="integration-route-label">ROUTE OUTPUT:</span>
+          {[
+            { id: 'slack',  icon: '⚡', label: 'Slack'  },
+            { id: 'github', icon: '🐙', label: 'GitHub' },
+            { id: 'email',  icon: '📧', label: 'Email'  },
+          ].map(r => (
+            <button
+              key={r.id}
+              className={`integration-route-pill ${integrationRoute === r.id ? 'active' : ''}`}
+              onClick={() => setIntegrationRoute(integrationRoute === r.id ? null : r.id)}
+              title={`Route output to ${r.label}`}
+            >
+              {r.icon} {r.label}
+            </button>
+          ))}
+          {integrationRoute && (
+            <span className="integration-route-active-label">
+              → will route to <strong>{integrationRoute}</strong> on send
+            </span>
+          )}
+        </div>
+        <div className="chat-input-container glass-panel">
+          <textarea
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Awaiting orders..."
+            rows={1}
+          />
+          <button
+            onClick={wrappedHandleStart}
+            disabled={isRunning || !task.trim()}
+            className={`send-button ${integrationRoute ? 'send-button-routed' : ''}`}
+          >
+            {isRunning ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
       </div>
 
       {showSessionsDrawer && (

@@ -1972,3 +1972,13 @@ pre::-webkit-scrollbar,
 .node-config-field { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .node-config-label { display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-secondary); margin-bottom: 4px; }
 .node-config-input { width: 100%; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 5px 8px; color: var(--text-primary); font-size: 11px; outline: none; box-sizing: border-box; resize: vertical; }
+
+/* Integration routing pill-bar */
+.chat-input-wrapper { display: flex; flex-direction: column; }
+.integration-route-bar { display: flex; align-items: center; gap: 6px; padding: 6px 12px 0; flex-wrap: wrap; }
+.integration-route-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-secondary); opacity: 0.6; }
+.integration-route-pill { display: flex; align-items: center; gap: 4px; padding: 3px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-secondary); font-size: 11px; cursor: pointer; transition: all 0.15s; }
+.integration-route-pill:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.integration-route-pill.active { background: rgba(0,212,255,0.12); border-color: var(--accent-teal); color: var(--accent-teal); }
+.integration-route-active-label { font-size: 10px; color: var(--accent-teal); opacity: 0.8; margin-left: 4px; }
+.send-button-routed { box-shadow: 0 0 8px var(--accent-teal) !important; }
