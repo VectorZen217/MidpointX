@@ -10,6 +10,7 @@ import ActivityFeed from './components/ActivityFeed';
 import { Cpu, LayoutDashboard } from 'lucide-react';
 import SystemBar from './components/SystemBar';
 import HistoryDrawer from './components/HistoryDrawer';
+import SwarmView from './components/SwarmView';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -51,6 +52,8 @@ const App = () => {
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
   const [historyWidth, setHistoryWidth] = useState(200);
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [swarmAgents, setSwarmAgents] = useState({});
+  const [swarmMessages, setSwarmMessages] = useState([]);
   
   const startResizingPlanner = (e) => {
     e.preventDefault();
@@ -279,6 +282,58 @@ const App = () => {
       setTrace([{ type: 'system', message: `MidpointX Runtime Initialized // ${gatewayStatus} Active`, time: new Date().toLocaleTimeString() }]);
     });
 
+    socket.on('swarm:agent_spawned', (payload) => {
+      setSwarmAgents(prev => ({
+        ...prev,
+        [payload.agentId]: {
+          agentId: payload.agentId,
+          role: payload.role,
+          task: payload.task,
+          status: 'active',
+          tokensUsed: 0,
+          messages: []
+        }
+      }));
+    });
+
+    socket.on('swarm:agent_progress', (payload) => {
+      setSwarmAgents(prev => {
+        const agent = prev[payload.agentId];
+        if (!agent) return prev;
+        return {
+          ...prev,
+          [payload.agentId]: {
+            ...agent,
+            tokensUsed: agent.tokensUsed + (payload.tokensUsed || 0),
+            messages: [...agent.messages, { step: payload.step, message: payload.message }]
+          }
+        };
+      });
+    });
+
+    socket.on('swarm:agent_message', (payload) => {
+      setSwarmMessages(prev => [...prev, payload]);
+    });
+
+    socket.on('swarm:agent_complete', (payload) => {
+      setSwarmAgents(prev => {
+        const agent = prev[payload.agentId];
+        if (!agent) return prev;
+        return {
+          ...prev,
+          [payload.agentId]: { ...agent, status: 'complete', tokensUsed: agent.tokensUsed + (payload.tokensUsed || 0) }
+        };
+      });
+    });
+
+    socket.on('swarm:agent_error', (payload) => {
+      setSwarmAgents(prev => {
+        const agent = prev[payload.agentId];
+        if (!agent) return prev;
+        return { ...prev, [payload.agentId]: { ...agent, status: 'error' } };
+      });
+    });
+
     return () => {
       socket.off('connect');
       socket.off('disconnect');
@@ -287,6 +342,11 @@ const App = () => {
       socket.off('agent:error');
       socket.off('agent:message');
       socket.off('system:init');
+      socket.off('swarm:agent_spawned');
+      socket.off('swarm:agent_progress');
+      socket.off('swarm:agent_message');
+      socket.off('swarm:agent_complete');
+      socket.off('swarm:agent_error');
     };
   }, []);
 
@@ -389,6 +449,9 @@ const App = () => {
         {activeView === 'settings' && <SettingsView />}
         {activeView === 'skills' && <SkillsView />}
         {activeView === 'schedule' && <ScheduledTasksView />}
+        {activeView === 'swarm' && (
+          <SwarmView agents={swarmAgents} messages={swarmMessages} />
+        )}
       </div>
     </div>
   );

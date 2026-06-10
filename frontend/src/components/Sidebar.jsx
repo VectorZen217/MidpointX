@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar, Clock } from 'lucide-react';
+import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar, Clock, Network } from 'lucide-react';
 import MidpointLogo from './MidpointLogo';
 
 const Sidebar = ({ activeView, setActiveView, activeUser, clearChat, toggleHistoryDrawer, historyDrawerOpen }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = [
-    { id: 'chat', label: 'OPERATIONS', icon: MessageSquare },
-    { id: 'skills', label: 'SKILLS', icon: Box },
-    { id: 'schedule', label: 'SCHEDULE', icon: Calendar },
-    { id: 'settings', label: 'CONFIG', icon: Settings },
+    { id: 'chat',     label: 'OPERATIONS', icon: MessageSquare },
+    { id: 'swarm',    label: 'SWARM',      icon: Network },
+    { id: 'skills',   label: 'SKILLS',     icon: Box },
+    { id: 'schedule', label: 'SCHEDULE',   icon: Calendar },
+    { id: 'settings', label: 'CONFIG',     icon: Settings },
   ];
 
   return (
