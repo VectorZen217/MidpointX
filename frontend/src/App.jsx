@@ -11,6 +11,7 @@ import { Cpu, LayoutDashboard } from 'lucide-react';
 import SystemBar from './components/SystemBar';
 import HistoryDrawer from './components/HistoryDrawer';
 import SwarmView from './components/SwarmView';
+import MemoryBrowser from './components/MemoryBrowser';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -452,6 +453,7 @@ const App = () => {
         {activeView === 'swarm' && (
           <SwarmView agents={swarmAgents} messages={swarmMessages} />
         )}
+        {activeView === 'memory' && <MemoryBrowser />}
       </div>
     </div>
   );
