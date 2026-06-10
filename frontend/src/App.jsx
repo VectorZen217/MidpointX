@@ -12,6 +12,7 @@ import SystemBar from './components/SystemBar';
 import HistoryDrawer from './components/HistoryDrawer';
 import SwarmView from './components/SwarmView';
 import MemoryBrowser from './components/MemoryBrowser';
+import PipelineView from './components/PipelineView';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -454,6 +455,7 @@ const App = () => {
           <SwarmView agents={swarmAgents} messages={swarmMessages} />
         )}
         {activeView === 'memory' && <MemoryBrowser />}
+        {activeView === 'pipelines' && <PipelineView />}
       </div>
     </div>
   );

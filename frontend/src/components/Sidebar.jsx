@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar, Clock, Network, Brain } from 'lucide-react';
+import { MessageSquare, Settings, Box, Cpu, ChevronRight, Menu, Calendar, Clock, Network, Brain, Workflow } from 'lucide-react';
 import MidpointLogo from './MidpointLogo';
 
 const Sidebar = ({ activeView, setActiveView, activeUser, clearChat, toggleHistoryDrawer, historyDrawerOpen }) => {
@@ -7,7 +7,8 @@ const Sidebar = ({ activeView, setActiveView, activeUser, clearChat, toggleHisto
   const navItems = [
     { id: 'chat',     label: 'OPERATIONS', icon: MessageSquare },
     { id: 'swarm',    label: 'SWARM',      icon: Network },
-    { id: 'memory',   label: 'MEMORY',     icon: Brain },
+    { id: 'memory',     label: 'MEMORY',     icon: Brain },
+    { id: 'pipelines',  label: 'PIPELINES',  icon: Workflow },
     { id: 'skills',   label: 'SKILLS',     icon: Box },
     { id: 'schedule', label: 'SCHEDULE',   icon: Calendar },
     { id: 'settings', label: 'CONFIG',     icon: Settings },
