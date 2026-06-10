@@ -27,6 +27,11 @@ import { skillRoutes } from "./routes/skillRoutes";
 import { schedulerRoutes } from "./routes/schedulerRoutes";
 import { makeConfigRoutes } from "./routes/configRoutes";
 import { memoryRoutes } from "./routes/memoryRoutes";
+import { integrationRoutes } from "./routes/integrationRoutes";
+import { IntegrationBus } from "./core/integrationBus";
+import { SlackConnector } from "./services/slackService";
+import { GitHubConnector } from "./services/githubService";
+import { EmailConnector } from "./services/emailService";
 import { SwarmBus } from "./core/swarmBus";
 
 // Log level: set LOG_LEVEL=silent in .env to suppress verbose output.
@@ -99,7 +104,13 @@ app.get("/api/v1/health", (req, res) => res.json({ status: "healthy", version: "
 app.use("/api/v1/skills", skillRoutes);
 app.use("/api/v1/scheduler", schedulerRoutes);
 app.use("/api/v1/memories", memoryRoutes);
+app.use("/api/v1/integrations", integrationRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
+
+// Register integration connectors
+IntegrationBus.register(SlackConnector);
+IntegrationBus.register(GitHubConnector);
+IntegrationBus.register(EmailConnector);
 
 // Webhook Authentication Middleware
 // Validates the X-Webhook-Secret header against WEBHOOK_SECRET using a
