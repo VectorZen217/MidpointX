@@ -82,8 +82,7 @@ export class ConnectorRegistry {
       await CredentialVault.store(id, credentials);
     }
 
-    // Dynamic import to avoid circular dependency with IntegrationToolBridge (Task 4)
-    // @ts-expect-error integrationToolBridge does not exist until Task 4 is implemented
+    // Dynamic import to avoid circular dependency with IntegrationToolBridge
     const { IntegrationToolBridge } = await import("./integrationToolBridge");
     IntegrationToolBridge.register(id, connector.getTools());
 
@@ -97,8 +96,7 @@ export class ConnectorRegistry {
     this.activeConnectors.delete(id);
     this.healthStatus.delete(id);
 
-    // Dynamic import to avoid circular dependency with IntegrationToolBridge (Task 4)
-    // @ts-expect-error integrationToolBridge does not exist until Task 4 is implemented
+    // Dynamic import to avoid circular dependency with IntegrationToolBridge
     const { IntegrationToolBridge } = await import("./integrationToolBridge");
     IntegrationToolBridge.unregister(id);
 
@@ -120,8 +118,7 @@ export class ConnectorRegistry {
   static async forceHealthCheck(id: string): Promise<HealthStatus> {
     const connector = this.activeConnectors.get(id);
     if (!connector) return "disconnected";
-    // Dynamic import to avoid circular dependency with IntegrationToolBridge (Task 4)
-    // @ts-expect-error integrationToolBridge does not exist until Task 4 is implemented
+    // Dynamic import to avoid circular dependency with IntegrationToolBridge
     const { IntegrationToolBridge } = await import("./integrationToolBridge");
     try {
       const healthy = await connector.healthCheck();

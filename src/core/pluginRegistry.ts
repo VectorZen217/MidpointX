@@ -47,6 +47,8 @@ export class PluginRegistry {
   private static mcpClients: Map<string, Client> = new Map();
   private static clientModes: Map<string, string> = new Map(); // Stores 'api' or 'visual'
   private static activeTools: FunctionDeclaration[] = [];
+  private static connectorToolExecutors: Map<string, (args: unknown) => Promise<unknown>> = new Map();
+  private static connectorToolIds: Map<string, string[]> = new Map();
 
   static async init() {
     console.log("🧩 [PluginRegistry] Initialization Framework...");
@@ -589,6 +591,27 @@ export class PluginRegistry {
     this.activeTools = rawTools;
   }
 
+  public static registerConnectorTools(
+    connectorId: string,
+    tools: FunctionDeclaration[],
+    executors: Map<string, (args: unknown) => Promise<unknown>>
+  ): void {
+    this.unregisterConnectorTools(connectorId);
+    this.activeTools.push(...tools);
+    this.connectorToolIds.set(connectorId, tools.map(t => t.name));
+    for (const [name, fn] of executors) {
+      this.connectorToolExecutors.set(name, fn);
+    }
+    console.log(`🔌 [PluginRegistry] Registered ${tools.length} tools for connector: ${connectorId}`);
+  }
+
+  public static unregisterConnectorTools(connectorId: string): void {
+    const toolNames = this.connectorToolIds.get(connectorId) ?? [];
+    this.activeTools = this.activeTools.filter(t => !toolNames.includes(t.name));
+    toolNames.forEach(n => this.connectorToolExecutors.delete(n));
+    this.connectorToolIds.delete(connectorId);
+  }
+
   public static getActiveTools(): FunctionDeclaration[] {
     return this.activeTools;
   }
@@ -615,6 +638,10 @@ export class PluginRegistry {
   }
 
   public static async routeAndExecute(name: string, args: any, userId?: string, executionMode: string = 'api'): Promise<any> {
+    if (this.connectorToolExecutors.has(name)) {
+      return await this.connectorToolExecutors.get(name)!(args);
+    }
+
     if (name === "system__list_skills") {
       const list = Array.from(this.mdSkills.values()).map(s => ({
         name: s.name,
