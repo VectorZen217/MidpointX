@@ -52,6 +52,7 @@ desktop.ini
 # MidpointX Private Memory & Job Agent Data
 # (Ensuring personal logs and resumes are not shared)
 src/workspace/memory/
+src/workspace/connectors.json
 src/plugins/skills/gemini-autonomous-agent/job_agent/jobs/
 travel_workflow_state.json
 

@@ -86,12 +86,16 @@ export class AlphaVantageConnector implements IConnector {
           const positions = [];
           for (const h of holdings) {
             const symbol = h.symbol.toUpperCase();
-            const res = await fetch(`${this.baseUrl}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${this.apiKey}`);
-            const data = await res.json() as any;
-            const price = parseFloat(data["Global Quote"]?.["05. price"] ?? "0");
-            const value = price * h.quantity;
-            totalValue += value;
-            positions.push({ symbol, quantity: h.quantity, price, value: +value.toFixed(2) });
+            try {
+              const res = await fetch(`${this.baseUrl}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${this.apiKey}`);
+              const data = await res.json() as any;
+              const price = parseFloat(data["Global Quote"]?.["05. price"] ?? "0");
+              const value = price * h.quantity;
+              totalValue += value;
+              positions.push({ symbol, quantity: h.quantity, price, value: +value.toFixed(2) });
+            } catch (e: any) {
+              positions.push({ symbol, quantity: h.quantity, price: 0, value: 0, error: e.message });
+            }
           }
           return { totalValue: +totalValue.toFixed(2), positions };
         }

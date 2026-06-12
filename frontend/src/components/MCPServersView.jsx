@@ -33,7 +33,7 @@ const MCPServersView = () => {
   const handleAddFromLibrary = async (server, envValues) => {
     const env = {};
     (server.configFields ?? []).forEach(f => { if (envValues[f.key]) env[f.key] = envValues[f.key]; });
-    await fetch('/api/v1/mcp-servers', {
+    const res = await fetch('/api/v1/mcp-servers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -41,6 +41,8 @@ const MCPServersView = () => {
         args: server.args, env, enabled: true, source: 'library'
       })
     });
+    const data = await res.json();
+    if (!data.success) { alert(data.error ?? 'Failed to add server'); return; }
     setAdding(null);
     await fetchData();
   };
@@ -162,7 +164,7 @@ const MCPServersView = () => {
             <div key={s.id} style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '12px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.status === 'running' ? 'var(--accent-teal)' : '#ef4444', display: 'inline-block' }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.status === 'registered' ? '#f59e0b' : s.status === 'running' ? 'var(--accent-teal)' : '#ef4444', display: 'inline-block' }} />
                   <strong style={{ fontSize: 14 }}>{s.name}</strong>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.id}</span>
                 </div>

@@ -86,13 +86,13 @@ export class MCPServerManager {
     return MCP_SERVER_LIBRARY;
   }
 
-  static async getActive(): Promise<Array<{ id: string; name: string; source: string; status: "running" | "unknown" }>> {
+  static async getActive(): Promise<Array<{ id: string; name: string; source: string; status: "running" | "registered" | "unknown" }>> {
     const config = await this.readConfig();
     return Object.entries(config.mcpServers ?? {}).map(([id, s]: [string, any]) => ({
       id,
       name: s.name ?? id,
       source: s.source ?? "custom",
-      status: "running" as const
+      status: "registered" as const
     }));
   }
 
