@@ -13,6 +13,8 @@ import HistoryDrawer from './components/HistoryDrawer';
 import SwarmView from './components/SwarmView';
 import MemoryBrowser from './components/MemoryBrowser';
 import PipelineView from './components/PipelineView';
+import ConnectorsView from './components/ConnectorsView';
+import MCPServersView from './components/MCPServersView';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -456,6 +458,8 @@ const App = () => {
         )}
         {activeView === 'memory' && <MemoryBrowser />}
         {activeView === 'pipelines' && <PipelineView />}
+        {activeView === 'connectors' && <ConnectorsView />}
+        {activeView === 'mcp-servers' && <MCPServersView />}
       </div>
     </div>
   );
