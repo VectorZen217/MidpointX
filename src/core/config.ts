@@ -47,7 +47,7 @@ const ConfigSchema = z.object({
   // Must be set to enable the /webhook/* endpoint. Min 32 chars enforced.
   WEBHOOK_SECRET: z.string().min(32, "WEBHOOK_SECRET must be at least 32 characters").optional(),
   // Encryption key for credential vault. Min 32 chars enforced.
-  CREDENTIAL_VAULT_KEY: z.string().min(32, "CREDENTIAL_VAULT_KEY must be at least 32 characters").default("midpointx-default-vault-key-change-me"),
+  CREDENTIAL_VAULT_KEY: z.string().min(32, "CREDENTIAL_VAULT_KEY must be at least 32 characters").optional(),
   SLACK_BOT_TOKEN: z.string().optional(),
   SLACK_DEFAULT_CHANNEL: z.string().default("general"),
   GITHUB_TOKEN: z.string().optional(),
