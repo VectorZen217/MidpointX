@@ -35,6 +35,10 @@ import { SlackConnector } from "./services/slackService";
 import { GitHubConnector } from "./services/githubService";
 import { EmailConnector } from "./services/emailService";
 import { SwarmBus } from "./core/swarmBus";
+import { connectorRoutes } from "./routes/connectorRoutes";
+import { mcpServerRoutes } from "./routes/mcpServerRoutes";
+import { registerAllConnectors } from "./plugins/connectors/index";
+import { ConnectorRegistry } from "./core/connectorRegistry";
 
 // Log level: set LOG_LEVEL=silent in .env to suppress verbose output.
 // Uses structured filtering instead of emoji matching for portability across
@@ -108,6 +112,8 @@ app.use("/api/v1/scheduler", schedulerRoutes);
 app.use("/api/v1/memories", memoryRoutes);
 app.use("/api/v1/integrations", integrationRoutes);
 app.use("/api/v1/pipelines", pipelineRoutes);
+app.use("/api/v1/connectors", connectorRoutes);
+app.use("/api/v1/mcp-servers", mcpServerRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
 
 // Load pipelines from disk on startup
@@ -298,7 +304,9 @@ async function startServer() {
     console.log("🛠️ [System] Initializing core subsystems...");
     await WorkspaceLoader.init();
     await PluginRegistry.init();
-    await Observer.init(io); 
+    registerAllConnectors();
+    await ConnectorRegistry.init();
+    await Observer.init(io);
     
     // Initialize Messaging Channels with Socket.io for UI Sync
     await TelegramService.init(io);
@@ -334,6 +342,7 @@ startServer();
 const shutdown = async () => {
   console.log("\n🛑 [System] Shutdown signal received. Cleaning up...");
   await PluginRegistry.shutdown();
+  ConnectorRegistry.shutdown();
   process.exit(0);
 };
 
