@@ -118,7 +118,15 @@ export class BrowserSerializer {
    * Utility to spawn a visible Chrome/Chromium browser adhering to the User preference: { headless: false }
    */
   static async launchVisibleBrowser(): Promise<any> {
-    const puppeteer = require("puppeteer");
+    let puppeteer: any;
+    try {
+      puppeteer = require("puppeteer");
+    } catch {
+      throw new Error(
+        "Puppeteer is not installed as a direct dependency. " +
+        "The cognitive loop uses Puppeteer via MCP. To enable visible-browser rehydration, run: npm install puppeteer"
+      );
+    }
     console.log("🌐 [BrowserSerializer] Spawning browser in VISIBLE mode (headless: false)...");
     return await puppeteer.launch({
       headless: false,

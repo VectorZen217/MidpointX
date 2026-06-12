@@ -1,0 +1,66 @@
+<h2>Frontend Improvement Approach</h2>
+<p class="subtitle">Three strategies for making MidpointX more informative and powerful. Pick the one that fits what you want.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Incremental Enhancement <span style="font-size:11px;opacity:0.6;font-weight:400;">(Recommended)</span></h3>
+      <p>Keep the 3-panel Mission Control layout. Upgrade what's already there.</p>
+      <ul style="margin:10px 0 0 0;padding-left:18px;font-size:13px;opacity:0.85;">
+        <li>Markdown rendering in chat messages</li>
+        <li>Reasoning trace: add filter, search, severity colors</li>
+        <li>Planner: animated progress bars, step timing</li>
+        <li>Token usage chart (live + cumulative)</li>
+        <li>Skill search that actually works</li>
+        <li>Status bar showing connection quality + uptime</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Low risk, targeted edits</li><li>Everything stays where it is</li><li>Shippable fast</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Doesn't add new information surfaces</li><li>Still no history or metrics over time</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Add a Dashboard View</h3>
+      <p>New sidebar entry "Dashboard" — a system overview that complements the chat view.</p>
+      <ul style="margin:10px 0 0 0;padding-left:18px;font-size:13px;opacity:0.85;">
+        <li>Live system health panel (backend status, sandbox, socket)</li>
+        <li>Token usage over time (chart)</li>
+        <li>Session history / recent tasks</li>
+        <li>Active skills summary + habit stats</li>
+        <li>LLM cost tracker</li>
+        <li>All Approach A upgrades included</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>New surface without touching chat</li><li>High info density in one place</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More components to build</li><li>Requires new backend metrics endpoints</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Full Command Center Redesign</h3>
+      <p>Transform the Operations view into a true operator console with everything visible.</p>
+      <ul style="margin:10px 0 0 0;padding-left:18px;font-size:13px;opacity:0.85;">
+        <li>Top metrics bar: tokens, cost, uptime, node status</li>
+        <li>Chat + live activity feed side by side</li>
+        <li>Collapsible conversation history in sidebar</li>
+        <li>Approval notifications as a floating panel, not in chat</li>
+        <li>Richer planner: dependency graph, not just a list</li>
+        <li>All Approach A + B features included</li>
+      </ul>
+      <div class="pros-cons" style="margin-top:12px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Maximum operator visibility</li><li>Feels like a real control room</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Significant rework to existing components</li><li>Risk of layout complexity</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

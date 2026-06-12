@@ -4,6 +4,13 @@
 
 This is **MidpointX**, a high-autonomy personal assistant OS for Windows. It is persistent, proactive, and deeply integrated into the user's workflow. The architecture is a stateful LangGraph cognitive loop (15+ actor nodes) with a hardened Docker sandbox for execution, a self-evolving Markdown skill system, and a cryptographically authenticated A2A delegation API.
 
+Additional platform pillars added in v2:
+- **Swarm Visualizer** — live multi-agent coordination UI; sub-agent events broadcast via `SwarmBus` (Socket.io)
+- **Persistent Memory** — SQLite-backed `AgentMemory` with confidence scoring; top memories injected into every prompt
+- **Integration Hub** — `IntegrationBus` connector registry (Slack, GitHub, Email); credentials configurable from Settings UI
+- **Visual Pipeline Builder** — ReactFlow drag-and-drop editor; BFS `PipelineRunner` with persistent run history
+- **Browser Session Rehydration** — `BrowserSerializer` serializes Puppeteer sessions (cookies, storage) and rehydrates in visible Chrome
+
 ---
 
 ## Operational Mandates
@@ -28,8 +35,8 @@ This is **MidpointX**, a high-autonomy personal assistant OS for Windows. It is 
 | Persistence | Local filesystem (default) or SQLite (`better-sqlite3`) |
 | Sandbox | Docker (hardened: `--network=none`, `--cap-drop=ALL`) |
 | Desktop automation | `@nut-tree-fork/nut-js` |
-| Browser automation | Puppeteer via MCP (per-user isolated) |
-| Frontend | React (in `frontend/`) |
+| Browser automation | Puppeteer via MCP (per-user isolated) + direct `puppeteer` for session rehydration |
+| Frontend | React 18 + ReactFlow 11 (in `frontend/`) |
 | Validation | Zod |
 | Testing | Jest + ts-jest |
 
@@ -71,11 +78,27 @@ The server starts on **port 5001** by default. The frontend dev server proxies t
 | `src/core/observer.ts` | Sentinel: cron schedules, filesystem watchers, webhook routing |
 | `src/core/persistence.ts` | Local FS and SQLite adapters (same interface) |
 | `src/core/protocol.ts` | A2A audit ledger with hash chaining |
+| `src/core/agentMemory.ts` | SQLite persistent memory — upsert, recall (LIKE search), forget, summarize |
+| `src/core/integrationBus.ts` | Connector registry — register/get/list/healthCheckAll/send |
+| `src/core/pipelineRunner.ts` | BFS pipeline executor — load, run, run history (last 50 per pipeline) |
+| `src/core/pipelineTypes.ts` | Shared types: `Pipeline`, `PipelineNode`, `PipelineEdge`, `PipelineRun` |
+| `src/core/swarmBus.ts` | Module-level Socket.io singleton — emit swarm events from anywhere |
+| `src/core/prompt.ts` | Prompt builder — `buildMemoryContextBlock()` injects top-10 memories |
 | `src/nodes/executionNodes.ts` | SelectionActor + ExecutionActor — all tool dispatch logic |
 | `src/nodes/cognitiveNodes.ts` | Reflect, Analyze, Learn, SilentAssessment |
 | `src/nodes/skillAcquisitionNode.ts` | Autonomous web research → skill synthesis → hot-reload |
+| `src/routes/memoryRoutes.ts` | GET `/memories`, GET `/memories/search`, POST `/memories`, DELETE `/memories/:id` |
+| `src/routes/integrationRoutes.ts` | GET `/integrations/status`, POST `/integrations/:id/test` |
+| `src/routes/pipelineRoutes.ts` | CRUD pipelines, toggle enable, GET run history |
+| `src/services/slackService.ts` | Slack connector (https, no extra deps) — graceful no-op when uncredentialed |
+| `src/services/githubService.ts` | GitHub connector — creates issues via REST API |
+| `src/services/emailService.ts` | Email connector — SMTP stub, logs intent when uncredentialed |
 | `src/plugins/skills/` | Markdown skill files (agent's live knowledge base) |
+| `src/plugins/browser/BrowserSerializer.ts` | Serialize/rehydrate Puppeteer sessions (cookies, storage, DOM) |
 | `src/plugins/mcp/mcp_config.json` | MCP server configuration |
+| `src/workspace/midpointx.db` | SQLite database — agent_memories table |
+| `src/workspace/pipelines/` | JSON-persisted pipeline definitions |
+| `src/workspace/sessions/` | Serialized browser session state files |
 | `.env` | Runtime secrets and feature flags (never commit) |
 | `.env.example` | Template — keep in sync with `config.ts` schema |
 

@@ -2,7 +2,10 @@
   "mcpServers": {
     "browser": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
       "env": {
         "PUPPETEER_LAUNCH_OPTIONS": "{\"userDataDir\": \"./.browser_profile\", \"headless\": false}"
       },
@@ -14,18 +17,25 @@
         "-y",
         "@modelcontextprotocol/server-filesystem",
         "./",
-        "D:/Reports"
+        "D:/Reports",
+        "D:/",
+        "C:/"
       ],
       "env": {}
     },
     "fetch": {
       "command": "uvx",
-      "args": ["mcp-server-fetch"],
+      "args": [
+        "mcp-server-fetch"
+      ],
       "env": {}
     },
     "github": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
       }
@@ -39,12 +49,58 @@
     },
     "google-workspace": {
       "command": "npx",
-      "args": ["-y", "@dguido/google-workspace-mcp", "start"],
+      "args": [
+        "-y",
+        "@dguido/google-workspace-mcp",
+        "start"
+      ],
       "env": {
         "GOOGLE_CLIENT_ID": "660796797102-qufcvd19luqf31ht9sj5gv4pn8ost94v.apps.googleusercontent.com",
         "GOOGLE_CLIENT_SECRET": "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",
         "GOOGLE_WORKSPACE_SERVICES": "gmail,drive,calendar,docs,sheets"
       }
+    },
+    "puppeteer": {
+      "name": "Puppeteer Browser",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {},
+      "source": "library"
+    },
+    "memory": {
+      "name": "Knowledge Graph",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {},
+      "source": "library"
+    },
+    "sqlite": {
+      "name": "SQLite",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sqlite",
+        "--db-path",
+        "./src/workspace/midpointx.db"
+      ],
+      "env": {},
+      "source": "library"
+    },
+    "brave-search": {
+      "name": "Brave Search",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {},
+      "source": "library"
     }
   }
 }

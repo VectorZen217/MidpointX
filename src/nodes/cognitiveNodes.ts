@@ -219,7 +219,8 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
   console.log("👑 [SupervisorActor] Orchestrating cognitive swarm worker assignments...");
 
   const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
-  const rawModel = LLMFactory.getModel({ temperature: 0.1 }) as any;
+  // maxTokens: 4096 — complex replanning with long action history can overflow the 8192 default
+  const rawModel = LLMFactory.getModel({ temperature: 0.1, maxTokens: 4096 }) as any;
   const structuredModel = rawModel.withStructuredOutput(SwarmRoutingSchema);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
@@ -386,7 +387,8 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
   console.log("🎯 [AnalysisActor] Building grounded execution strategy...");
 
   const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
-  const rawModel = LLMFactory.getModel({ temperature: 0.1, tier: "worker" }) as any;
+  // maxTokens: 2048 — worker default (512) truncates JSON for plans with >10 steps
+  const rawModel = LLMFactory.getModel({ temperature: 0.1, tier: "worker", maxTokens: 2048 }) as any;
   const structuredModel = rawModel.withStructuredOutput(StrategicPlanSchema);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();

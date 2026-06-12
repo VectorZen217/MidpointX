@@ -1,18 +1,17 @@
-﻿---
+---
 name: THEOREM_COMM_01
-description: user interaction, clarification, efficiency
-category: domain
+description: user_interaction, clarification, ambiguity_resolution
 ---
 
 # Logic Shift: THEOREM_COMM_01
-Trace ID: TELEGRAM-1779901718622
-Learned At: 2026-05-27T17:08:52.120Z
+Trace ID: TELEGRAM-1781199192387
+Learned At: 2026-06-11T17:33:21.013Z
 
 ## Justification
-The standard approach of waiting for instructions or attempting to guess the user's intent can lead to wasted cycles and incorrect actions. Proactively seeking clarification on the most direct channel ensures efficiency and accuracy from the outset.
+The standard approach of attempting to guess user intent or asking a single, open-ended question can lead to misinterpretations and inefficient back-and-forth. Presenting specific, categorized options guides the user to provide the necessary context more quickly and accurately.
 
 ## Discovered Pattern
-User initiates a new task with no specific instructions.
+Ambiguous user input requiring clarification.
 
 ## Optimized Approach
-When a new task is initiated without specifics, the optimal first step is to prompt the user for clarification on the primary communication channel (e.g., Telegram). This avoids premature tool usage and ensures alignment before proceeding.
+When user input is ambiguous, proactively ask clarifying questions by presenting a list of potential interpretations. This avoids making assumptions and reduces the need for follow-up turns.
