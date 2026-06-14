@@ -48,12 +48,24 @@ export function _resetDbForTesting(customPath?: string): void {
   if (customPath !== undefined) process.env.AGENT_MEMORY_DB_PATH = customPath;
 }
 
+function isEmbeddingsEnabled(): boolean {
+  const envVal = process.env.ENABLE_EMBEDDINGS;
+  if (envVal !== undefined) {
+    return envVal.toLowerCase() === "true";
+  }
+  return Config.ENABLE_EMBEDDINGS;
+}
+
+function getApiKey(): string | undefined {
+  return process.env.OPENAI_API_KEY || Config.OPENAI_API_KEY;
+}
+
 async function getEmbedding(text: string): Promise<number[] | null> {
-  if (!Config.ENABLE_EMBEDDINGS || !Config.OPENAI_API_KEY) return null;
+  if (!isEmbeddingsEnabled() || !getApiKey()) return null;
   try {
     const { OpenAIEmbeddings } = await import("@langchain/openai");
     const embeddings = new OpenAIEmbeddings({
-      apiKey: Config.OPENAI_API_KEY,
+      apiKey: getApiKey(),
       modelName: Config.EMBEDDING_MODEL,
     });
     return await embeddings.embedQuery(text);
@@ -64,7 +76,7 @@ async function getEmbedding(text: string): Promise<number[] | null> {
 }
 
 export const AgentMemory = {
-  remember(key: string, value: string, type: MemoryType, source: string): Memory {
+  async remember(key: string, value: string, type: MemoryType, source: string): Promise<Memory> {
     const db = getDb();
     const now = Date.now();
     const id = crypto.randomUUID();
@@ -81,10 +93,55 @@ export const AgentMemory = {
         last_accessed = excluded.last_accessed
     `).run(id, type, key, value, source, confidence, now, now);
 
-    return db.prepare("SELECT * FROM agent_memories WHERE key = ?").get(key) as Memory;
+    const memory = db.prepare("SELECT * FROM agent_memories WHERE key = ?").get(key) as Memory;
+
+    const vector = await getEmbedding(`${key}: ${value}`);
+    if (vector) {
+      db.prepare("UPDATE agent_memories SET embedding = ? WHERE key = ?")
+        .run(JSON.stringify(vector), key);
+      memory.embedding = JSON.stringify(vector);
+    }
+
+    return memory;
   },
 
-  recall(query: string, limit = 10): Memory[] {
+  async recallSemantic(query: string, limit = 10): Promise<Memory[]> {
+    const db = getDb();
+    const queryVector = await getEmbedding(query);
+    if (!queryVector) return [];
+
+    const rows = db.prepare(
+      "SELECT * FROM agent_memories WHERE embedding IS NOT NULL"
+    ).all() as Memory[];
+
+    if (rows.length === 0) return [];
+
+    const now = Date.now();
+    const scored = rows
+      .map(row => ({
+        memory: row,
+        score: cosineSimilarity(queryVector, JSON.parse(row.embedding as string))
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    const updateStmt = db.prepare(
+      "UPDATE agent_memories SET last_accessed = ?, access_count = access_count + 1 WHERE id = ?"
+    );
+    for (const { memory } of scored) updateStmt.run(now, memory.id);
+
+    return scored.map(s => s.memory);
+  },
+
+  async recall(query: string, limit = 10): Promise<Memory[]> {
+    if (isEmbeddingsEnabled()) {
+      try {
+        const semantic = await this.recallSemantic(query, limit);
+        if (semantic.length > 0) return semantic;
+      } catch (e) {
+        console.warn("⚠️ [AgentMemory] Semantic recall failed, falling back to LIKE:", e);
+      }
+    }
     const db = getDb();
     const now = Date.now();
     const pattern = `%${query}%`;
@@ -99,9 +156,7 @@ export const AgentMemory = {
       const updateStmt = db.prepare(
         "UPDATE agent_memories SET last_accessed = ?, access_count = access_count + 1 WHERE id = ?"
       );
-      for (const row of rows) {
-        updateStmt.run(now, row.id);
-      }
+      for (const row of rows) updateStmt.run(now, row.id);
     }
     return rows;
   },
