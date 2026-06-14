@@ -77,6 +77,12 @@ describe("ProactiveScheduler CRUD", () => {
     expect(updated.name).toBe("Original");
   });
 
+  test("updateSchedule throws for unknown id", () => {
+    expect(() =>
+      ProactiveScheduler.updateSchedule("does-not-exist", { intent: "anything" })
+    ).toThrow("not found");
+  });
+
   test("deleteSchedule removes the row", () => {
     const s = ProactiveScheduler.createSchedule({
       name: "ToDelete",

@@ -29,7 +29,7 @@ export interface ScheduledGoalRun {
 export interface CreateScheduleInput {
   name: string;
   trigger_type: "cron" | "file_watch" | "webhook";
-  trigger_config: Record<string, any>;
+  trigger_config: Record<string, unknown>;
   intent: string;
   enabled?: boolean;
 }
@@ -115,6 +115,8 @@ export const ProactiveScheduler = {
 
   updateSchedule(id: string, updates: Partial<CreateScheduleInput>): ScheduledGoal {
     const db = getDb();
+    const existing = db.prepare("SELECT id FROM scheduled_goals WHERE id = ?").get(id);
+    if (!existing) throw new Error(`Schedule ${id} not found`);
     const now = Date.now();
     if (updates.name !== undefined) {
       db.prepare("UPDATE scheduled_goals SET name = ?, updated_at = ? WHERE id = ?")
