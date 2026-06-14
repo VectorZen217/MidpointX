@@ -48,24 +48,16 @@ export function _resetDbForTesting(customPath?: string): void {
   if (customPath !== undefined) process.env.AGENT_MEMORY_DB_PATH = customPath;
 }
 
-function isEmbeddingsEnabled(): boolean {
-  const envVal = process.env.ENABLE_EMBEDDINGS;
-  if (envVal !== undefined) {
-    return envVal.toLowerCase() === "true";
-  }
-  return Config.ENABLE_EMBEDDINGS;
-}
-
-function getApiKey(): string | undefined {
-  return process.env.OPENAI_API_KEY || Config.OPENAI_API_KEY;
-}
-
 async function getEmbedding(text: string): Promise<number[] | null> {
-  if (!isEmbeddingsEnabled() || !getApiKey()) return null;
+  const enabled = process.env.ENABLE_EMBEDDINGS !== undefined
+    ? process.env.ENABLE_EMBEDDINGS === "true"
+    : Config.ENABLE_EMBEDDINGS;
+  const apiKey = process.env.OPENAI_API_KEY || Config.OPENAI_API_KEY;
+  if (!enabled || !apiKey) return null;
   try {
     const { OpenAIEmbeddings } = await import("@langchain/openai");
     const embeddings = new OpenAIEmbeddings({
-      apiKey: getApiKey(),
+      apiKey,
       modelName: Config.EMBEDDING_MODEL,
     });
     return await embeddings.embedQuery(text);
@@ -134,7 +126,10 @@ export const AgentMemory = {
   },
 
   async recall(query: string, limit = 10): Promise<Memory[]> {
-    if (isEmbeddingsEnabled()) {
+    const enabled = process.env.ENABLE_EMBEDDINGS !== undefined
+      ? process.env.ENABLE_EMBEDDINGS === "true"
+      : Config.ENABLE_EMBEDDINGS;
+    if (enabled) {
       try {
         const semantic = await this.recallSemantic(query, limit);
         if (semantic.length > 0) return semantic;
