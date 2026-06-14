@@ -18,13 +18,26 @@ export function buildMemoryContextBlock(): string {
   }
 }
 
+export async function buildMemoryContextBlockAsync(taskQuery: string): Promise<string> {
+  try {
+    const memories = await AgentMemory.recall(taskQuery, 10);
+    if (memories.length === 0) return "";
+    const lines = memories
+      .map(m => `- [${m.type.toUpperCase()}] ${m.key}: ${m.value}`)
+      .join("\n");
+    return `\n\n## Persistent Memory (context about you and your projects)\n${lines}\n`;
+  } catch {
+    return buildMemoryContextBlock();
+  }
+}
+
 /**
  * Builds the base identity block by combining:
  * - Static OS/shell context
  * - Live AGENT.md persona (WorkspaceLoader)
  * - Live USER.md preferences (WorkspaceLoader)
  */
-export function buildBaseIdentity(agentPersona: string, userContext: string): string {
+export function buildBaseIdentity(agentPersona: string, userContext: string, injectedMemoryBlock?: string): string {
   const osInfo = `Operating System: ${os.platform()} (${os.arch()}) | Shell: ${os.platform() === "win32" ? "PowerShell" : "Bash"}`;
   
   const selfAwareness = `## SYSTEM SELF-AWARENESS (CAPABILITIES PROTOCOL)
@@ -51,7 +64,7 @@ You are a precision instrument. Every tool call is a deliberate act. Follow thes
   if (agentPersona) parts.push(agentPersona);
   if (userContext) parts.push(`---\n## ACTIVE USER CONTEXT\n${userContext}`);
 
-  return parts.join("\n\n") + buildMemoryContextBlock();
+  return parts.join("\n\n") + (injectedMemoryBlock !== undefined ? injectedMemoryBlock : buildMemoryContextBlock());
 }
 
 /**
@@ -59,8 +72,8 @@ You are a precision instrument. Every tool call is a deliberate act. Follow thes
  * Each function accepts workspace context and returns the full system prompt for that phase.
  */
 
-export function buildReflectPrompt(agentPersona: string, userContext: string): string {
-  return `${buildBaseIdentity(agentPersona, userContext)}
+export function buildReflectPrompt(agentPersona: string, userContext: string, injectedMemoryBlock?: string): string {
+  return `${buildBaseIdentity(agentPersona, userContext, injectedMemoryBlock)}
 
 ---
 ## PHASE: REFLECTION
@@ -74,7 +87,7 @@ Objective: Map the problem space and extract the core mission.
 `;
 }
 
-export function buildAnalyzePrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
+export function buildAnalyzePrompt(agentPersona: string, userContext: string, executionMode: string = 'api', injectedMemoryBlock?: string): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are operating in VISUAL MODE. Plan to use desktop automation tools (screenshots, mouse, keyboard, browser automation). Do NOT plan to use background API tools.`
     : `\n\n## API MODE ENFORCEMENT [CRITICAL]\nYou are operating in API MODE. Primary tools are background API and CLI tools. 
@@ -87,7 +100,7 @@ export function buildAnalyzePrompt(agentPersona: string, userContext: string, ex
 - For file operations: Use filesystem__* tools.
 Do not escalate to the operator for tasks you can complete autonomously.`;
 
-  return `${buildBaseIdentity(agentPersona, userContext)}
+  return `${buildBaseIdentity(agentPersona, userContext, injectedMemoryBlock)}
 
 ---
 ## PHASE: ANALYSIS
@@ -100,7 +113,7 @@ Objective: Synthesize the reflection into a single, cohesive Execution Strategy.
 `;
 }
 
-export function buildActionPrompt(agentPersona: string, userContext: string, executionMode: string = 'api'): string {
+export function buildActionPrompt(agentPersona: string, userContext: string, executionMode: string = 'api', injectedMemoryBlock?: string): string {
   const executionDirective = executionMode === 'visual' 
     ? `\n\n## VISUAL MODE ENFORCEMENT [CRITICAL]\nYou are operating in VISUAL MODE. Act as a physical human operator. Use desktop tools (mouse, keyboard, screenshots) or browser automation to visually click through the UI. Do NOT use background API tools (gmail, google-drive). Do NOT bypass the UI.`
     : `\n\n## API MODE ENFORCEMENT [CRITICAL]
@@ -126,7 +139,7 @@ For ANY task involving Gmail, Google Drive, Google Docs, Google Sheets, or Googl
 - NEVER attempt Google API access via PowerShell, curl, or gcloud. Those require browser auth flows unavailable in API mode.
 - If the tool fails with an auth error, report it. Do NOT attempt a workaround.`;
 
-  return `${buildBaseIdentity(agentPersona, userContext)}
+  return `${buildBaseIdentity(agentPersona, userContext, injectedMemoryBlock)}
 
 ---
 ## PHASE: ACTION
@@ -151,8 +164,8 @@ OPERATIONAL DIRECTIVES:
 }
 
 
-export function buildLearnPrompt(agentPersona: string, userContext: string): string {
-  return `${buildBaseIdentity(agentPersona, userContext)}
+export function buildLearnPrompt(agentPersona: string, userContext: string, injectedMemoryBlock?: string): string {
+  return `${buildBaseIdentity(agentPersona, userContext, injectedMemoryBlock)}
 
 ---
 ## PHASE: LEARNING
