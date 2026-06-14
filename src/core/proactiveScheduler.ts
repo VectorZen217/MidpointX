@@ -375,30 +375,37 @@ export const ProactiveScheduler = {
       .all() as ScheduledGoal[];
 
     for (const schedule of active) {
-      if (!schedule.active_goal_id) continue;
-      const run = db
-        .prepare(
-          "SELECT * FROM scheduled_goal_runs WHERE scheduled_goal_id = ? AND status = 'running' ORDER BY triggered_at DESC LIMIT 1"
-        )
-        .get(schedule.id) as ScheduledGoalRun | undefined;
-      if (!run) continue;
+      try {
+        if (!schedule.active_goal_id) continue;
+        const run = db
+          .prepare(
+            "SELECT * FROM scheduled_goal_runs WHERE scheduled_goal_id = ? AND status = 'running' ORDER BY triggered_at DESC LIMIT 1"
+          )
+          .get(schedule.id) as ScheduledGoalRun | undefined;
+        if (!run) continue;
 
-      const goal = GoalTracker.getGoal(schedule.active_goal_id);
-      if (!goal) continue;
+        const goal = GoalTracker.getGoal(schedule.active_goal_id);
+        if (!goal) continue;
 
-      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-      if (goal.status === "active" && run.triggered_at < Date.now() - TWENTY_FOUR_HOURS) {
-        console.warn(`⚠️ [ProactiveScheduler] Hang detected for "${schedule.name}" — marking failed`);
-        this._reconcileRun(schedule.id, schedule.active_goal_id, run.id, "failed");
-        continue;
-      }
+        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+        if (goal.status === "active" && run.triggered_at < Date.now() - TWENTY_FOUR_HOURS) {
+          console.warn(`⚠️ [ProactiveScheduler] Hang detected for "${schedule.name}" — marking failed`);
+          this._reconcileRun(schedule.id, schedule.active_goal_id, run.id, "failed");
+          continue;
+        }
 
-      if (goal.status === "completed" || goal.status === "failed") {
-        this._reconcileRun(
-          schedule.id,
-          schedule.active_goal_id,
-          run.id,
-          goal.status === "completed" ? "completed" : "failed"
+        if (goal.status === "completed" || goal.status === "failed") {
+          this._reconcileRun(
+            schedule.id,
+            schedule.active_goal_id,
+            run.id,
+            goal.status === "completed" ? "completed" : "failed"
+          );
+        }
+      } catch (err: unknown) {
+        console.error(
+          `❌ [ProactiveScheduler] _pollCompletion error for schedule "${schedule.name}":`,
+          (err as Error).message
         );
       }
     }
@@ -413,26 +420,38 @@ export const ProactiveScheduler = {
     const db = getDb();
     const now = Date.now();
 
-    db.prepare(
-      "UPDATE scheduled_goal_runs SET status = ?, completed_at = ? WHERE id = ?"
-    ).run(finalStatus, now, runId);
+    // Check that we are reconciling the correct goal (race condition guard)
+    const current = db
+      .prepare("SELECT active_goal_id, queue FROM scheduled_goals WHERE id = ?")
+      .get(scheduleId) as { active_goal_id: string | null; queue: string } | undefined;
+    if (!current || current.active_goal_id !== goalId) return "cleared";
 
-    db.prepare(
-      "UPDATE scheduled_goals SET active_goal_id = NULL, last_run_at = ?, updated_at = ? WHERE id = ?"
-    ).run(now, now, scheduleId);
+    const queue: number[] = JSON.parse(current.queue || "[]");
 
-    const schedule = db
-      .prepare("SELECT * FROM scheduled_goals WHERE id = ?")
-      .get(scheduleId) as ScheduledGoal | undefined;
-    if (!schedule) return "cleared";
-
-    const queue: number[] = JSON.parse(schedule.queue || "[]");
+    // Atomic: update run status + clear active_goal_id + shrink queue in one transaction
+    let nextTimestamp: number | null = null;
     if (queue.length > 0) {
-      const nextTimestamp = queue.shift()!;
-      db.prepare("UPDATE scheduled_goals SET queue = ?, updated_at = ? WHERE id = ?")
-        .run(JSON.stringify(queue), now, scheduleId);
-      this._fireSchedule(schedule, { queued_at: nextTimestamp, time: new Date(nextTimestamp).toISOString() })
-        .catch(err => console.error(`❌ [ProactiveScheduler] Queue drain fire failed:`, (err as Error).message));
+      nextTimestamp = queue.shift()!;
+    }
+
+    db.transaction(() => {
+      db.prepare(
+        "UPDATE scheduled_goal_runs SET status = ?, completed_at = ? WHERE id = ?"
+      ).run(finalStatus, now, runId);
+
+      db.prepare(
+        "UPDATE scheduled_goals SET active_goal_id = NULL, last_run_at = ?, updated_at = ?, queue = ? WHERE id = ?"
+      ).run(now, now, JSON.stringify(queue), scheduleId);
+    })();
+
+    if (nextTimestamp !== null) {
+      const schedule = db
+        .prepare("SELECT * FROM scheduled_goals WHERE id = ?")
+        .get(scheduleId) as ScheduledGoal | undefined;
+      if (schedule) {
+        this._fireSchedule(schedule, { queued_at: nextTimestamp, time: new Date(nextTimestamp).toISOString() })
+          .catch(err => console.error(`❌ [ProactiveScheduler] Queue drain fire failed:`, (err as Error).message));
+      }
       return "queued";
     }
 
