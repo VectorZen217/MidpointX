@@ -588,6 +588,21 @@ export class PluginRegistry {
       parameters: { type: "object", properties: { skillName: { type: "string" }, newContent: { type: "string" } } } as any
     });
 
+    rawTools.push({
+      name: "schedule_goal",
+      description: "Create a new proactive schedule so the agent can trigger a goal automatically. Use this when the user asks you to run something on a schedule, watch a file, or respond to a webhook. trigger_type must be 'cron', 'file_watch', or 'webhook'. trigger_config is a JSON string: for cron use {\"expression\":\"0 9 * * *\"}, for file_watch use {\"path\":\"D:/Reports\",\"events\":[\"add\",\"change\"]}, for webhook use {\"path\":\"/my-hook\"}.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Short human-readable label for this schedule" },
+          trigger_type: { type: "string", enum: ["cron", "file_watch", "webhook"] },
+          trigger_config: { type: "string", description: "JSON string matching the trigger type schema" },
+          intent: { type: "string", description: "The goal text the agent will execute when this fires" },
+        },
+        required: ["name", "trigger_type", "trigger_config", "intent"],
+      } as any,
+    });
+
     this.activeTools = rawTools;
   }
 
@@ -686,6 +701,28 @@ export class PluginRegistry {
       await fs.writeFile(skillPath, args.newContent, "utf-8");
       await this.reloadMDSkills();
       return `Success: Skill ${args.skillName} updated/created and reloaded.`;
+    }
+
+    if (name === "schedule_goal") {
+      try {
+        const { ProactiveScheduler } = require("../core/proactiveScheduler") as typeof import("../core/proactiveScheduler");
+        let triggerConfig: Record<string, unknown>;
+        try {
+          triggerConfig = JSON.parse(args.trigger_config) as Record<string, unknown>;
+        } catch {
+          return `Error: trigger_config must be valid JSON. Received: ${args.trigger_config}`;
+        }
+        const schedule = ProactiveScheduler.createSchedule({
+          name: args.name as string,
+          trigger_type: args.trigger_type as "cron" | "file_watch" | "webhook",
+          trigger_config: triggerConfig,
+          intent: args.intent as string,
+          enabled: true,
+        });
+        return `Schedule created successfully. ID: ${schedule.id}. Name: "${schedule.name}". Trigger: ${schedule.trigger_type}. The schedule is now active.`;
+      } catch (err: unknown) {
+        return `Error creating schedule: ${(err as Error).message}`;
+      }
     }
 
     if (name.startsWith("filesystem__")) {
