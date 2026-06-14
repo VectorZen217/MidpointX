@@ -22,9 +22,9 @@ const DecompositionSchema = z.object({
 export async function goalDecomposerNode(state: typeof MidpointXState.State) {
   console.log("🎯 [GoalDecomposerActor] Checking for active goal or decomposing...");
 
-  // Resume check: if this LangGraph taskId already has an active goal, skip decomposition
-  if (state.taskId) {
-    const existing = GoalTracker.getActiveGoal(state.taskId);
+  // Resume check: use state.userId (stable per conversation/thread_id) not state.taskId (changes each invocation)
+  if (state.userId) {
+    const existing = GoalTracker.getActiveGoal(state.userId);
     if (existing) {
       console.log(`🔄 [GoalDecomposerActor] Resuming active goal ${existing.id} (${existing.task_count} tasks)`);
       return { activeGoalId: existing.id };
@@ -75,7 +75,7 @@ Keep tasks focused and sequential. Avoid over-decomposing simple requests.`
       assignedWorker: t.assignedWorker as WorkerType,
     }));
 
-    const goal = GoalTracker.createGoal(state.taskId, userIntent, taskInputs);
+    const goal = GoalTracker.createGoal(state.userId, userIntent, taskInputs);
 
     const taskList = taskInputs.map((t, i) => `${i + 1}. ${t.title}`).join("\n");
     TelegramService.sendMessage(
@@ -89,7 +89,7 @@ Keep tasks focused and sequential. Avoid over-decomposing simple requests.`
     console.error("[GoalDecomposerActor] Decomposition failed, falling back to single-task plan:", err.message);
 
     const fallbackId = crypto.randomUUID();
-    const goal = GoalTracker.createGoal(state.taskId, userIntent, [
+    const goal = GoalTracker.createGoal(state.userId, userIntent, [
       { id: fallbackId, title: userIntent, description: userIntent, dependsOn: [], assignedWorker: "executor" },
     ]);
 

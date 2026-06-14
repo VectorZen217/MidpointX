@@ -34,10 +34,10 @@ beforeEach(() => {
 
 describe("GoalTracker.createGoal", () => {
   it("persists goal row and task rows atomically", () => {
-    const goal = GoalTracker.createGoal("task-abc", "Build a thing", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-abc", "Build a thing", SAMPLE_TASKS);
     expect(goal.id).toBeTruthy();
     expect(goal.user_intent).toBe("Build a thing");
-    expect(goal.task_id).toBe("task-abc");
+    expect(goal.task_id).toBe("user-abc");
     expect(goal.status).toBe("active");
     expect(goal.task_count).toBe(3);
     expect(goal.completed_count).toBe(0);
@@ -51,30 +51,30 @@ describe("GoalTracker.createGoal", () => {
 });
 
 describe("GoalTracker.getActiveGoal", () => {
-  it("finds an active goal by LangGraph taskId", () => {
-    GoalTracker.createGoal("task-xyz", "Do stuff", SAMPLE_TASKS);
-    const found = GoalTracker.getActiveGoal("task-xyz");
+  it("finds an active goal by userId", () => {
+    GoalTracker.createGoal("user-xyz", "Do stuff", SAMPLE_TASKS);
+    const found = GoalTracker.getActiveGoal("user-xyz");
     expect(found).not.toBeNull();
-    expect(found!.task_id).toBe("task-xyz");
+    expect(found!.task_id).toBe("user-xyz");
   });
 
   it("returns null after goal is completed", () => {
-    const goal = GoalTracker.createGoal("task-done", "Done thing", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-done", "Done thing", SAMPLE_TASKS);
     GoalTracker.completeGoal(goal.id);
-    expect(GoalTracker.getActiveGoal("task-done")).toBeNull();
+    expect(GoalTracker.getActiveGoal("user-done")).toBeNull();
   });
 });
 
 describe("GoalTracker.getNextTask", () => {
   it("returns first task when no deps", () => {
-    const goal = GoalTracker.createGoal("task-next1", "Next task test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-next1", "Next task test", SAMPLE_TASKS);
     const next = GoalTracker.getNextTask(goal.id);
     expect(next).not.toBeNull();
     expect(next!.title).toBe("Research APIs");
   });
 
   it("returns null when first task is active (not yet completed)", () => {
-    const goal = GoalTracker.createGoal("task-deps", "Dep test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-deps", "Dep test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     const next = GoalTracker.getNextTask(goal.id);
     // aaa-1 is active (not pending), aaa-2 depends on aaa-1 (not completed), aaa-3 depends on aaa-2
@@ -82,7 +82,7 @@ describe("GoalTracker.getNextTask", () => {
   });
 
   it("returns task 2 after task 1 completes", () => {
-    const goal = GoalTracker.createGoal("task-seq", "Sequential test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-seq", "Sequential test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     GoalTracker.completeTask("aaa-1", "done");
     const next = GoalTracker.getNextTask(goal.id);
@@ -92,7 +92,7 @@ describe("GoalTracker.getNextTask", () => {
 
 describe("GoalTracker.completeTask", () => {
   it("increments completed_count on the parent goal", () => {
-    const goal = GoalTracker.createGoal("task-count", "Count test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-count", "Count test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     GoalTracker.completeTask("aaa-1", "result text");
     const updated = GoalTracker.getGoal(goal.id)!;
@@ -105,7 +105,7 @@ describe("GoalTracker.completeTask", () => {
 
 describe("GoalTracker.failTask", () => {
   it("cascades skip to all tasks that depend on the failed task", () => {
-    const goal = GoalTracker.createGoal("task-fail", "Fail cascade test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-fail", "Fail cascade test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     GoalTracker.failTask("aaa-1", "network error");
     const detail = GoalTracker.getGoal(goal.id)!;
@@ -121,7 +121,7 @@ describe("GoalTracker.failTask", () => {
 
 describe("GoalTracker.retryTask", () => {
   it("resets a failed task back to pending", () => {
-    const goal = GoalTracker.createGoal("task-retry", "Retry test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-retry", "Retry test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     GoalTracker.failTask("aaa-1", "transient error");
     GoalTracker.retryTask("aaa-1");
@@ -134,7 +134,7 @@ describe("GoalTracker.retryTask", () => {
   it("also un-skips transitively cascaded dependents", () => {
     // After fail (aaa-1 failed → aaa-2 skipped → aaa-3 skipped),
     // retrying aaa-1 should restore aaa-2 and aaa-3 to pending
-    const goal = GoalTracker.createGoal("task-retry-cascade", "Retry cascade test", SAMPLE_TASKS);
+    const goal = GoalTracker.createGoal("user-retry-cascade", "Retry cascade test", SAMPLE_TASKS);
     GoalTracker.startTask("aaa-1");
     GoalTracker.failTask("aaa-1", "error");
     GoalTracker.retryTask("aaa-1");
@@ -150,8 +150,8 @@ describe("GoalTracker.listGoals", () => {
     // Use distinct task IDs per createGoal call to avoid UNIQUE constraint collisions
     const tasks1 = SAMPLE_TASKS.map(t => ({ ...t, id: `list1-${t.id}`, dependsOn: t.dependsOn.map(d => `list1-${d}`) }));
     const tasks2 = SAMPLE_TASKS.map(t => ({ ...t, id: `list2-${t.id}`, dependsOn: t.dependsOn.map(d => `list2-${d}`) }));
-    GoalTracker.createGoal("task-list1", "First goal", tasks1);
-    GoalTracker.createGoal("task-list2", "Second goal", tasks2);
+    GoalTracker.createGoal("user-list1", "First goal", tasks1);
+    GoalTracker.createGoal("user-list2", "Second goal", tasks2);
     const list = GoalTracker.listGoals(10, 0);
     expect(list.length).toBeGreaterThanOrEqual(2);
     expect(list[0].created_at).toBeGreaterThanOrEqual(list[1].created_at);

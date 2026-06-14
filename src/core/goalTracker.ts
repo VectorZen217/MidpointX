@@ -191,12 +191,16 @@ export const GoalTracker = {
     const now = Date.now();
     db.prepare(`UPDATE goal_tasks SET status = 'pending', failure_reason = NULL, updated_at = ? WHERE id = ?`).run(now, taskId);
 
-    // Also un-skip any tasks that were skipped because they depended on this task (cascade reset)
+    // Cascade-reset: un-skip transitively dependent tasks within the same goal only
+    const goalRow = db.prepare('SELECT goal_id FROM goal_tasks WHERE id = ?').get(taskId) as { goal_id: string } | undefined;
+    if (!goalRow) return;
+    const { goal_id } = goalRow;
+
     const pendingStmt = db.prepare(`UPDATE goal_tasks SET status = 'pending', updated_at = ? WHERE id = ?`);
     const justReset = new Set<string>([taskId]);
     while (justReset.size > 0) {
       const resetNow = new Set<string>();
-      const allSkipped = db.prepare(`SELECT id, depends_on FROM goal_tasks WHERE status = 'skipped'`).all() as { id: string; depends_on: string }[];
+      const allSkipped = db.prepare(`SELECT id, depends_on FROM goal_tasks WHERE goal_id = ? AND status = 'skipped'`).all(goal_id) as { id: string; depends_on: string }[];
       for (const row of allSkipped) {
         const deps: string[] = JSON.parse(row.depends_on || '[]');
         if (deps.some(d => justReset.has(d))) {
