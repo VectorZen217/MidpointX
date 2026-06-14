@@ -15,6 +15,8 @@ import { invokeWithResilience } from "../core/resilience";
 import { WorkspaceLoader } from "../core/workspaceLoader";
 import { MemoryManager } from "../core/memory";
 import { A2AProtocol } from "../core/protocol";
+import { GoalTracker } from "../core/goalTracker";
+import { TelegramService } from "../services/telegramService";
 import { z } from "zod";
 
 /**
@@ -224,6 +226,100 @@ export type SwarmRouting = z.infer<typeof SwarmRoutingSchema>;
 
 export async function supervisorNode(state: typeof MidpointXState.State) {
   console.log("👑 [SupervisorActor] Orchestrating cognitive swarm worker assignments...");
+
+  // ── GoalTracker Fast Path ─────────────────────────────────────────────────
+  // When a structured goal plan exists in SQLite, drive execution from it
+  // instead of calling the LLM planner on every supervisor turn.
+  if (state.activeGoalId) {
+    const goal = GoalTracker.getGoal(state.activeGoalId);
+    if (goal) {
+      // If a task was active, mark it complete or failed based on execution result
+      if (state.activeTaskId) {
+        const hadFailure = !!state.failureThesis;
+        if (hadFailure) {
+          GoalTracker.failTask(state.activeTaskId, state.failureThesis);
+          const task = goal.tasks.find(t => t.id === state.activeTaskId);
+          TelegramService.sendMessage(
+            `⚠️ *Step failed:* ${task?.title || state.activeTaskId}\n${state.failureThesis}`
+          ).catch(e => console.warn("[Supervisor] Telegram send failed:", e.message));
+        } else {
+          const resultSnippet = state.workerOutput ||
+            (state.actionHistory?.slice(-1)[0]?.result ? String(state.actionHistory.slice(-1)[0].result).substring(0, 300) : "completed");
+          GoalTracker.completeTask(state.activeTaskId, resultSnippet);
+
+          const updatedGoal = GoalTracker.getGoal(state.activeGoalId)!;
+          const task = updatedGoal.tasks.find(t => t.id === state.activeTaskId);
+          TelegramService.sendMessage(
+            `✅ *Step done (${updatedGoal.completed_count}/${updatedGoal.task_count}):* ${task?.title || state.activeTaskId}`
+          ).catch(e => console.warn("[Supervisor] Telegram send failed:", e.message));
+        }
+      }
+
+      // Get next ready task
+      const nextTask = GoalTracker.getNextTask(state.activeGoalId);
+
+      if (!nextTask) {
+        const freshGoal = GoalTracker.getGoal(state.activeGoalId)!;
+        const allTerminated = freshGoal.tasks.every(t =>
+          ['completed', 'failed', 'skipped'].includes(t.status)
+        );
+
+        if (allTerminated) {
+          GoalTracker.completeGoal(state.activeGoalId);
+          const durationMin = Math.floor((Date.now() - freshGoal.created_at) / 60000);
+          TelegramService.sendMessage(
+            `🏁 *Goal achieved:* ${freshGoal.user_intent}\n⏱ ${durationMin}min · ${freshGoal.completed_count}/${freshGoal.task_count} steps`
+          ).catch(e => console.warn("[Supervisor] Telegram send failed:", e.message));
+
+          return A2AProtocol.commit("SupervisorActor", {
+            isTaskComplete: true,
+            activeTaskId: "",
+            strategicPlan: freshGoal.tasks.map(t => t.title),
+            planStatus: Object.fromEntries(freshGoal.tasks.map(t => [t.title, t.status as any])),
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            internalTurns: 1,
+          });
+        }
+
+        // Dependencies not yet met — loop back to supervisor without advancing
+        console.log("⏳ [SupervisorActor] No ready task (dependencies pending). Looping...");
+        return A2AProtocol.commit("SupervisorActor", {
+          activeTaskId: "",
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          internalTurns: 1,
+        });
+      }
+
+      GoalTracker.startTask(nextTask.id);
+
+      const workerMap: Record<string, string> = {
+        researcher: 'researcher',
+        developer: 'developer',
+        tester: 'tester',
+        executor: 'none',
+      };
+      const assignedWorker = workerMap[nextTask.assigned_worker || 'executor'] ?? 'none';
+      const freshGoal = GoalTracker.getGoal(state.activeGoalId)!;
+      const strategicPlan = freshGoal.tasks.map(t => t.title);
+      const planStatus = Object.fromEntries(freshGoal.tasks.map(t => [t.title, t.status as any]));
+
+      console.log(`👑 [SupervisorActor][GoalTracker] Next task: "${nextTask.title}" → worker: ${assignedWorker}`);
+      return A2AProtocol.commit("SupervisorActor", {
+        activeTaskId: nextTask.id,
+        workerSubGoal: nextTask.description,
+        activeWorker: assignedWorker,
+        strategicPlan,
+        planStatus,
+        isTaskComplete: false,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        internalTurns: 1,
+      });
+    }
+  }
+  // ── End GoalTracker Fast Path ─────────────────────────────────────────────
 
   const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
   // maxTokens: 4096 — complex replanning with long action history can overflow the 8192 default
