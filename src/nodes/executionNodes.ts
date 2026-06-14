@@ -8,7 +8,7 @@ import * as os from "os";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 import { MidpointXState } from "../core/state";
-import { buildActionPrompt } from "../core/prompt";
+import { buildActionPrompt, buildMemoryContextBlockAsync } from "../core/prompt";
 import { extractText } from "./cognitiveNodes";
 import { PluginRegistry } from "../core/pluginRegistry";
 import { LLMFactory } from "../core/llmFactory";
@@ -23,6 +23,17 @@ import { PolicyEngine } from "../core/policy";
 import { CacheManager } from "../core/cacheManager";
 
 const execAsync = promisify(exec);
+
+/**
+ * Wraps a promise with a timeout. If the promise doesn't settle within ms milliseconds,
+ * resolves with the fallback value instead. Prevents hanging memory calls from blocking execution.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
 
 /**
  * Helper to truncate long shell outputs (middle-out) with hard character caps
@@ -415,9 +426,15 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
 - CHANNEL AWARENESS: On Telegram/Discord, keep it extremely mobile-friendly.`;
   messageContent[0].text += personaEnforcement;
 
+  const agentMemoryBlock = await withTimeout(
+    buildMemoryContextBlockAsync(state.conciseIntent || state.userIntent || ""),
+    3000,
+    ""
+  );
+
   const payload = [];
   if (!isCacheActive) {
-    let systemPromptText = buildActionPrompt(agentPersona, userContext, state.executionMode || 'api');
+    let systemPromptText = buildActionPrompt(agentPersona, userContext, state.executionMode || 'api', agentMemoryBlock);
 
     // Auto-inject EXECUTION_GUARD when 2+ plan steps are pending so the agent
     // always has execution discipline scaffolding without needing to call system__read_skill.

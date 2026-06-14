@@ -2,10 +2,11 @@ import "dotenv/config";
 import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { MidpointXState, LogicShiftSchema, StrategicPlanSchema, StrategicPlan, LogicShift } from "../core/state";
-import { 
+import {
   buildReflectPrompt,
   buildAnalyzePrompt,
   buildLearnPrompt,
+  buildMemoryContextBlockAsync,
 } from "../core/prompt";
 import { EnvironmentProbe } from "../core/environmentProbe";
 import { LLMFactory } from "../core/llmFactory";
@@ -172,8 +173,14 @@ export async function reflectNode(state: typeof MidpointXState.State) {
     });
   }
 
+  const agentMemoryBlock = await withTimeout(
+    buildMemoryContextBlockAsync(state.userIntent || ""),
+    3000,
+    ""
+  );
+
   const payload = [
-    new SystemMessage(buildReflectPrompt(agentPersona, userContext) + identityStr + swarmStr),
+    new SystemMessage(buildReflectPrompt(agentPersona, userContext, agentMemoryBlock) + identityStr + swarmStr),
     new HumanMessage({ content } as any)
   ];
 
@@ -402,8 +409,14 @@ export async function analyzeNode(state: typeof MidpointXState.State) {
     ? `\n\n⚠️ PREVIOUS FAILURE: ${state.failureThesis}\nRevise the plan to avoid this failure mode.`
     : '';
 
+  const agentMemoryBlock = await withTimeout(
+    buildMemoryContextBlockAsync(state.conciseIntent || state.userIntent || ""),
+    3000,
+    ""
+  );
+
   const payload = [
-    new SystemMessage(buildAnalyzePrompt(agentPersona, userContext, state.executionMode || 'api') + skillsStr),
+    new SystemMessage(buildAnalyzePrompt(agentPersona, userContext, state.executionMode || 'api', agentMemoryBlock) + skillsStr),
     new HumanMessage(`
 Task: ${state.userIntent}
 Reflection: ${state.reflectionTrace}
@@ -494,8 +507,14 @@ export async function learnNode(state: typeof MidpointXState.State) {
     ? `\n\nCURRENT OPERATOR IDENTITY:\nName: ${state.operatorIdentity.name}\nEmail: ${state.operatorIdentity.email}\nUID: ${state.operatorIdentity.uid}`
     : '';
 
+  const agentMemoryBlock = await withTimeout(
+    buildMemoryContextBlockAsync(state.conciseIntent || state.userIntent || ""),
+    3000,
+    ""
+  );
+
   const payload = [
-    new SystemMessage(buildLearnPrompt(agentPersona, userContext) + identityStr),
+    new SystemMessage(buildLearnPrompt(agentPersona, userContext, agentMemoryBlock) + identityStr),
     new HumanMessage(`
       MISSION RECAP:
       Original Task: ${state.userIntent}
