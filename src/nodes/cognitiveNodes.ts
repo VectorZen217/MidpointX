@@ -286,6 +286,7 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
         console.log("⏳ [SupervisorActor] No ready task (dependencies pending). Looping...");
         return A2AProtocol.commit("SupervisorActor", {
           activeTaskId: "",
+          failureThesis: "",
           totalInputTokens: 0,
           totalOutputTokens: 0,
           internalTurns: 1,
@@ -313,6 +314,7 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
         strategicPlan,
         planStatus,
         isTaskComplete: false,
+        failureThesis: "",
         totalInputTokens: 0,
         totalOutputTokens: 0,
         internalTurns: 1,
