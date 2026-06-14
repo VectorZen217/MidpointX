@@ -86,6 +86,8 @@ function getDb(): Database.Database {
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (goal_id) REFERENCES goals(id)
     );
+    CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+    CREATE INDEX IF NOT EXISTS idx_goal_tasks_goal_id ON goal_tasks(goal_id);
   `);
   return _db;
 }
@@ -236,6 +238,14 @@ export const GoalTracker = {
     const goal = db.prepare('SELECT * FROM goals WHERE id = ?').get(goalId) as Goal | undefined;
     if (!goal) return null;
     const tasks = (db.prepare('SELECT * FROM goal_tasks WHERE goal_id = ? ORDER BY created_at ASC').all(goalId) as RawTask[]).map(parseTask);
+    return { ...goal, tasks };
+  },
+
+  getFirstActiveGoal(): (Goal & { tasks: GoalTask[] }) | null {
+    const db = getDb();
+    const goal = db.prepare(`SELECT * FROM goals WHERE status = 'active' ORDER BY created_at DESC LIMIT 1`).get() as Goal | undefined;
+    if (!goal) return null;
+    const tasks = (db.prepare('SELECT * FROM goal_tasks WHERE goal_id = ? ORDER BY created_at ASC').all(goal.id) as RawTask[]).map(parseTask);
     return { ...goal, tasks };
   },
 

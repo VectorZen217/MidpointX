@@ -24,13 +24,7 @@ goalRoutes.get("/", (req: Request, res: Response) => {
  */
 goalRoutes.get("/active", (req: Request, res: Response) => {
   try {
-    const all = GoalTracker.listGoals(50, 0);
-    const active = all.find(g => g.status === 'active');
-    if (!active) {
-      res.json(null);
-      return;
-    }
-    const detail = GoalTracker.getGoal(active.id);
+    const detail = GoalTracker.getFirstActiveGoal();
     res.json(detail);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
