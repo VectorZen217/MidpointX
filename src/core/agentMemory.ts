@@ -1,6 +1,8 @@
 import Database from "better-sqlite3";
 import path from "path";
 import crypto from "crypto";
+import { cosineSimilarity } from "./mathUtils";
+import { Config } from "./config";
 
 export type MemoryType = "fact" | "project" | "preference" | "learned";
 
@@ -14,13 +16,15 @@ export interface Memory {
   created_at: number;
   last_accessed: number;
   access_count: number;
+  embedding?: string | null;
 }
 
 let _db: Database.Database | null = null;
 
 function getDb(): Database.Database {
   if (_db) return _db;
-  const dbPath = path.resolve(process.cwd(), "src/workspace/midpointx.db");
+  const dbPath = process.env.AGENT_MEMORY_DB_PATH ||
+    path.resolve(process.cwd(), "src/workspace/midpointx.db");
   _db = new Database(dbPath);
   _db.exec(`
     CREATE TABLE IF NOT EXISTS agent_memories (
@@ -35,7 +39,28 @@ function getDb(): Database.Database {
       access_count INTEGER NOT NULL DEFAULT 0
     );
   `);
+  try { _db.exec("ALTER TABLE agent_memories ADD COLUMN embedding TEXT"); } catch {}
   return _db;
+}
+
+export function _resetDbForTesting(customPath?: string): void {
+  if (_db) { try { _db.close(); } catch {} _db = null; }
+  if (customPath !== undefined) process.env.AGENT_MEMORY_DB_PATH = customPath;
+}
+
+async function getEmbedding(text: string): Promise<number[] | null> {
+  if (!Config.ENABLE_EMBEDDINGS || !Config.OPENAI_API_KEY) return null;
+  try {
+    const { OpenAIEmbeddings } = await import("@langchain/openai");
+    const embeddings = new OpenAIEmbeddings({
+      apiKey: Config.OPENAI_API_KEY,
+      modelName: Config.EMBEDDING_MODEL,
+    });
+    return await embeddings.embedQuery(text);
+  } catch (e) {
+    console.warn("⚠️ [AgentMemory] Failed to generate embedding:", e);
+    return null;
+  }
 }
 
 export const AgentMemory = {
