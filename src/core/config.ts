@@ -36,7 +36,7 @@ const ConfigSchema = z.object({
   ENABLE_PROACTIVE_SCHEDULER: BoolSchema.default(true),
   ENABLE_SCREENSHOTS: BoolSchema.default(true),
   ENABLE_EMBEDDINGS: BoolSchema.default(false),
-  EMBEDDING_MODEL: z.string().default("nomic-embed-text"),
+  EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   ENABLE_SLEEP_CYCLE: BoolSchema.default(true),
   SLEEP_CYCLE_CRON: z.string().default("0 3 * * *"), // 3 AM local time
   SILENT_MODE: BoolSchema.default(false),
