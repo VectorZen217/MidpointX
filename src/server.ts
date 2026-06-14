@@ -37,6 +37,7 @@ import { EmailConnector } from "./services/emailService";
 import { SwarmBus } from "./core/swarmBus";
 import { connectorRoutes } from "./routes/connectorRoutes";
 import { mcpServerRoutes } from "./routes/mcpServerRoutes";
+import { goalRoutes } from "./routes/goalRoutes";
 import { registerAllConnectors } from "./plugins/connectors/index";
 import { ConnectorRegistry } from "./core/connectorRegistry";
 
@@ -114,6 +115,7 @@ app.use("/api/v1/integrations", integrationRoutes);
 app.use("/api/v1/pipelines", pipelineRoutes);
 app.use("/api/v1/connectors", connectorRoutes);
 app.use("/api/v1/mcp-servers", mcpServerRoutes);
+app.use("/api/v1/goals", goalRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
 
 // Load pipelines from disk on startup
