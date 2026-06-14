@@ -60,6 +60,7 @@ function getDb(): Database.Database {
   const dbPath = process.env.GOAL_TRACKER_DB_PATH ||
     path.resolve(process.cwd(), "src/workspace/midpointx.db");
   _db = new Database(dbPath);
+  _db.pragma('foreign_keys = ON');
   _db.exec(`
     CREATE TABLE IF NOT EXISTS goals (
       id TEXT PRIMARY KEY,
@@ -151,8 +152,8 @@ export const GoalTracker = {
   completeTask(taskId: string, result: string): void {
     const db = getDb();
     const now = Date.now();
-    const row = db.prepare('SELECT goal_id FROM goal_tasks WHERE id = ?').get(taskId) as { goal_id: string } | undefined;
-    if (!row) return;
+    const row = db.prepare('SELECT goal_id, status FROM goal_tasks WHERE id = ?').get(taskId) as { goal_id: string; status: string } | undefined;
+    if (!row || row.status === 'completed') return;
     db.prepare(`UPDATE goal_tasks SET status = 'completed', result = ?, updated_at = ? WHERE id = ?`).run(result, now, taskId);
     db.prepare(`UPDATE goals SET completed_count = completed_count + 1, updated_at = ? WHERE id = ?`).run(now, row.goal_id);
   },
@@ -162,12 +163,17 @@ export const GoalTracker = {
     const now = Date.now();
     db.prepare(`UPDATE goal_tasks SET status = 'failed', failure_reason = ?, updated_at = ? WHERE id = ?`).run(reason, now, taskId);
 
-    // Iterative cascade: skip all transitively-dependent pending tasks
+    // Get the goal_id to scope cascade to this goal only
+    const goalRow = db.prepare('SELECT goal_id FROM goal_tasks WHERE id = ?').get(taskId) as { goal_id: string } | undefined;
+    if (!goalRow) return;
+    const { goal_id } = goalRow;
+
+    // Iterative cascade: skip all transitively-dependent pending tasks within this goal
     const skipStmt = db.prepare(`UPDATE goal_tasks SET status = 'skipped', updated_at = ? WHERE id = ?`);
     const justFailed = new Set<string>([taskId]);
     while (justFailed.size > 0) {
       const failedNow = new Set<string>();
-      const allPending = db.prepare(`SELECT id, depends_on FROM goal_tasks WHERE status = 'pending'`).all() as { id: string; depends_on: string }[];
+      const allPending = db.prepare(`SELECT id, depends_on FROM goal_tasks WHERE goal_id = ? AND status = 'pending'`).all(goal_id) as { id: string; depends_on: string }[];
       for (const row of allPending) {
         const deps: string[] = JSON.parse(row.depends_on || '[]');
         if (deps.some(d => justFailed.has(d))) {
@@ -181,9 +187,26 @@ export const GoalTracker = {
   },
 
   retryTask(taskId: string): void {
-    getDb()
-      .prepare(`UPDATE goal_tasks SET status = 'pending', failure_reason = NULL, updated_at = ? WHERE id = ?`)
-      .run(Date.now(), taskId);
+    const db = getDb();
+    const now = Date.now();
+    db.prepare(`UPDATE goal_tasks SET status = 'pending', failure_reason = NULL, updated_at = ? WHERE id = ?`).run(now, taskId);
+
+    // Also un-skip any tasks that were skipped because they depended on this task (cascade reset)
+    const pendingStmt = db.prepare(`UPDATE goal_tasks SET status = 'pending', updated_at = ? WHERE id = ?`);
+    const justReset = new Set<string>([taskId]);
+    while (justReset.size > 0) {
+      const resetNow = new Set<string>();
+      const allSkipped = db.prepare(`SELECT id, depends_on FROM goal_tasks WHERE status = 'skipped'`).all() as { id: string; depends_on: string }[];
+      for (const row of allSkipped) {
+        const deps: string[] = JSON.parse(row.depends_on || '[]');
+        if (deps.some(d => justReset.has(d))) {
+          pendingStmt.run(now, row.id);
+          resetNow.add(row.id);
+        }
+      }
+      justReset.clear();
+      resetNow.forEach(id => justReset.add(id));
+    }
   },
 
   completeGoal(goalId: string): void {

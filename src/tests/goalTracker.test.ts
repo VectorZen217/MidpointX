@@ -1,7 +1,7 @@
 import os from "os";
 import path from "path";
 import fs from "fs";
-import { GoalTracker, _resetDbForTesting, Goal, GoalTask } from "../core/goalTracker";
+import { GoalTracker, _resetDbForTesting, Goal } from "../core/goalTracker";
 
 // Use a fresh DB path per test to avoid UNIQUE constraint collisions
 // from hard-coded task IDs in SAMPLE_TASKS across describe blocks.
@@ -129,6 +129,19 @@ describe("GoalTracker.retryTask", () => {
     const t1 = detail.tasks.find(t => t.id === "aaa-1")!;
     expect(t1.status).toBe("pending");
     expect(t1.failure_reason).toBeNull();
+  });
+
+  it("also un-skips transitively cascaded dependents", () => {
+    // After fail (aaa-1 failed → aaa-2 skipped → aaa-3 skipped),
+    // retrying aaa-1 should restore aaa-2 and aaa-3 to pending
+    const goal = GoalTracker.createGoal("task-retry-cascade", "Retry cascade test", SAMPLE_TASKS);
+    GoalTracker.startTask("aaa-1");
+    GoalTracker.failTask("aaa-1", "error");
+    GoalTracker.retryTask("aaa-1");
+    const detail = GoalTracker.getGoal(goal.id)!;
+    expect(detail.tasks.find(t => t.id === "aaa-1")!.status).toBe("pending");
+    expect(detail.tasks.find(t => t.id === "aaa-2")!.status).toBe("pending");
+    expect(detail.tasks.find(t => t.id === "aaa-3")!.status).toBe("pending");
   });
 });
 
