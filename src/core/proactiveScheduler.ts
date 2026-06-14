@@ -1,6 +1,14 @@
 import Database from "better-sqlite3";
 import path from "path";
 import crypto from "crypto";
+import cron from "node-cron";
+import type { ScheduledTask } from "node-cron";
+import * as chokidar from "chokidar";
+import type { Server } from "socket.io";
+import { MidpointXGraph } from "./graph";
+import { Config } from "./config";
+import { TelegramService } from "../services/telegramService";
+import fs from "fs";
 
 export interface ScheduledGoal {
   id: string;
@@ -33,6 +41,11 @@ export interface CreateScheduleInput {
   intent: string;
   enabled?: boolean;
 }
+
+const _cronJobs = new Map<string, ScheduledTask>();
+const _fileWatchers = new Map<string, chokidar.FSWatcher>();
+let _pollerHandle: NodeJS.Timeout | null = null;
+let _ioInstance: Server | undefined;
 
 let _db: Database.Database | null = null;
 
@@ -184,5 +197,162 @@ export const ProactiveScheduler = {
     if (q.length >= 10) return;
     q.push(timestamp);
     db.prepare("UPDATE scheduled_goals SET queue = ? WHERE id = ?").run(JSON.stringify(q), id);
+  },
+
+  async init(io?: Server): Promise<void> {
+    _ioInstance = io;
+    console.log("📅 [ProactiveScheduler] Initializing...");
+    const schedules = this.listSchedules().filter(s => s.enabled === 1);
+    for (const s of schedules) {
+      if (s.trigger_type === "cron") this._registerCron(s);
+      else if (s.trigger_type === "file_watch") this._registerFileWatch(s);
+      // webhook: queried on-demand via getWebhookScheduleId — no runtime registration needed
+    }
+    console.log(`📅 [ProactiveScheduler] Ready. ${schedules.length} schedule(s) active.`);
+  },
+
+  _registerCron(schedule: ScheduledGoal): void {
+    this._deregisterCron(schedule.id);
+    try {
+      const config = JSON.parse(schedule.trigger_config) as { expression: string };
+      if (!cron.validate(config.expression)) {
+        console.error(`❌ [ProactiveScheduler] Invalid cron expression for "${schedule.name}": ${config.expression}`);
+        return;
+      }
+      const job = cron.schedule(config.expression, async () => {
+        await this._onTriggerFired(schedule.id, { time: new Date().toISOString() });
+      });
+      _cronJobs.set(schedule.id, job);
+      console.log(`📅 [ProactiveScheduler] Registered cron "${schedule.name}" [${config.expression}]`);
+    } catch (err: unknown) {
+      console.error(`❌ [ProactiveScheduler] Failed to register cron for "${schedule.name}":`, (err as Error).message);
+    }
+  },
+
+  _deregisterCron(id: string): void {
+    const job = _cronJobs.get(id);
+    if (job) { job.stop(); _cronJobs.delete(id); }
+  },
+
+  _registerFileWatch(schedule: ScheduledGoal): void {
+    this._deregisterFileWatch(schedule.id);
+    try {
+      const config = JSON.parse(schedule.trigger_config) as { path: string; events?: string[] };
+      const targetPath = config.path;
+      const events: string[] = config.events ?? ["add", "change", "unlink"];
+      if (!fs.existsSync(targetPath)) {
+        console.warn(`⚠️ [ProactiveScheduler] Watch path not found for "${schedule.name}": ${targetPath}. Disabling schedule.`);
+        this.toggleSchedule(schedule.id, false);
+        return;
+      }
+      const watcher = chokidar.watch(targetPath, { persistent: true, ignoreInitial: true });
+      watcher.on("all", async (event: string, eventPath: string) => {
+        if (!events.includes(event)) return;
+        await this._onTriggerFired(schedule.id, { event, path: eventPath });
+      });
+      _fileWatchers.set(schedule.id, watcher);
+      console.log(`📅 [ProactiveScheduler] Registered file watch "${schedule.name}" at ${targetPath}`);
+    } catch (err: unknown) {
+      console.error(`❌ [ProactiveScheduler] Failed to register file watch for "${schedule.name}":`, (err as Error).message);
+    }
+  },
+
+  _deregisterFileWatch(id: string): void {
+    const watcher = _fileWatchers.get(id);
+    if (watcher) { watcher.close().catch(console.error); _fileWatchers.delete(id); }
+  },
+
+  async _onTriggerFired(scheduleId: string, triggerData: unknown): Promise<void> {
+    const db = getDb();
+    const schedule = db
+      .prepare("SELECT * FROM scheduled_goals WHERE id = ? AND enabled = 1")
+      .get(scheduleId) as ScheduledGoal | undefined;
+    if (!schedule) return;
+
+    if (schedule.active_goal_id) {
+      const q: number[] = JSON.parse(schedule.queue || "[]");
+      if (q.length >= 10) {
+        console.warn(`⚠️ [ProactiveScheduler] Queue full for "${schedule.name}", trigger skipped.`);
+        return;
+      }
+      q.push(Date.now());
+      db.prepare("UPDATE scheduled_goals SET queue = ?, updated_at = ? WHERE id = ?")
+        .run(JSON.stringify(q), Date.now(), scheduleId);
+      console.log(`📅 [ProactiveScheduler] Queued trigger for "${schedule.name}" (depth: ${q.length})`);
+      return;
+    }
+
+    await this._fireSchedule(schedule, triggerData);
+  },
+
+  async _fireSchedule(schedule: ScheduledGoal, triggerData: unknown): Promise<void> {
+    const db = getDb();
+    const runId = crypto.randomUUID();
+    const scheduledTaskId = `SCHEDULE_${schedule.id}_${Date.now()}`;
+    const now = Date.now();
+
+    db.prepare(`
+      INSERT INTO scheduled_goal_runs (id, scheduled_goal_id, goal_id, triggered_at, completed_at, status, trigger_data)
+      VALUES (?, ?, NULL, ?, NULL, 'running', ?)
+    `).run(runId, schedule.id, now, JSON.stringify(triggerData));
+
+    console.log(`🔔 [ProactiveScheduler] Firing schedule "${schedule.name}"`);
+    TelegramService.sendMessage(
+      `🕐 Schedule fired: **${schedule.name}**\n${schedule.intent}`
+    ).catch(() => {});
+
+    // Fire graph in background — do not await full execution
+    (async () => {
+      try {
+        const stream = await MidpointXGraph.stream(
+          {
+            taskId: scheduledTaskId,
+            userIntent: schedule.intent,
+            proactiveTrigger: { type: schedule.trigger_type, data: triggerData },
+          },
+          {
+            recursionLimit: Config.MAX_RECURSION_LIMIT,
+            configurable: { thread_id: scheduledTaskId },
+          }
+        );
+
+        let goalId: string | null = null;
+        for await (const chunk of stream) {
+          const nodeName = Object.keys(chunk)[0];
+          const stateUpdate = (chunk as Record<string, Record<string, unknown>>)[nodeName];
+          if (!goalId && stateUpdate?.activeGoalId) {
+            goalId = stateUpdate.activeGoalId as string;
+            db.prepare(
+              "UPDATE scheduled_goals SET active_goal_id = ?, updated_at = ? WHERE id = ?"
+            ).run(goalId, Date.now(), schedule.id);
+            db.prepare(
+              "UPDATE scheduled_goal_runs SET goal_id = ? WHERE id = ?"
+            ).run(goalId, runId);
+          }
+          if (_ioInstance && nodeName !== "__end__") {
+            _ioInstance.emit("agent:progress", { stage: nodeName, data: stateUpdate });
+          }
+        }
+      } catch (err: unknown) {
+        const message = (err as Error).message ?? String(err);
+        console.error(`❌ [ProactiveScheduler] Graph execution failed for "${schedule.name}":`, message);
+        db.prepare(
+          "UPDATE scheduled_goal_runs SET status = 'failed', completed_at = ?, trigger_data = ? WHERE id = ?"
+        ).run(
+          Date.now(),
+          JSON.stringify({ ...(triggerData as object), error: message }),
+          runId
+        );
+        db.prepare(
+          "UPDATE scheduled_goals SET active_goal_id = NULL, updated_at = ? WHERE id = ?"
+        ).run(Date.now(), schedule.id);
+      }
+    })().catch(console.error);
+  },
+
+  async triggerManually(id: string): Promise<void> {
+    const schedule = this.getSchedule(id);
+    if (!schedule) throw new Error(`Schedule ${id} not found`);
+    await this._onTriggerFired(id, { manual: true, time: new Date().toISOString() });
   },
 };
