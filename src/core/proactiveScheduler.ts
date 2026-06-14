@@ -9,6 +9,7 @@ import { MidpointXGraph } from "./graph";
 import { Config } from "./config";
 import { TelegramService } from "../services/telegramService";
 import fs from "fs";
+import { GoalTracker } from "./goalTracker";
 
 export interface ScheduledGoal {
   id: string;
@@ -209,6 +210,7 @@ export const ProactiveScheduler = {
       // webhook: queried on-demand via getWebhookScheduleId — no runtime registration needed
     }
     console.log(`📅 [ProactiveScheduler] Ready. ${schedules.length} schedule(s) active.`);
+    this._startPoller();
   },
 
   _registerCron(schedule: ScheduledGoal): void {
@@ -352,5 +354,88 @@ export const ProactiveScheduler = {
     const schedule = this.getSchedule(id);
     if (!schedule) throw new Error(`Schedule ${id} not found`);
     await this._onTriggerFired(id, { manual: true, time: new Date().toISOString() });
+  },
+
+  _startPoller(): void {
+    if (_pollerHandle) clearInterval(_pollerHandle);
+    _pollerHandle = setInterval(() => {
+      this._pollCompletion();
+    }, 30_000);
+    console.log("📅 [ProactiveScheduler] Completion poller started (30s interval)");
+  },
+
+  _stopPoller(): void {
+    if (_pollerHandle) { clearInterval(_pollerHandle); _pollerHandle = null; }
+  },
+
+  _pollCompletion(): void {
+    const db = getDb();
+    const active = db
+      .prepare("SELECT * FROM scheduled_goals WHERE active_goal_id IS NOT NULL")
+      .all() as ScheduledGoal[];
+
+    for (const schedule of active) {
+      if (!schedule.active_goal_id) continue;
+      const run = db
+        .prepare(
+          "SELECT * FROM scheduled_goal_runs WHERE scheduled_goal_id = ? AND status = 'running' ORDER BY triggered_at DESC LIMIT 1"
+        )
+        .get(schedule.id) as ScheduledGoalRun | undefined;
+      if (!run) continue;
+
+      const goal = GoalTracker.getGoal(schedule.active_goal_id);
+      if (!goal) continue;
+
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+      if (goal.status === "active" && run.triggered_at < Date.now() - TWENTY_FOUR_HOURS) {
+        console.warn(`⚠️ [ProactiveScheduler] Hang detected for "${schedule.name}" — marking failed`);
+        this._reconcileRun(schedule.id, schedule.active_goal_id, run.id, "failed");
+        continue;
+      }
+
+      if (goal.status === "completed" || goal.status === "failed") {
+        this._reconcileRun(
+          schedule.id,
+          schedule.active_goal_id,
+          run.id,
+          goal.status === "completed" ? "completed" : "failed"
+        );
+      }
+    }
+  },
+
+  _reconcileRun(
+    scheduleId: string,
+    goalId: string,
+    runId: string,
+    finalStatus: "completed" | "failed"
+  ): "cleared" | "queued" {
+    const db = getDb();
+    const now = Date.now();
+
+    db.prepare(
+      "UPDATE scheduled_goal_runs SET status = ?, completed_at = ? WHERE id = ?"
+    ).run(finalStatus, now, runId);
+
+    db.prepare(
+      "UPDATE scheduled_goals SET active_goal_id = NULL, last_run_at = ?, updated_at = ? WHERE id = ?"
+    ).run(now, now, scheduleId);
+
+    const schedule = db
+      .prepare("SELECT * FROM scheduled_goals WHERE id = ?")
+      .get(scheduleId) as ScheduledGoal | undefined;
+    if (!schedule) return "cleared";
+
+    const queue: number[] = JSON.parse(schedule.queue || "[]");
+    if (queue.length > 0) {
+      const nextTimestamp = queue.shift()!;
+      db.prepare("UPDATE scheduled_goals SET queue = ?, updated_at = ? WHERE id = ?")
+        .run(JSON.stringify(queue), now, scheduleId);
+      this._fireSchedule(schedule, { queued_at: nextTimestamp, time: new Date(nextTimestamp).toISOString() })
+        .catch(err => console.error(`❌ [ProactiveScheduler] Queue drain fire failed:`, (err as Error).message));
+      return "queued";
+    }
+
+    return "cleared";
   },
 };

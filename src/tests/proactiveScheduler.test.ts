@@ -130,3 +130,64 @@ describe("ProactiveScheduler CRUD", () => {
     expect(JSON.parse(row.queue)).toHaveLength(10);
   });
 });
+
+describe("ProactiveScheduler _reconcileRun", () => {
+  test("_reconcileRun marks run completed and clears active_goal_id", () => {
+    const s = ProactiveScheduler.createSchedule({
+      name: "ReconcileTest",
+      trigger_type: "cron",
+      trigger_config: { expression: "* * * * *" },
+      intent: "reconcile test",
+      enabled: true,
+    });
+
+    // Manually insert a run row and set active_goal_id
+    const Database = require("better-sqlite3");
+    const db = new Database(process.env.PROACTIVE_SCHEDULER_DB_PATH!);
+    const runId = "test-run-reconcile-001";
+    const fakeGoalId = "fake-goal-reconcile-111";
+    db.prepare(
+      `INSERT INTO scheduled_goal_runs (id, scheduled_goal_id, goal_id, triggered_at, completed_at, status, trigger_data)
+       VALUES (?, ?, ?, ?, NULL, 'running', '{}')`
+    ).run(runId, s.id, fakeGoalId, Date.now());
+    db.close();
+
+    ProactiveScheduler._setActiveGoalForTest(s.id, fakeGoalId);
+
+    const result = ProactiveScheduler._reconcileRun(s.id, fakeGoalId, runId, "completed");
+    expect(result).toBe("cleared");
+
+    const updated = ProactiveScheduler.getSchedule(s.id)!;
+    expect(updated.active_goal_id).toBeNull();
+    expect(updated.last_run_at).not.toBeNull();
+  });
+
+  test("_reconcileRun pops queue and fires next when queue is non-empty", () => {
+    const s = ProactiveScheduler.createSchedule({
+      name: "QueueDrain",
+      trigger_type: "cron",
+      trigger_config: { expression: "* * * * *" },
+      intent: "queue drain test",
+      enabled: true,
+    });
+    ProactiveScheduler._setActiveGoalForTest(s.id, "active-goal");
+    ProactiveScheduler._appendQueueForTest(s.id, Date.now() - 2000);
+    ProactiveScheduler._appendQueueForTest(s.id, Date.now() - 1000);
+
+    const Database = require("better-sqlite3");
+    const db = new Database(process.env.PROACTIVE_SCHEDULER_DB_PATH!);
+    const runId = "test-run-drain-002";
+    db.prepare(
+      `INSERT INTO scheduled_goal_runs (id, scheduled_goal_id, goal_id, triggered_at, completed_at, status, trigger_data)
+       VALUES (?, ?, 'active-goal', ?, NULL, 'running', '{}')`
+    ).run(runId, s.id, Date.now());
+    db.close();
+
+    const result = ProactiveScheduler._reconcileRun(s.id, "active-goal", runId, "completed");
+    expect(result).toBe("queued");
+
+    const updated = ProactiveScheduler.getSchedule(s.id)!;
+    const remaining: number[] = JSON.parse(updated.queue);
+    expect(remaining).toHaveLength(1);
+  });
+});
