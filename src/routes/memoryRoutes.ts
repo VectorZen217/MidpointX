@@ -21,11 +21,11 @@ memoryRoutes.get("/", (req: Request, res: Response) => {
 /**
  * GET /api/v1/memories/search?q=typescript
  */
-memoryRoutes.get("/search", (req: Request, res: Response) => {
+memoryRoutes.get("/search", async (req: Request, res: Response) => {
   try {
     const q = String(req.query.q || "");
     if (!q) return res.json({ success: true, memories: [] });
-    const memories = AgentMemory.recall(q, 20);
+    const memories = await AgentMemory.recall(q, 20);
     res.json({ success: true, memories });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -36,13 +36,13 @@ memoryRoutes.get("/search", (req: Request, res: Response) => {
  * POST /api/v1/memories
  * Body: { key: string, value: string, type: MemoryType }
  */
-memoryRoutes.post("/", (req: Request, res: Response) => {
+memoryRoutes.post("/", async (req: Request, res: Response) => {
   try {
     const { key, value, type } = req.body as { key: string; value: string; type: MemoryType };
     if (!key || !value || !type) {
       return res.status(400).json({ error: "key, value, and type are required" });
     }
-    const memory = AgentMemory.remember(key, value, type, "user");
+    const memory = await AgentMemory.remember(key, value, type, "user");
     res.json({ success: true, memory });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
