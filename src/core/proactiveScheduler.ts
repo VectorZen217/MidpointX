@@ -333,16 +333,14 @@ export const ProactiveScheduler = {
             _ioInstance.emit("agent:progress", { stage: nodeName, data: stateUpdate });
           }
         }
+        // active_goal_id is cleared by the completion poller (_reconcileRun) when
+        // GoalTracker reports the goal as completed or failed — not here in _fireSchedule.
       } catch (err: unknown) {
         const message = (err as Error).message ?? String(err);
         console.error(`❌ [ProactiveScheduler] Graph execution failed for "${schedule.name}":`, message);
         db.prepare(
-          "UPDATE scheduled_goal_runs SET status = 'failed', completed_at = ?, trigger_data = ? WHERE id = ?"
-        ).run(
-          Date.now(),
-          JSON.stringify({ ...(triggerData as object), error: message }),
-          runId
-        );
+          "UPDATE scheduled_goal_runs SET status = 'failed', completed_at = ? WHERE id = ?"
+        ).run(Date.now(), runId);
         db.prepare(
           "UPDATE scheduled_goals SET active_goal_id = NULL, updated_at = ? WHERE id = ?"
         ).run(Date.now(), schedule.id);
