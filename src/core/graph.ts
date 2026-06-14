@@ -13,6 +13,7 @@ import { compactionNode } from "../nodes/compactionNode";
 import { pruningNode } from "../nodes/pruningNode";
 import { researchWorkerNode, developerWorkerNode, testerWorkerNode } from "../nodes/swarmWorkerNodes";
 import { skillAcquisitionNode } from "../nodes/skillAcquisitionNode";
+import { goalDecomposerNode } from "../nodes/goalDecomposerNode";
 
 // 1. Persistent Checkpointer for Human-in-the-Loop
 const checkpointer = new MemorySaver();
@@ -46,6 +47,7 @@ builder.addNode("ResearcherActor", (state: GraphState) => researchWorkerNode(sta
 builder.addNode("DeveloperActor", (state: GraphState) => developerWorkerNode(state));
 builder.addNode("TesterActor", (state: GraphState) => testerWorkerNode(state));
 builder.addNode("SkillAcquisitionActor", (state: GraphState) => skillAcquisitionNode(state));
+builder.addNode("GoalDecomposerActor", (state: GraphState) => goalDecomposerNode(state));
 
 /**
  * Security: Human-in-the-Loop Breakpoint
@@ -84,7 +86,8 @@ builder.addConditionalEdges(
 builder.addEdge("ReflectionActor", "AnalysisActor");
 
 // Lean AnalysisActor runs exactly once per mission — no worker routing.
-builder.addEdge("AnalysisActor", "CompactionActor");
+builder.addEdge("AnalysisActor", "GoalDecomposerActor");
+builder.addEdge("GoalDecomposerActor", "CompactionActor");
 
 // SupervisorActor handles all worker orchestration and complex replanning.
 builder.addConditionalEdges(
