@@ -9,6 +9,7 @@ import { MemoryManager } from "./memory";
 import { pruningNode } from "../nodes/pruningNode";
 import { PersistenceFactory } from "./persistence";
 import { TelegramService } from "../services/telegramService";
+import { ProactiveScheduler } from "./proactiveScheduler";
 import path from "path";
 import fs from "fs";
 
@@ -108,6 +109,14 @@ export class Observer {
   }
 
   public static async triggerWebhook(webhookPath: string, payload: any) {
+    // Check ProactiveScheduler user-configured webhooks first
+    const scheduleId = ProactiveScheduler.getWebhookScheduleId(webhookPath);
+    if (scheduleId) {
+      console.log(`🪝 [Observer] Webhook routed to ProactiveScheduler schedule: ${scheduleId}`);
+      await ProactiveScheduler._onTriggerFired(scheduleId, payload);
+      return;
+    }
+
     const skills = PluginRegistry.getMDSkills();
     const targetSkill = skills.find(s => s.webhookPath === webhookPath);
     if (!targetSkill) {
