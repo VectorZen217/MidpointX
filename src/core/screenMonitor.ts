@@ -409,7 +409,7 @@ export const ScreenMonitor = {
 
   async captureAndAnalyze(): Promise<void> {},
 
-  async _analyzeScreenshot(screenshotPath: string, base64: string): Promise<DetectionResult[]> {
+  async _analyzeScreenshot(_screenshotPath: string, base64: string): Promise<DetectionResult[]> {
     const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
     const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"];
     if (!VISION_PROVIDERS.includes(provider)) {
@@ -432,6 +432,7 @@ Return a JSON array only — no markdown, no prose. Each element:
 Detection rules:
 ${ruleList}`;
 
+    // TODO(Task 3): honor vision_model_override from config when captureAndAnalyze is implemented
     const model = LLMFactory.getModel({ temperature: 0 });
     const message = new HumanMessage({
       content: [
@@ -524,7 +525,12 @@ ${ruleList}`;
             (err as Error).message
           );
         }
-      })();
+      })().catch(err =>
+        console.error(
+          `[ScreenMonitor] IIFE outer rejection for detection ${detectionId}:`,
+          (err as Error).message
+        )
+      );
     }
   },
 };
