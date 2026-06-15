@@ -7,6 +7,9 @@ import { HumanMessage } from "@langchain/core/messages";
 import { MidpointXGraph } from "./graph";
 import { Config } from "./config";
 import { TelegramService } from "../services/telegramService";
+import { screen, saveImage, FileType } from "@nut-tree-fork/nut-js";
+import { GlobalKeyboardListener } from "node-global-key-listener";
+import fs from "fs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,6 +72,7 @@ let _consecutiveCaptureFails = 0;
 const MAX_CONSECUTIVE_FAILS = 5;
 const COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_SCREENSHOTS = 100;
+let _hotkeyListener: InstanceType<typeof GlobalKeyboardListener> | null = null;
 
 // ---------------------------------------------------------------------------
 // DB bootstrap
@@ -132,6 +136,10 @@ export function _resetDbForTesting(customPath?: string): void {
   if (_pollerHandle) {
     clearInterval(_pollerHandle);
     _pollerHandle = null;
+  }
+  if (_hotkeyListener) {
+    try { (_hotkeyListener as any).kill?.(); } catch {}
+    _hotkeyListener = null;
   }
   if (_db) {
     try { _db.close(); } catch {}
@@ -217,7 +225,23 @@ export const ScreenMonitor = {
     const db = getDb();
     seedBuiltinRules(db);
     ensureConfigRow(db);
-    // Capture / poller / hotkey registration — stubs, implemented in Tasks 2 & 3
+
+    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
+    const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"];
+    if (!VISION_PROVIDERS.includes(provider)) {
+      console.warn(
+        `[ScreenMonitor] Provider "${provider}" does not support vision. Poller will run but skip analysis.`
+      );
+    }
+
+    this._registerHotkey();
+
+    const cfg = this.getConfig();
+    if (cfg.enabled === 1) {
+      this.startPolling();
+    }
+
+    console.log("[ScreenMonitor] Initialized.");
   },
 
   // ── Config ───────────────────────────────────────────────────────────────
@@ -401,13 +425,126 @@ export const ScreenMonitor = {
     return id;
   },
 
-  // ── Stubs (implemented in Tasks 2 & 3) ───────────────────────────────────
+  // ── Hotkey ───────────────────────────────────────────────────────────────
 
-  startPolling(): void {},
+  _registerHotkey(): void {
+    const cfg = this.getConfig();
+    const hotkey = cfg.hotkey.toLowerCase();
+    const keys = hotkey.split("+").map((k: string) => k.trim());
 
-  stopPolling(): void {},
+    const modMap: Record<string, string[]> = {
+      ctrl: ["LEFT CTRL", "RIGHT CTRL"],
+      shift: ["LEFT SHIFT", "RIGHT SHIFT"],
+      alt: ["LEFT ALT", "RIGHT ALT"],
+      meta: ["LEFT META", "RIGHT META"],
+    };
 
-  async captureAndAnalyze(): Promise<void> {},
+    try {
+      _hotkeyListener = new GlobalKeyboardListener();
+      const listenerFn = (e: any, down: Record<string, boolean>) => {
+        if (e.state !== "DOWN") return;
+        for (const key of keys) {
+          if (modMap[key]) {
+            if (!modMap[key].some((k: string) => down[k])) return;
+          } else {
+            if (e.name?.toUpperCase() !== key.toUpperCase()) return;
+          }
+        }
+        console.log("[ScreenMonitor] Hotkey triggered — capturing");
+        this.captureAndAnalyze().catch((err: unknown) =>
+          console.error("[ScreenMonitor] Hotkey capture error:", err)
+        );
+      };
+      // addListener is async (spawns native key server); attach .catch so rejection
+      // doesn't become an unhandled promise rejection in non-GUI environments (e.g. tests)
+      Promise.resolve(_hotkeyListener.addListener(listenerFn))
+        .then(() => console.log(`[ScreenMonitor] Hotkey registered: ${cfg.hotkey}`))
+        .catch((err: unknown) => {
+          console.warn(
+            "[ScreenMonitor] Hotkey registration failed (polling-only):",
+            (err as Error).message
+          );
+          _hotkeyListener = null;
+        });
+    } catch (err: unknown) {
+      console.warn(
+        "[ScreenMonitor] Hotkey registration failed (polling-only):",
+        (err as Error).message
+      );
+    }
+  },
+
+  // ── Polling ──────────────────────────────────────────────────────────────
+
+  startPolling(): void {
+    if (_pollerHandle) return;
+    const cfg = this.getConfig();
+    _pollerHandle = setInterval(async () => {
+      const current = this.getConfig();
+      if (current.enabled === 0) return;
+      await this.captureAndAnalyze().catch(err =>
+        console.error("[ScreenMonitor] captureAndAnalyze error:", err)
+      );
+    }, cfg.poll_interval_ms);
+    console.log(`[ScreenMonitor] Polling started at ${cfg.poll_interval_ms}ms interval`);
+  },
+
+  stopPolling(): void {
+    if (_pollerHandle) {
+      clearInterval(_pollerHandle);
+      _pollerHandle = null;
+      console.log("[ScreenMonitor] Polling stopped");
+    }
+  },
+
+  // ── Capture & Analyze ─────────────────────────────────────────────────────
+
+  async captureAndAnalyze(): Promise<void> {
+    const screenshotsDir = path.resolve(process.cwd(), "src/workspace/screenshots");
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+
+    const filename = `screen_${Date.now()}.png`;
+    const screenshotPath = path.join(screenshotsDir, filename);
+
+    let base64: string;
+    try {
+      const image = await (screen.grab as any)();
+      await (saveImage as any)({ image, path: screenshotPath, type: FileType.PNG });
+      base64 = fs.readFileSync(screenshotPath).toString("base64");
+      _consecutiveCaptureFails = 0;
+    } catch (err: unknown) {
+      _consecutiveCaptureFails++;
+      console.error(
+        `[ScreenMonitor] Capture failed (${_consecutiveCaptureFails}/${MAX_CONSECUTIVE_FAILS}):`,
+        (err as Error).message
+      );
+      if (_consecutiveCaptureFails >= MAX_CONSECUTIVE_FAILS) {
+        console.error("[ScreenMonitor] Too many consecutive failures — disabling monitor.");
+        this.updateConfig({ enabled: 0 });
+        this.stopPolling();
+        TelegramService.sendMessage(
+          "⚠️ Screen Monitor disabled after 5 consecutive capture failures."
+        ).catch(() => {});
+      }
+      return;
+    }
+
+    // Rolling window — delete oldest screenshots if over MAX_SCREENSHOTS
+    try {
+      const files = fs.readdirSync(screenshotsDir)
+        .filter(f => f.endsWith(".png"))
+        .map(f => ({ name: f, mtime: fs.statSync(path.join(screenshotsDir, f)).mtimeMs }))
+        .sort((a, b) => a.mtime - b.mtime);
+      while (files.length > MAX_SCREENSHOTS) {
+        const oldest = files.shift()!;
+        fs.unlinkSync(path.join(screenshotsDir, oldest.name));
+      }
+    } catch { /* disk error — non-fatal */ }
+
+    const relativePath = path.relative(process.cwd(), screenshotPath);
+    const results = await this._analyzeScreenshot(relativePath, base64);
+    await this._fireDetections(results, relativePath);
+  },
 
   async _analyzeScreenshot(_screenshotPath: string, base64: string): Promise<DetectionResult[]> {
     const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
@@ -432,7 +569,6 @@ Return a JSON array only — no markdown, no prose. Each element:
 Detection rules:
 ${ruleList}`;
 
-    // TODO(Task 3): honor vision_model_override from config when captureAndAnalyze is implemented
     const model = LLMFactory.getModel({ temperature: 0 });
     const message = new HumanMessage({
       content: [
