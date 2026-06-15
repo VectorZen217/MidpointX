@@ -234,7 +234,7 @@ export const ScreenMonitor = {
     const values: unknown[] = [];
 
     for (const key of allowed) {
-      if (key in updates) {
+      if (key in updates && (updates as Record<string, unknown>)[key] !== undefined) {
         set.push(`${key} = ?`);
         values.push((updates as Record<string, unknown>)[key]);
       }
@@ -297,7 +297,7 @@ export const ScreenMonitor = {
     const values: unknown[] = [];
 
     for (const key of allowed) {
-      if (key in updates) {
+      if (key in updates && (updates as Record<string, unknown>)[key] !== undefined) {
         set.push(`${key} = ?`);
         values.push((updates as Record<string, unknown>)[key]);
       }
@@ -324,7 +324,7 @@ export const ScreenMonitor = {
       .get(id) as { is_builtin: number } | undefined;
 
     if (!row) throw new Error(`Rule ${id} not found`);
-    if (row.is_builtin === 1) throw new Error("Cannot delete built-in rule");
+    if (row.is_builtin === 1) throw new Error("Cannot delete built-in detection rule");
 
     db.prepare(`DELETE FROM screen_detection_rules WHERE id = ?`).run(id);
   },
@@ -349,7 +349,7 @@ export const ScreenMonitor = {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const limit = opts?.limit ?? 100;
+    const limit = opts?.limit ?? 50;
     const offset = opts?.offset ?? 0;
     values.push(limit, offset);
 
