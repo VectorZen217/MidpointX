@@ -15,6 +15,7 @@ import MemoryBrowser from './components/MemoryBrowser';
 import PipelineView from './components/PipelineView';
 import ConnectorsView from './components/ConnectorsView';
 import MCPServersView from './components/MCPServersView';
+import SchedulesView from './components/SchedulesView';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -460,6 +461,7 @@ const App = () => {
         {activeView === 'pipelines' && <PipelineView />}
         {activeView === 'connectors' && <ConnectorsView />}
         {activeView === 'mcp-servers' && <MCPServersView />}
+        {activeView === 'proactive-schedules' && <SchedulesView />}
       </div>
     </div>
   );
