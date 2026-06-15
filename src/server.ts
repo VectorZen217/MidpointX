@@ -40,6 +40,8 @@ import { mcpServerRoutes } from "./routes/mcpServerRoutes";
 import { goalRoutes } from "./routes/goalRoutes";
 import { scheduleRoutes } from "./routes/scheduleRoutes";
 import { ProactiveScheduler } from "./core/proactiveScheduler";
+import { screenMonitorRoutes } from "./routes/screenMonitorRoutes";
+import { ScreenMonitor } from "./core/screenMonitor";
 import { registerAllConnectors } from "./plugins/connectors/index";
 import { ConnectorRegistry } from "./core/connectorRegistry";
 
@@ -119,6 +121,7 @@ app.use("/api/v1/connectors", connectorRoutes);
 app.use("/api/v1/mcp-servers", mcpServerRoutes);
 app.use("/api/v1/goals", goalRoutes);
 app.use("/api/v1/schedules", scheduleRoutes);
+app.use("/api/v1/screen-monitor", screenMonitorRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
 
 // Load pipelines from disk on startup
@@ -313,6 +316,7 @@ async function startServer() {
     await ConnectorRegistry.init();
     await Observer.init(io);
     await ProactiveScheduler.init(io);
+    await ScreenMonitor.init(io);
 
     // Initialize Messaging Channels with Socket.io for UI Sync
     await TelegramService.init(io);
