@@ -373,9 +373,10 @@ export const ScreenMonitor = {
 
   toggleRule(id: string, enabled: boolean): void {
     const db = getDb();
-    db.prepare(
-      `UPDATE screen_detection_rules SET enabled = ?, updated_at = ? WHERE id = ?`
-    ).run(enabled ? 1 : 0, Date.now(), id);
+    const existing = db.prepare("SELECT id FROM screen_detection_rules WHERE id = ?").get(id);
+    if (!existing) throw new Error(`Rule ${id} not found`);
+    db.prepare("UPDATE screen_detection_rules SET enabled = ?, updated_at = ? WHERE id = ?")
+      .run(enabled ? 1 : 0, Date.now(), id);
   },
 
   // ── Detections ───────────────────────────────────────────────────────────

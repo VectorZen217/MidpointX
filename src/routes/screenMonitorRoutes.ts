@@ -6,7 +6,11 @@ const router = Router();
 // ── Config ───────────────────────────────────────────────────────────────────
 
 router.get("/config", (_req, res) => {
-  res.json(ScreenMonitor.getConfig());
+  try {
+    res.json(ScreenMonitor.getConfig());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.patch("/config", (req, res) => {
@@ -40,7 +44,11 @@ router.patch("/config", (req, res) => {
 // ── Detection Rules ───────────────────────────────────────────────────────────
 
 router.get("/rules", (_req, res) => {
-  res.json(ScreenMonitor.listRules());
+  try {
+    res.json(ScreenMonitor.listRules());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/rules", (req, res) => {
@@ -94,7 +102,7 @@ router.post("/rules/:id/toggle", (req, res) => {
     ScreenMonitor.toggleRule(req.params.id, enabled);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(err.message.includes("not found") ? 404 : 500).json({ error: err.message });
   }
 });
 
@@ -110,10 +118,14 @@ router.post("/capture", async (_req, res) => {
 });
 
 router.get("/detections", (req, res) => {
-  const limit = parseInt(String(req.query.limit ?? "50"), 10);
-  const offset = parseInt(String(req.query.offset ?? "0"), 10);
-  const rule_id = req.query.rule_id as string | undefined;
-  res.json(ScreenMonitor.listDetections({ limit, offset, rule_id }));
+  try {
+    const limit = Number(req.query.limit) || 50;
+    const offset = Number(req.query.offset) || 0;
+    const rule_id = req.query.rule_id as string | undefined;
+    res.json(ScreenMonitor.listDetections({ limit, offset, rule_id }));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/detections/:id/dismiss", (req, res) => {
