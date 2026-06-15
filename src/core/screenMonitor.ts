@@ -2,6 +2,11 @@ import Database from "better-sqlite3";
 import path from "path";
 import crypto from "crypto";
 import type { Server } from "socket.io";
+import { LLMFactory } from "./llmFactory";
+import { HumanMessage } from "@langchain/core/messages";
+import { MidpointXGraph } from "./graph";
+import { Config } from "./config";
+import { TelegramService } from "../services/telegramService";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -404,15 +409,122 @@ export const ScreenMonitor = {
 
   async captureAndAnalyze(): Promise<void> {},
 
-  async _analyzeScreenshot(
-    _screenshotPath: string,
-    _base64: string
-  ): Promise<DetectionResult[]> {
-    return [];
+  async _analyzeScreenshot(screenshotPath: string, base64: string): Promise<DetectionResult[]> {
+    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
+    const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"];
+    if (!VISION_PROVIDERS.includes(provider)) {
+      console.warn(`[ScreenMonitor] Provider "${provider}" does not support vision. Skipping analysis.`);
+      return [];
+    }
+
+    const rules = this.listRules().filter(r => r.enabled === 1);
+    if (rules.length === 0) return [];
+
+    const ruleList = rules.map((r, i) =>
+      `${i + 1}. rule_id="${r.id}" name="${r.name}" — ${r.description}`
+    ).join("\n");
+
+    const prompt = `You are a desktop vision monitor. Analyze this screenshot and check for each detection rule below.
+
+Return a JSON array only — no markdown, no prose. Each element:
+{ "rule_id": "<exact rule_id>", "detected": true/false, "description": "<what you saw or why not detected>", "suggested_action": "<brief action>" }
+
+Detection rules:
+${ruleList}`;
+
+    const model = LLMFactory.getModel({ temperature: 0 });
+    const message = new HumanMessage({
+      content: [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } },
+      ] as any,
+    });
+
+    const response = await model.invoke([message]);
+    const raw = typeof response.content === "string"
+      ? response.content
+      : JSON.stringify(response.content);
+
+    try {
+      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      return JSON.parse(cleaned) as DetectionResult[];
+    } catch {
+      console.error("[ScreenMonitor] LLM returned malformed JSON. Raw:", raw.substring(0, 200));
+      return [];
+    }
   },
 
-  async _fireDetections(
-    _results: DetectionResult[],
-    _screenshotPath: string
-  ): Promise<void> {},
+  async _fireDetections(results: DetectionResult[], screenshotPath: string): Promise<void> {
+    const db = getDb();
+    for (const result of results) {
+      if (!result.detected) continue;
+      if (this._isOnCooldown(result.rule_id)) {
+        console.log(`[ScreenMonitor] Rule ${result.rule_id} on cooldown — skipping`);
+        continue;
+      }
+
+      const rule = db.prepare("SELECT * FROM screen_detection_rules WHERE id = ?")
+        .get(result.rule_id) as ScreenDetectionRule | undefined;
+      if (!rule || rule.enabled === 0) continue;
+
+      const detectionId = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO screen_detections (id, rule_id, detected_at, screenshot_path, description, goal_id, status)
+        VALUES (?, ?, ?, ?, ?, NULL, 'pending')
+      `).run(detectionId, rule.id, Date.now(), screenshotPath, result.description);
+
+      if (rule.auto_approve === "notify") {
+        TelegramService.sendMessage(
+          `👁️ Screen detection: **${rule.name}**\n${result.description}`
+        ).catch(() => {});
+        db.prepare("UPDATE screen_detections SET status = 'fired' WHERE id = ?").run(detectionId);
+        continue;
+      }
+
+      const intent = rule.auto_approve === "ask"
+        ? `[SCREEN DETECTION — awaiting approval] ${rule.intent}\n\nDetection: ${result.description}`
+        : `${rule.intent}\n\nScreen detection context: ${result.description}`;
+
+      const taskId = `SCREEN_${detectionId}_${Date.now()}`;
+
+      // Fire goal in background — same IIFE pattern as ProactiveScheduler._fireSchedule
+      (async () => {
+        try {
+          const stream = await MidpointXGraph.stream(
+            {
+              taskId,
+              userIntent: intent,
+              proactiveTrigger: {
+                type: "screen_detection",
+                data: { rule: rule.name, screenshotPath, description: result.description },
+              },
+            } as any,
+            {
+              recursionLimit: Config.MAX_RECURSION_LIMIT,
+              configurable: { thread_id: taskId },
+            }
+          );
+
+          let goalId: string | null = null;
+          for await (const chunk of stream) {
+            const nodeName = Object.keys(chunk)[0];
+            const stateUpdate = (chunk as Record<string, Record<string, unknown>>)[nodeName];
+            if (!goalId && stateUpdate?.activeGoalId) {
+              goalId = stateUpdate.activeGoalId as string;
+              db.prepare("UPDATE screen_detections SET goal_id = ?, status = 'fired' WHERE id = ?")
+                .run(goalId, detectionId);
+            }
+            if (_ioInstance && nodeName !== "__end__") {
+              _ioInstance.emit("agent:progress", { stage: nodeName, data: stateUpdate });
+            }
+          }
+        } catch (err: unknown) {
+          console.error(
+            `[ScreenMonitor] Goal fire failed for detection ${detectionId}:`,
+            (err as Error).message
+          );
+        }
+      })();
+    }
+  },
 };
