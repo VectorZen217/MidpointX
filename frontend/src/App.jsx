@@ -16,6 +16,7 @@ import PipelineView from './components/PipelineView';
 import ConnectorsView from './components/ConnectorsView';
 import MCPServersView from './components/MCPServersView';
 import SchedulesView from './components/SchedulesView';
+import ScreenMonitorView from './components/ScreenMonitorView';
 
 const socket = io(); // Connect to the active backend serving the frontend
 
@@ -462,6 +463,7 @@ const App = () => {
         {activeView === 'connectors' && <ConnectorsView />}
         {activeView === 'mcp-servers' && <MCPServersView />}
         {activeView === 'proactive-schedules' && <SchedulesView />}
+        {activeView === 'screen-monitor' && <ScreenMonitorView />}
       </div>
     </div>
   );
