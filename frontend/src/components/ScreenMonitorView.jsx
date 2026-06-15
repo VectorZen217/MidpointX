@@ -54,7 +54,9 @@ export default function ScreenMonitorView() {
       setCfgForm({ poll_interval_s: Math.round(cfg.poll_interval_ms / 1000) });
       setRules(rulesData);
       setDetections(dets);
-    } catch {}
+    } catch (err) {
+      console.error('[ScreenMonitor] Failed to load data:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -138,12 +140,18 @@ export default function ScreenMonitorView() {
   }
 
   async function handleSaveEdit(id) {
-    await fetch(`/api/v1/screen-monitor/rules/${id}`, {
+    const res = await fetch(`/api/v1/screen-monitor/rules/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editForm),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Failed to update rule');
+      return;
+    }
     setEditingRule(null);
+    setError('');
     await loadAll();
   }
 
