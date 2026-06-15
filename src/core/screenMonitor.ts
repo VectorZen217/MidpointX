@@ -74,6 +74,13 @@ const COOLDOWN_MS = 5 * 60 * 1000;
 const MAX_SCREENSHOTS = 100;
 let _hotkeyListener: InstanceType<typeof GlobalKeyboardListener> | null = null;
 
+// Vision-capable providers — checked in init() (warn) and _analyzeScreenshot() (skip)
+const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"] as const;
+type VisionProvider = (typeof VISION_PROVIDERS)[number];
+
+// Resolved once at module load; recomputed each capture only if not yet created
+const SCREENSHOTS_DIR = path.resolve(process.cwd(), "src/workspace/screenshots");
+
 // ---------------------------------------------------------------------------
 // DB bootstrap
 // ---------------------------------------------------------------------------
@@ -222,13 +229,19 @@ export const ScreenMonitor = {
 
   async init(io?: Server): Promise<void> {
     _ioInstance = io;
+    // Reset fail counter so re-init after a circuit-breaker trip doesn't immediately
+    // re-trip on the first subsequent failure.
+    _consecutiveCaptureFails = 0;
+
     const db = getDb();
     seedBuiltinRules(db);
     ensureConfigRow(db);
 
-    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
-    const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"];
-    if (!VISION_PROVIDERS.includes(provider)) {
+    // Ensure screenshots directory exists once at init time rather than on every capture.
+    fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+
+    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase() as VisionProvider;
+    if (!(VISION_PROVIDERS as readonly string[]).includes(provider)) {
       console.warn(
         `[ScreenMonitor] Provider "${provider}" does not support vision. Poller will run but skip analysis.`
       );
@@ -428,9 +441,18 @@ export const ScreenMonitor = {
   // ── Hotkey ───────────────────────────────────────────────────────────────
 
   _registerHotkey(): void {
+    // Idempotent — do not spawn a second native key-server process if already registered.
+    if (_hotkeyListener) return;
+
     const cfg = this.getConfig();
     const hotkey = cfg.hotkey.toLowerCase();
     const keys = hotkey.split("+").map((k: string) => k.trim());
+
+    // Guard against empty or malformed hotkey strings (e.g. "" or "+")
+    if (keys.length === 0 || keys.every(k => !k)) {
+      console.warn("[ScreenMonitor] Invalid hotkey config — skipping registration");
+      return;
+    }
 
     const modMap: Record<string, string[]> = {
       ctrl: ["LEFT CTRL", "RIGHT CTRL"],
@@ -500,16 +522,22 @@ export const ScreenMonitor = {
   // ── Capture & Analyze ─────────────────────────────────────────────────────
 
   async captureAndAnalyze(): Promise<void> {
-    const screenshotsDir = path.resolve(process.cwd(), "src/workspace/screenshots");
-    fs.mkdirSync(screenshotsDir, { recursive: true });
+    // SCREENSHOTS_DIR is created once in init(); mkdirSync here is a cheap no-op if it
+    // already exists but keeps captureAndAnalyze safe when called standalone (e.g. hotkey).
+    fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
     const filename = `screen_${Date.now()}.png`;
-    const screenshotPath = path.join(screenshotsDir, filename);
+    const screenshotPath = path.join(SCREENSHOTS_DIR, filename);
 
     let base64: string;
     try {
+      // `screen.grab` and `saveImage` are cast to `any` because nut-js's bundled type
+      // definitions diverge from the actual runtime signatures in v4.x — the Image type
+      // is not exported in a way that matches the save overload.
       const image = await (screen.grab as any)();
       await (saveImage as any)({ image, path: screenshotPath, type: FileType.PNG });
+      // nut-js Image does not expose a raw Buffer, so we read back from disk to obtain
+      // the base64 string required by the vision API.
       base64 = fs.readFileSync(screenshotPath).toString("base64");
       _consecutiveCaptureFails = 0;
     } catch (err: unknown) {
@@ -531,13 +559,13 @@ export const ScreenMonitor = {
 
     // Rolling window — delete oldest screenshots if over MAX_SCREENSHOTS
     try {
-      const files = fs.readdirSync(screenshotsDir)
+      const files = fs.readdirSync(SCREENSHOTS_DIR)
         .filter(f => f.endsWith(".png"))
-        .map(f => ({ name: f, mtime: fs.statSync(path.join(screenshotsDir, f)).mtimeMs }))
+        .map(f => ({ name: f, mtime: fs.statSync(path.join(SCREENSHOTS_DIR, f)).mtimeMs }))
         .sort((a, b) => a.mtime - b.mtime);
       while (files.length > MAX_SCREENSHOTS) {
         const oldest = files.shift()!;
-        fs.unlinkSync(path.join(screenshotsDir, oldest.name));
+        fs.unlinkSync(path.join(SCREENSHOTS_DIR, oldest.name));
       }
     } catch { /* disk error — non-fatal */ }
 
@@ -547,9 +575,8 @@ export const ScreenMonitor = {
   },
 
   async _analyzeScreenshot(_screenshotPath: string, base64: string): Promise<DetectionResult[]> {
-    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase();
-    const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"];
-    if (!VISION_PROVIDERS.includes(provider)) {
+    const provider = Config.ACTIVE_LLM_PROVIDER.toLowerCase() as VisionProvider;
+    if (!(VISION_PROVIDERS as readonly string[]).includes(provider)) {
       console.warn(`[ScreenMonitor] Provider "${provider}" does not support vision. Skipping analysis.`);
       return [];
     }
@@ -569,7 +596,13 @@ Return a JSON array only — no markdown, no prose. Each element:
 Detection rules:
 ${ruleList}`;
 
-    const model = LLMFactory.getModel({ temperature: 0 });
+    // Honor vision_model_override when set by the user; fall back to the default model.
+    const cfg = this.getConfig();
+    const modelOpts: Parameters<typeof LLMFactory.getModel>[0] = { temperature: 0 };
+    if (cfg.vision_model_override) {
+      (modelOpts as Record<string, unknown>).modelName = cfg.vision_model_override;
+    }
+    const model = LLMFactory.getModel(modelOpts);
     const message = new HumanMessage({
       content: [
         { type: "text", text: prompt },
