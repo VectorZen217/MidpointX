@@ -10,6 +10,7 @@ import { Config } from "./config";
 import { TelegramService } from "../services/telegramService";
 import fs from "fs";
 import { GoalTracker } from "./goalTracker";
+import { MissionStore } from "./missionStore";
 
 export interface ScheduledGoal {
   id: string;
@@ -292,6 +293,7 @@ export const ProactiveScheduler = {
     const db = getDb();
     const runId = crypto.randomUUID();
     const scheduledTaskId = `SCHEDULE_${schedule.id}_${Date.now()}`;
+    MissionStore.register(scheduledTaskId, schedule.intent, "short");
     const now = Date.now();
 
     db.prepare(`
@@ -311,6 +313,7 @@ export const ProactiveScheduler = {
           {
             taskId: scheduledTaskId,
             userIntent: schedule.intent,
+            threadId: scheduledTaskId,
             proactiveTrigger: { type: schedule.trigger_type, data: triggerData },
           },
           {
@@ -336,11 +339,13 @@ export const ProactiveScheduler = {
             _ioInstance.emit("agent:progress", { stage: nodeName, data: stateUpdate });
           }
         }
+        MissionStore.complete(scheduledTaskId);
         // active_goal_id is cleared by the completion poller (_reconcileRun) when
         // GoalTracker reports the goal as completed or failed — not here in _fireSchedule.
       } catch (err: unknown) {
         const message = (err as Error).message ?? String(err);
         console.error(`❌ [ProactiveScheduler] Graph execution failed for "${schedule.name}":`, message);
+        MissionStore.fail(scheduledTaskId, message);
         db.prepare(
           "UPDATE scheduled_goal_runs SET status = 'failed', completed_at = ? WHERE id = ?"
         ).run(Date.now(), runId);
@@ -408,6 +413,20 @@ export const ProactiveScheduler = {
           `❌ [ProactiveScheduler] _pollCompletion error for schedule "${schedule.name}":`,
           (err as Error).message
         );
+      }
+    }
+
+    // Resume long-horizon missions paused beyond the cooldown window
+    const RESUME_COOLDOWN_MS = parseInt(process.env.MISSION_RESUME_COOLDOWN_MS ?? "1800000", 10);
+    const paused = MissionStore.listActive().filter(m => m.status === "paused");
+    for (const m of paused) {
+      const idleMs = Date.now() - new Date(m.last_active_at).getTime();
+      if (idleMs > RESUME_COOLDOWN_MS) {
+        MissionStore.resume(m.thread_id);
+        MidpointXGraph.stream(null, {
+          configurable: { thread_id: m.thread_id },
+          recursionLimit: Config.MAX_RECURSION_LIMIT,
+        }).catch((err: Error) => MissionStore.fail(m.thread_id, err.message));
       }
     }
   },
