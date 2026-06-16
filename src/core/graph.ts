@@ -1,4 +1,6 @@
-import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
+import { StateGraph, START, END } from "@langchain/langgraph";
+import { SqliteSaver } from "@langchain/langgraph-checkpoint-sqlite";
+import path from "path";
 import { MidpointXState } from "./state";
 
 // Explicit state type — needed because builder is cast to `any` above,
@@ -16,7 +18,10 @@ import { skillAcquisitionNode } from "../nodes/skillAcquisitionNode";
 import { goalDecomposerNode } from "../nodes/goalDecomposerNode";
 
 // 1. Persistent Checkpointer for Human-in-the-Loop
-const checkpointer = new MemorySaver();
+// Persistent checkpointer: writes per-turn SQLite checkpoints so missions survive restarts.
+const checkpointer = SqliteSaver.fromConnString(
+  path.resolve(process.cwd(), "src/workspace/checkpoints.db")
+);
 
 // 2. Initialize the Graph with our State
 // LangGraph's imperative builder pattern means TypeScript cannot incrementally
