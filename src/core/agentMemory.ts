@@ -26,6 +26,7 @@ function getDb(): Database.Database {
   const dbPath = process.env.AGENT_MEMORY_DB_PATH ||
     path.resolve(process.cwd(), "src/workspace/midpointx.db");
   _db = new Database(dbPath);
+  _db.pragma("journal_mode = WAL");
   _db.exec(`
     CREATE TABLE IF NOT EXISTS agent_memories (
       id TEXT PRIMARY KEY,
@@ -38,6 +39,8 @@ function getDb(): Database.Database {
       last_accessed INTEGER NOT NULL,
       access_count INTEGER NOT NULL DEFAULT 0
     );
+    CREATE INDEX IF NOT EXISTS idx_am_key ON agent_memories(key);
+    CREATE INDEX IF NOT EXISTS idx_am_access ON agent_memories(access_count DESC, last_accessed DESC);
   `);
   try { _db.exec("ALTER TABLE agent_memories ADD COLUMN embedding TEXT"); } catch {}
   return _db;
@@ -103,7 +106,7 @@ export const AgentMemory = {
     if (!queryVector) return [];
 
     const rows = db.prepare(
-      "SELECT * FROM agent_memories WHERE embedding IS NOT NULL"
+      "SELECT * FROM agent_memories WHERE embedding IS NOT NULL ORDER BY access_count DESC LIMIT 500"
     ).all() as Memory[];
 
     if (rows.length === 0) return [];

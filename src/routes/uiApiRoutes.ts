@@ -82,16 +82,6 @@ uiApiRouter.get("/browser/sessions", (req: Request, res: Response) => {
         .filter(Boolean);
     }
 
-    // Pre-populate with high-fidelity mock if fresh for spectacular UX parity
-    if (sessions.length === 0) {
-      sessions.push({
-        id: "NexusTrader-LiveBot-dashboard",
-        url: "https://nexustrader.io/dashboard",
-        cookiesCount: 18,
-        timestamp: new Date(Date.now() - 600000).toISOString()
-      });
-    }
-
     res.json({ success: true, sessions });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

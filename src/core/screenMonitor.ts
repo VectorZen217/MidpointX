@@ -76,6 +76,9 @@ let _hotkeyListener: InstanceType<typeof GlobalKeyboardListener> | null = null;
 
 // Vision-capable providers — checked in init() (warn) and _analyzeScreenshot() (skip)
 const VISION_PROVIDERS = ["anthropic", "openai", "google", "openrouter", "nvidia"] as const;
+
+// Invalidated on any rule write; avoids a DB round-trip on every capture cycle
+let _rulesCache: ScreenDetectionRule[] | null = null;
 type VisionProvider = (typeof VISION_PROVIDERS)[number];
 
 // Resolved once at module load; recomputed each capture only if not yet created
@@ -94,6 +97,7 @@ function getDb(): Database.Database {
 
   _db = new Database(dbPath);
   _db.pragma("foreign_keys = ON");
+  _db.pragma("journal_mode = WAL");
 
   _db.exec(`
     CREATE TABLE IF NOT EXISTS screen_detection_rules (
@@ -153,6 +157,7 @@ export function _resetDbForTesting(customPath?: string): void {
     _db = null;
   }
   _consecutiveCaptureFails = 0;
+  _rulesCache = null;
   if (customPath !== undefined) {
     process.env.SCREEN_MONITOR_DB_PATH = customPath;
   }
@@ -297,12 +302,14 @@ export const ScreenMonitor = {
   // ── Rules ────────────────────────────────────────────────────────────────
 
   listRules(): ScreenDetectionRule[] {
+    if (_rulesCache) return _rulesCache;
     const db = getDb();
-    return db
+    _rulesCache = db
       .prepare(
         `SELECT * FROM screen_detection_rules ORDER BY is_builtin DESC, created_at ASC`
       )
       .all() as ScreenDetectionRule[];
+    return _rulesCache;
   },
 
   createRule(input: CreateRuleInput): ScreenDetectionRule {
@@ -316,6 +323,7 @@ export const ScreenMonitor = {
         (id, name, description, enabled, auto_approve, intent, is_builtin, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
     `).run(id, input.name, input.description, enabled, input.auto_approve, input.intent, now, now);
+    _rulesCache = null;
 
     return db
       .prepare(`SELECT * FROM screen_detection_rules WHERE id = ?`)
@@ -352,6 +360,7 @@ export const ScreenMonitor = {
       db.prepare(
         `UPDATE screen_detection_rules SET ${set.join(", ")} WHERE id = ?`
       ).run(...values);
+      _rulesCache = null;
     }
 
     return db
@@ -369,6 +378,7 @@ export const ScreenMonitor = {
     if (row.is_builtin === 1) throw new Error("Cannot delete built-in detection rule");
 
     db.prepare(`DELETE FROM screen_detection_rules WHERE id = ?`).run(id);
+    _rulesCache = null;
   },
 
   toggleRule(id: string, enabled: boolean): void {
@@ -377,6 +387,7 @@ export const ScreenMonitor = {
     if (!existing) throw new Error(`Rule ${id} not found`);
     db.prepare("UPDATE screen_detection_rules SET enabled = ?, updated_at = ? WHERE id = ?")
       .run(enabled ? 1 : 0, Date.now(), id);
+    _rulesCache = null;
   },
 
   // ── Detections ───────────────────────────────────────────────────────────
@@ -558,15 +569,14 @@ export const ScreenMonitor = {
       return;
     }
 
-    // Rolling window — delete oldest screenshots if over MAX_SCREENSHOTS
+    // Rolling window — delete oldest screenshots if over MAX_SCREENSHOTS.
+    // Files are named screen_${Date.now()}.png, so lexicographic sort = chronological order.
     try {
       const files = fs.readdirSync(SCREENSHOTS_DIR)
         .filter(f => f.endsWith(".png"))
-        .map(f => ({ name: f, mtime: fs.statSync(path.join(SCREENSHOTS_DIR, f)).mtimeMs }))
-        .sort((a, b) => a.mtime - b.mtime);
+        .sort();
       while (files.length > MAX_SCREENSHOTS) {
-        const oldest = files.shift()!;
-        fs.unlinkSync(path.join(SCREENSHOTS_DIR, oldest.name));
+        fs.unlinkSync(path.join(SCREENSHOTS_DIR, files.shift()!));
       }
     } catch { /* disk error — non-fatal */ }
 
@@ -599,11 +609,10 @@ ${ruleList}`;
 
     // Honor vision_model_override when set by the user; fall back to the default model.
     const cfg = this.getConfig();
-    const modelOpts: Parameters<typeof LLMFactory.getModel>[0] = { temperature: 0 };
-    if (cfg.vision_model_override) {
-      (modelOpts as Record<string, unknown>).modelName = cfg.vision_model_override;
-    }
-    const model = LLMFactory.getModel(modelOpts);
+    const model = LLMFactory.getModel({
+      temperature: 0,
+      ...(cfg.vision_model_override ? { modelName: cfg.vision_model_override } : {})
+    });
     const message = new HumanMessage({
       content: [
         { type: "text", text: prompt },

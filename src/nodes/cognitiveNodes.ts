@@ -118,7 +118,7 @@ export async function reflectNode(state: typeof MidpointXState.State) {
   console.log("🧠 [ReflectionActor] Analyzing intent...");
   console.log(`   Task: "${state.userIntent}"`);
 
-  const model = LLMFactory.getModel({ temperature: 0.2, tier: "worker", maxTokens: 400 });
+  const model = LLMFactory.getModel({ temperature: 0.2, tier: "worker", maxTokens: 800 });
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
   const userContext = WorkspaceLoader.getUserContext();
@@ -282,7 +282,16 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
           });
         }
 
-        // Dependencies not yet met — loop back to supervisor without advancing
+        // Dependencies not yet met — loop back to supervisor without advancing.
+        // Safety valve: auto-fail any tasks stuck in 'running' after excessive turns
+        // to prevent an infinite loop when a task crashes without cleanup.
+        const stuckActive = freshGoal.tasks.filter(t => t.status === "active");
+        if (stuckActive.length > 0 && (state.internalTurns ?? 0) > 30) {
+          console.warn(`[SupervisorActor] ${stuckActive.length} task(s) stuck in 'active' for ${state.internalTurns} turns — auto-failing.`);
+          for (const t of stuckActive) {
+            GoalTracker.failTask(t.id, "Task auto-failed: stuck in active state (timeout).");
+          }
+        }
         console.log("⏳ [SupervisorActor] No ready task (dependencies pending). Looping...");
         return A2AProtocol.commit("SupervisorActor", {
           activeTaskId: "",
@@ -324,8 +333,8 @@ export async function supervisorNode(state: typeof MidpointXState.State) {
   // ── End GoalTracker Fast Path ─────────────────────────────────────────────
 
   const envFingerprint = state.environmentFingerprint || await EnvironmentProbe.scan();
-  // maxTokens: 4096 — complex replanning with long action history can overflow the 8192 default
-  const rawModel = LLMFactory.getModel({ temperature: 0.1, maxTokens: 4096 }) as any;
+  // maxTokens: 4096 — complex replanning with long action history can overflow the worker default
+  const rawModel = LLMFactory.getModel({ temperature: 0.1, tier: "worker", maxTokens: 4096 }) as any;
   const structuredModel = rawModel.withStructuredOutput(SwarmRoutingSchema);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
@@ -546,38 +555,6 @@ Produce a minimal, tool-grounded plan. For simple or single-step tasks, 1–2 st
     totalInputTokens: 0,
     totalOutputTokens: 0,
     internalTurns: 1
-  });
-}
-
-/**
- * NODE: SummarizeActor
- * Distills old actions into a rolling progress summary to save context window.
- */
-export async function summarizeNode(state: typeof MidpointXState.State) {
-  // Only trigger if history is becoming a burden
-  if (state.actionHistory.length <= 15) return {};
-
-  console.log("✂️ [SummarizeActor] Pruning history and updating milestone summary...");
-  const model = LLMFactory.getModel({ temperature: 0, tier: "worker", maxTokens: 300 });
-
-  const toSummarize = state.actionHistory.slice(0, 5);
-  const remainingHistory = state.actionHistory.slice(5);
-
-  const historyStr = toSummarize.map((h: any, i: number) => `${i+1}. Action: ${h.tool} -> Result: ${h.result}`).join("\n");
-  
-  const payload = [
-    new SystemMessage("You are a high-fidelity summarizer. Distill the following agent actions into a single, comprehensive progress statement that preserves the original intent and key achievements. Do not lose vital state information (like 'user is logged in')."),
-    new HumanMessage(`Current Intent: ${state.conciseIntent}\nExisting Summary: ${state.historySummary}\n\nActions to compress:\n${historyStr}`)
-  ];
-
-  const response = await invokeWithResilience(model, payload);
-  const newSummary = extractText(response.content);
-
-  return A2AProtocol.commit("SummarizeActor", {
-    actionHistory: remainingHistory,
-    historySummary: newSummary,
-    totalInputTokens: response.usage_metadata?.input_tokens || 0,
-    totalOutputTokens: response.usage_metadata?.output_tokens || 0
   });
 }
 

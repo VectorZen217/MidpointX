@@ -29,19 +29,7 @@
         "-y",
         "@modelcontextprotocol/server-github"
       ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
-      }
-    },
-    "puppeteer": {
-      "name": "Puppeteer Browser",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-puppeteer"
-      ],
-      "env": {},
-      "source": "library"
+      "env": {}
     },
     "memory": {
       "name": "Knowledge Graph",

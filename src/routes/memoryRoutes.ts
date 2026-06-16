@@ -42,6 +42,16 @@ memoryRoutes.post("/", async (req: Request, res: Response) => {
     if (!key || !value || !type) {
       return res.status(400).json({ error: "key, value, and type are required" });
     }
+    if (typeof key !== "string" || key.length > 200) {
+      return res.status(400).json({ error: "key must be a string under 200 characters" });
+    }
+    if (typeof value !== "string" || value.length > 2000) {
+      return res.status(400).json({ error: "value must be a string under 2000 characters" });
+    }
+    const validTypes: MemoryType[] = ["fact", "project", "preference", "learned"];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: `type must be one of: ${validTypes.join(", ")}` });
+    }
     const memory = await AgentMemory.remember(key, value, type, "user");
     res.json({ success: true, memory });
   } catch (err: any) {

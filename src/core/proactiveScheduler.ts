@@ -57,6 +57,7 @@ function getDb(): Database.Database {
     path.resolve(process.cwd(), "src/workspace/midpointx.db");
   _db = new Database(dbPath);
   _db.pragma("foreign_keys = ON");
+  _db.pragma("journal_mode = WAL");
   _db.exec(`
     CREATE TABLE IF NOT EXISTS scheduled_goals (
       id TEXT PRIMARY KEY,

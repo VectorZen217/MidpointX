@@ -177,16 +177,10 @@ You are the System Evolution node.
 `;
 }
 
-// ─── Legacy exports for backward compatibility ───────────────────────────────
-// These are used by any code that hasn't been updated to the dynamic builders yet.
+// ─── Legacy export used by test_agent.ts ─────────────────────────────────────
 const _persona = "";
 const _user = "";
-
-export const BASE_IDENTITY = buildBaseIdentity(_persona, _user);
-export const REFLECT_PROMPT = buildReflectPrompt(_persona, _user);
-export const ANALYZE_PROMPT = buildAnalyzePrompt(_persona, _user);
-export const ACTION_PROMPT = buildActionPrompt(_persona, _user);
-export const LEARN_PROMPT = buildLearnPrompt(_persona, _user);
+const BASE_IDENTITY = buildBaseIdentity(_persona, _user);
 
 export const MIDPOINTX_SYSTEM_PROMPT = `${BASE_IDENTITY}
 1. Decompose intent (Reflection)

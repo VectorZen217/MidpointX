@@ -20,7 +20,6 @@ import { Config } from "../core/config";
 import { A2AProtocol } from "../core/protocol";
 import { SandboxManager } from "../core/sandboxManager";
 import { PolicyEngine } from "../core/policy";
-import { CacheManager } from "../core/cacheManager";
 
 const execAsync = promisify(exec);
 
@@ -279,10 +278,7 @@ export async function selectionActor(state: typeof MidpointXState.State) {
     }
   })));
 
-  const isCacheActive = !!CacheManager.getActiveCacheId();
-  const modelWithTools = isCacheActive 
-    ? model 
-    : (model as unknown as BaseChatModel).bindTools!(toolsToBind);
+  const modelWithTools = (model as unknown as BaseChatModel).bindTools!(toolsToBind);
 
   const agentPersona = WorkspaceLoader.getAgentPersona();
   const userContext = WorkspaceLoader.getUserContext();
@@ -433,24 +429,22 @@ Do NOT call 'desktop__take_snapshot' again until AFTER you have performed a phys
   );
 
   const payload = [];
-  if (!isCacheActive) {
-    let systemPromptText = buildActionPrompt(agentPersona, userContext, state.executionMode || 'api', agentMemoryBlock);
+  let systemPromptText = buildActionPrompt(agentPersona, userContext, state.executionMode || 'api', agentMemoryBlock);
 
-    // Auto-inject EXECUTION_GUARD when 2+ plan steps are pending so the agent
-    // always has execution discipline scaffolding without needing to call system__read_skill.
-    const pendingSteps = state.strategicPlan.filter(
-      (step: string) => (state.planStatus[step] || "pending") === "pending"
-    );
-    if (pendingSteps.length >= 2) {
-      const guard = PluginRegistry.getSkillContent("EXECUTION_GUARD");
-      if (guard) {
-        systemPromptText = `<skill name="EXECUTION_GUARD">\n${guard}\n</skill>\n\n` + systemPromptText;
-        console.log("🛡️ [SelectionActor] EXECUTION_GUARD injected into system prompt.");
-      }
+  // Auto-inject EXECUTION_GUARD when 2+ plan steps are pending so the agent
+  // always has execution discipline scaffolding without needing to call system__read_skill.
+  const pendingSteps = state.strategicPlan.filter(
+    (step: string) => (state.planStatus[step] || "pending") === "pending"
+  );
+  if (pendingSteps.length >= 2) {
+    const guard = PluginRegistry.getSkillContent("EXECUTION_GUARD");
+    if (guard) {
+      systemPromptText = `<skill name="EXECUTION_GUARD">\n${guard}\n</skill>\n\n` + systemPromptText;
+      console.log("🛡️ [SelectionActor] EXECUTION_GUARD injected into system prompt.");
     }
-
-    payload.push(new SystemMessage(systemPromptText));
   }
+
+  payload.push(new SystemMessage(systemPromptText));
   payload.push(...historyMessages);
   payload.push(new HumanMessage({ content: messageContent } as any));
 

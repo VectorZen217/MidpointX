@@ -8,7 +8,8 @@ export class CredentialVault {
   static VAULT_PATH = path.resolve(process.cwd(), "src/workspace/credentials.enc.json");
 
   private static getKey(): Buffer {
-    const key = process.env.CREDENTIAL_VAULT_KEY ?? "midpointx-default-vault-key-change-me";
+    const key = process.env.CREDENTIAL_VAULT_KEY;
+    if (!key) throw new Error("[CredentialVault] CREDENTIAL_VAULT_KEY environment variable is required");
     return crypto.scryptSync(key, "midpointx-salt-v1", 32);
   }
 

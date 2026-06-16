@@ -75,11 +75,12 @@ a2aRouter.post("/delegate", async (req: Request, res: Response) => {
       host: "MidpointX Sovereign OS V2"
     };
 
-    // Generate a secure one-off or host-derived Ed25519 signing keypair for the response ledger
-    const { privateKey, publicKey } = crypto.generateKeyPairSync("ed25519");
+    // Sign the audit trail with HMAC-SHA256 using the shared WEBHOOK_SECRET so
+    // the receiver can verify authenticity — unlike a throwaway Ed25519 keypair.
     const trailBuffer = Buffer.from(JSON.stringify(auditTrail));
-    const signature = crypto.sign(undefined, trailBuffer, privateKey).toString("hex");
-    const hostPublicKey = publicKey.export({ format: "der", type: "spki" }).toString("hex");
+    const hmacSecret = process.env.WEBHOOK_SECRET ?? "";
+    const signature = crypto.createHmac("sha256", hmacSecret).update(trailBuffer).digest("hex");
+    const hostPublicKey = "";
 
     // Persist log into the central audit ledger for UI queries
     A2AService.addAuditLog(auditTrail);
