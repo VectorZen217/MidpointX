@@ -6,7 +6,7 @@ import { MidpointXState } from "./state";
 // Explicit state type — needed because builder is cast to `any` above,
 // which loses inference on callback parameters.
 type GraphState = typeof MidpointXState.State;
-import { reflectNode, analyzeNode, supervisorNode, learnNode, silentAssessmentNode } from "../nodes/cognitiveNodes";
+import { reflectNode, analyzeNode, supervisorNode, learnNode, silentAssessmentNode, missionBudgetGateNode } from "../nodes/cognitiveNodes";
 import { justifyNode, regressNode, verificationNode } from "../nodes/safeguardNodes";
 import { modifyNode } from "../nodes/modifyNode";
 import { compilerNode } from "../nodes/compilerNode";
@@ -120,7 +120,16 @@ builder.addEdge("TesterActor", "SupervisorActor");
 // After acquiring a skill, return to the Supervisor so it can retry with new knowledge
 builder.addEdge("SkillAcquisitionActor", "SupervisorActor");
 
-builder.addEdge("CompactionActor", "SelectionActor");
+builder.addNode("MissionBudgetGate", (state: GraphState) => missionBudgetGateNode(state));
+builder.addEdge("CompactionActor", "MissionBudgetGate");
+builder.addConditionalEdges(
+  "MissionBudgetGate",
+  (state: GraphState) => state.__missionControl === "PAUSE_MISSION" ? "end" : "select",
+  {
+    end: END,
+    select: "SelectionActor"
+  }
+);
 
 // 5. Execution Loop with Security Gates
 builder.addConditionalEdges(

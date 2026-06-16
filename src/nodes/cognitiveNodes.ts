@@ -18,6 +18,8 @@ import { A2AProtocol } from "../core/protocol";
 import { GoalTracker } from "../core/goalTracker";
 import { TelegramService } from "../services/telegramService";
 import { z } from "zod";
+import { MissionStore } from "../core/missionStore";
+import { SwarmBus } from "../core/swarmBus";
 
 /**
  * Wraps a promise with a timeout. If the promise doesn't settle within ms milliseconds,
@@ -636,10 +638,27 @@ export async function learnNode(state: typeof MidpointXState.State) {
     }
   }
 
-  return A2AProtocol.commit("LearnActor", { 
+  return A2AProtocol.commit("LearnActor", {
     proposedShift: proposedShift as LogicShift | null,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     internalTurns: 1
   });
+}
+
+export async function missionBudgetGateNode(state: typeof MidpointXState.State): Promise<Partial<typeof MidpointXState.State>> {
+  const threadId = state.threadId;
+  if (!threadId) return {};
+
+  MissionStore.tick(threadId);
+
+  const mode = MissionStore.getMode(threadId);
+  if (mode !== "long-horizon") return {};
+
+  const turns = MissionStore.getTurnCount(threadId);
+  if (turns < 140) return {};
+
+  MissionStore.pause(threadId);
+  SwarmBus.emit("mission:paused", { threadId, turns: String(turns), reason: "budget" });
+  return { __missionControl: "PAUSE_MISSION" };
 }
