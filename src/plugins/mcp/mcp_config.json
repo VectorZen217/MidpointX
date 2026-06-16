@@ -23,13 +23,6 @@
       ],
       "env": {}
     },
-    "fetch": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-fetch"
-      ],
-      "env": {}
-    },
     "github": {
       "command": "npx",
       "args": [
@@ -38,26 +31,6 @@
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
-      }
-    },
-    "notebooklm": {
-      "command": "notebooklm-mcp",
-      "args": [],
-      "env": {
-        "PYTHONUNBUFFERED": "1"
-      }
-    },
-    "google-workspace": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@dguido/google-workspace-mcp",
-        "start"
-      ],
-      "env": {
-        "GOOGLE_CLIENT_ID": "660796797102-qufcvd19luqf31ht9sj5gv4pn8ost94v.apps.googleusercontent.com",
-        "GOOGLE_CLIENT_SECRET": "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",
-        "GOOGLE_WORKSPACE_SERVICES": "gmail,drive,calendar,docs,sheets"
       }
     },
     "puppeteer": {
@@ -82,10 +55,9 @@
     },
     "sqlite": {
       "name": "SQLite",
-      "command": "npx",
+      "command": "uvx",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-sqlite",
+        "mcp-server-sqlite",
         "--db-path",
         "./src/workspace/midpointx.db"
       ],
