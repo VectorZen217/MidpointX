@@ -77,6 +77,19 @@ MissionStore.listActive(): MissionRecord[]          // status IN ('active', 'pau
 
 ---
 
+## State Schema Changes: `src/core/graph.ts`
+
+Two new fields added to `MidpointXState`:
+
+```typescript
+threadId?: string;           // stable mission ID; set by callers before stream()
+__missionControl?: string;   // internal signal; 'PAUSE_MISSION' triggers budget-gate edge
+```
+
+`threadId` is written into the initial state object by each caller (channelRouter, observer, etc.) alongside `intent`. This is how `missionBudgetGateNode` reads it without accessing LangGraph config internals.
+
+---
+
 ## Core Change: `src/core/graph.ts`
 
 ```typescript
@@ -103,7 +116,8 @@ const checkpointer = SqliteSaver.fromConnString(
 
 ```typescript
 export async function missionBudgetGateNode(state: MidpointXState): Promise<Partial<MidpointXState>> {
-  const threadId = state.configurable?.thread_id;
+  // threadId is written into state by channelRouter/observer/etc. before stream() is called
+  const threadId = state.threadId;
   if (!threadId) return {};
 
   const mode = MissionStore.getMode(threadId);
@@ -114,7 +128,8 @@ export async function missionBudgetGateNode(state: MidpointXState): Promise<Part
 
   MissionStore.pause(threadId);
   SwarmBus.emit('mission:paused', { threadId, turns, reason: 'budget' });
-  return { __control: 'PAUSE_MISSION' } as any;
+  // __missionControl is added to MidpointXState; conditional edge checks this field
+  return { __missionControl: 'PAUSE_MISSION' };
 }
 ```
 
@@ -122,7 +137,7 @@ export async function missionBudgetGateNode(state: MidpointXState): Promise<Part
 - Register `MissionBudgetGate` as a node
 - Insert between `SupervisorActor` and `HumanApprovalGate`
 - Add to `interruptBefore` so the checkpoint is written before execution
-- Conditional edge: `state.__control === 'PAUSE_MISSION'` → `END`; otherwise → `HumanApprovalGate`
+- Conditional edge: `state.__missionControl === 'PAUSE_MISSION'` → `END`; otherwise → `HumanApprovalGate`
 
 **Short missions:** The `mode !== 'long-horizon'` guard returns immediately — zero overhead.
 
@@ -178,7 +193,7 @@ Each resumed session gets a fresh 150-turn budget. SqliteSaver provides full sta
 | File | Change |
 |---|---|
 | `src/core/graph.ts` | Swap `MemorySaver` → `SqliteSaver`; add `MissionBudgetGate` node + wiring |
-| `src/core/channelRouter.ts` | `MissionStore.register/complete/fail` around `stream()` calls |
+| `src/core/channelRouter.ts` | `MissionStore.register/complete/fail` around `stream()` calls; mode = `'long-horizon'` when `message.executionMode === 'long-horizon'` or intent prefixed with `[LONG-HORIZON]`, otherwise `'short'` |
 | `src/core/observer.ts` | Same — assign stable `threadId` before `stream()` |
 | `src/core/proactiveScheduler.ts` | Stable `threadId` assignment + paused-mission resume loop |
 | `src/core/screenMonitor.ts` | Same as observer |
