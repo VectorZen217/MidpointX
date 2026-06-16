@@ -2,6 +2,7 @@ import { MidpointXGraph } from "./graph";
 import { Config } from "./config";
 import { A2AService, SafetyCertificate } from "../services/a2aService";
 import { MemoryManager } from "./memory";
+import { MissionStore, MissionMode } from "./missionStore";
 
 /**
  * Standard Payload for all incoming communication channels.
@@ -58,9 +59,16 @@ export class ChannelRouter {
       }
     }
 
-    const config = { 
+    const threadId = message.userId;
+    const isLongHorizon =
+      message.executionMode === "long-horizon" ||
+      message.intent.startsWith("[LONG-HORIZON]");
+    const missionMode: MissionMode = isLongHorizon ? "long-horizon" : "short";
+    MissionStore.register(threadId, message.intent, missionMode);
+
+    const config = {
       configurable: { thread_id: message.userId },
-      recursionLimit: Config.MAX_RECURSION_LIMIT 
+      recursionLimit: Config.MAX_RECURSION_LIMIT
     };
 
     try {
@@ -75,6 +83,7 @@ export class ChannelRouter {
           timestamp: new Date().toISOString()
         },
         executionMode: message.executionMode || "api",
+        threadId: threadId,
         // CRITICAL: Reset ephemeral state for new tasks on the same thread
         actionHistory: [],
         strategicPlan: [],
@@ -170,6 +179,7 @@ export class ChannelRouter {
         ).catch(() => {}); // Fire-and-forget, never block the response
       }
 
+      MissionStore.complete(threadId);
       if (artifacts.length > 0) {
         return { message: outcome, artifacts, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
       }
@@ -177,6 +187,7 @@ export class ChannelRouter {
 
     } catch (error: any) {
       console.error(`❌ [ChannelRouter] Error during graph execution:`, error);
+      MissionStore.fail(threadId, error.message || "Unknown Fault");
       return `⚠️ Internal Agent Error: ${error.message || "Unknown Fault"}`;
     }
   }
