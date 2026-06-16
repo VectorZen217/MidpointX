@@ -18,6 +18,7 @@
     "@langchain/core": "^1.1.42",
     "@langchain/google-genai": "^2.1.29",
     "@langchain/langgraph": "^1.2.9",
+    "@langchain/langgraph-checkpoint-sqlite": "^1.0.3",
     "@langchain/openai": "^1.4.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
