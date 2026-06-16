@@ -105,4 +105,11 @@ export const MidpointXState = Annotation.Root({
   skillGapQuery: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
   // ID of the skill file synthesized during the current session (e.g. SYNTH_DOCKER_01).
   synthesizedSkillId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+
+  // Mission Persistence & Budget Control
+  // Stable mission ID written by callers (channelRouter, proactiveScheduler, etc.)
+  // before stream() so MissionBudgetGate can look up the mission in mission_manifest.
+  threadId: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
+  // Internal budget-gate signal: 'PAUSE_MISSION' routes the conditional edge to END.
+  __missionControl: Annotation<string>({ reducer: (x: string, y: string) => y, default: () => "" }),
 });
