@@ -41,6 +41,8 @@ import { goalRoutes } from "./routes/goalRoutes";
 import { scheduleRoutes } from "./routes/scheduleRoutes";
 import { ProactiveScheduler } from "./core/proactiveScheduler";
 import { screenMonitorRoutes } from "./routes/screenMonitorRoutes";
+import { missionRoutes } from "./routes/missionRoutes";
+import { MissionStore } from "./core/missionStore";
 import { ScreenMonitor } from "./core/screenMonitor";
 import { registerAllConnectors } from "./plugins/connectors/index";
 import { ConnectorRegistry } from "./core/connectorRegistry";
@@ -122,6 +124,7 @@ app.use("/api/v1/mcp-servers", mcpServerRoutes);
 app.use("/api/v1/goals", goalRoutes);
 app.use("/api/v1/schedules", scheduleRoutes);
 app.use("/api/v1/screen-monitor", screenMonitorRoutes);
+app.use("/api/v1/missions", missionRoutes);
 app.use("/api/v1", makeConfigRoutes(io));
 
 // Load pipelines from disk on startup
@@ -307,6 +310,22 @@ io.on("connection", (socket) => {
 
 const PORT = Config.PORT;
 
+async function resumeActiveMissions(): Promise<void> {
+  const active = MissionStore.listActive().filter(m => m.status === "active");
+  if (active.length === 0) return;
+  console.log(`[Boot] Resuming ${active.length} active mission(s) from checkpoint...`);
+  for (const m of active) {
+    console.log(`[Boot] Resuming ${m.thread_id}: ${m.intent_summary}`);
+    MidpointXGraph.stream(null, {
+      configurable: { thread_id: m.thread_id },
+      recursionLimit: Config.MAX_RECURSION_LIMIT,
+    }).catch((err: Error) => {
+      console.error(`[Boot] Resume failed for ${m.thread_id}:`, err.message);
+      MissionStore.fail(m.thread_id, err.message);
+    });
+  }
+}
+
 async function startServer() {
   try {
     console.log("🛠️ [System] Initializing core subsystems...");
@@ -316,6 +335,7 @@ async function startServer() {
     await ConnectorRegistry.init();
     await Observer.init(io);
     await ProactiveScheduler.init(io);
+    await resumeActiveMissions();
     await ScreenMonitor.init(io);
 
     // Initialize Messaging Channels with Socket.io for UI Sync
