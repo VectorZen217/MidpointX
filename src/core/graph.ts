@@ -120,6 +120,9 @@ builder.addEdge("TesterActor", "SupervisorActor");
 // After acquiring a skill, return to the Supervisor so it can retry with new knowledge
 builder.addEdge("SkillAcquisitionActor", "SupervisorActor");
 
+// Placed at CompactionActor (the shared merge point after every tool turn) so turn_count
+// reflects individual tool-execution cycles, not supervisor decisions. Every ExecutionActor
+// turn flows through CompactionActor before looping back, giving the gate consistent coverage.
 builder.addNode("MissionBudgetGate", (state: GraphState) => missionBudgetGateNode(state));
 builder.addEdge("CompactionActor", "MissionBudgetGate");
 builder.addConditionalEdges(

@@ -659,6 +659,6 @@ export async function missionBudgetGateNode(state: typeof MidpointXState.State):
   if (turns < 140) return {};
 
   MissionStore.pause(threadId);
-  SwarmBus.emit("mission:paused", { threadId, turns: String(turns), reason: "budget" });
+  SwarmBus.emit("mission:paused", { threadId, turns, reason: "budget" });
   return { __missionControl: "PAUSE_MISSION" };
 }

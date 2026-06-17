@@ -267,6 +267,7 @@ export class ChannelRouter {
       const turnsUsed = finalState.internalTurns || 0;
       const tokensUsed = { input: totalInputTokens, output: totalOutputTokens };
 
+      MissionStore.complete(userId);
       if (artifacts.length > 0) {
         return { message: outcome, artifacts, telemetry: { turns: turnsUsed, tokens: tokensUsed } };
       }
@@ -274,6 +275,7 @@ export class ChannelRouter {
 
     } catch (error: any) {
       console.error(`❌ [ChannelRouter] Error during resumption:`, error);
+      MissionStore.fail(userId, error.message || "Resumption error");
       return `⚠️ Resumption Error: ${error.message}`;
     }
   }

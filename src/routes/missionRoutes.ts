@@ -33,6 +33,9 @@ missionRoutes.get("/:threadId", (req: Request, res: Response) => {
 /**
  * DELETE /api/v1/missions/:threadId
  * Cancel a mission (marks as failed with "Cancelled by user").
+ * Note: this updates the manifest only — any in-flight graph stream continues
+ * until its current turn completes. LangGraph stream cancellation via AbortSignal
+ * would be required for immediate termination.
  */
 missionRoutes.delete("/:threadId", (req: Request, res: Response) => {
   try {

@@ -94,7 +94,7 @@ export const MissionStore = {
 
   resume(threadId: string): void {
     getDb()
-      .prepare("UPDATE mission_manifest SET status = 'active', last_active_at = ? WHERE thread_id = ?")
+      .prepare("UPDATE mission_manifest SET status = 'active', turn_count = 0, last_active_at = ? WHERE thread_id = ?")
       .run(new Date().toISOString(), threadId);
     SwarmBus.emit("mission:resumed", { threadId });
   },

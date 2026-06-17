@@ -423,10 +423,11 @@ export const ProactiveScheduler = {
       const idleMs = Date.now() - new Date(m.last_active_at).getTime();
       if (idleMs > RESUME_COOLDOWN_MS) {
         MissionStore.resume(m.thread_id);
-        MidpointXGraph.stream(null, {
-          configurable: { thread_id: m.thread_id },
-          recursionLimit: Config.MAX_RECURSION_LIMIT,
-        }).catch((err: Error) => MissionStore.fail(m.thread_id, err.message));
+        const config = { configurable: { thread_id: m.thread_id }, recursionLimit: Config.MAX_RECURSION_LIMIT };
+        // Clear stale budget-gate signal so the resumed mission gets a fresh turn window.
+        MidpointXGraph.updateState(config, { __missionControl: "" }).then(() =>
+          MidpointXGraph.stream(null, config)
+        ).catch((err: Error) => MissionStore.fail(m.thread_id, err.message));
       }
     }
   },

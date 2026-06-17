@@ -316,10 +316,12 @@ async function resumeActiveMissions(): Promise<void> {
   console.log(`[Boot] Resuming ${active.length} active mission(s) from checkpoint...`);
   for (const m of active) {
     console.log(`[Boot] Resuming ${m.thread_id}: ${m.intent_summary}`);
-    MidpointXGraph.stream(null, {
-      configurable: { thread_id: m.thread_id },
-      recursionLimit: Config.MAX_RECURSION_LIMIT,
-    }).catch((err: Error) => {
+    const config = { configurable: { thread_id: m.thread_id }, recursionLimit: Config.MAX_RECURSION_LIMIT };
+    // Clear stale budget-gate signal so the resumed graph does not immediately re-pause.
+    // MissionStore.resume() already reset turn_count to 0; this clears the checkpoint field.
+    MidpointXGraph.updateState(config, { __missionControl: "" }).then(() =>
+      MidpointXGraph.stream(null, config)
+    ).catch((err: Error) => {
       console.error(`[Boot] Resume failed for ${m.thread_id}:`, err.message);
       MissionStore.fail(m.thread_id, err.message);
     });
