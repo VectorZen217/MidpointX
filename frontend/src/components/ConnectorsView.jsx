@@ -136,7 +136,8 @@ const ConnectorsView = () => {
   const activeIds = new Set(active.map(c => c.id));
 
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <Plug size={24} color="var(--accent-teal)" />
         <div>
@@ -189,7 +190,7 @@ const ConnectorsView = () => {
       )}
 
       {!loading && tab === 'active' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, alignItems: 'start' }}>
           {active.length === 0 && (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No connectors active. Browse the library to add one.</p>
           )}
@@ -214,6 +215,7 @@ const ConnectorsView = () => {
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 };

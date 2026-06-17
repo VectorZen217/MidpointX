@@ -107,7 +107,8 @@ const MCPServersView = () => {
   const activeIds = new Set(active.map(s => s.id));
 
   return (
-    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <Server size={24} color="var(--accent-teal)" />
         <div>
@@ -156,7 +157,7 @@ const MCPServersView = () => {
       )}
 
       {!loading && tab === 'active' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, alignItems: 'start' }}>
           {active.length === 0 && (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No MCP servers configured. Browse the library or add a custom server below.</p>
           )}
@@ -188,7 +189,7 @@ const MCPServersView = () => {
             </div>
           ))}
 
-          <div style={{ marginTop: 16, borderTop: '1px solid var(--border-color)', paddingTop: 16 }}>
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--border-color)', paddingTop: 16, gridColumn: '1 / -1' }}>
             <button className="btn-secondary" style={{ fontSize: 12 }} onClick={() => setAddCustomOpen(!addCustomOpen)}>
               <Plus size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Add Custom Server
             </button>
@@ -220,6 +221,7 @@ const MCPServersView = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
