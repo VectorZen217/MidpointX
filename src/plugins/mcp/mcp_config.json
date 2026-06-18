@@ -61,6 +61,36 @@
       ],
       "env": {},
       "source": "library"
+    },
+    "puppeteer": {
+      "name": "Puppeteer Browser",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {},
+      "source": "library"
+    },
+    "postgres": {
+      "name": "PostgreSQL",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {},
+      "source": "library"
+    },
+    "google-maps": {
+      "name": "Google Maps",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-google-maps"
+      ],
+      "env": {},
+      "source": "library"
     }
   }
 }

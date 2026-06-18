@@ -1,0 +1,25 @@
+# Install Google auth library
+pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
+
+# Run this Python script to get the refresh token
+python3 << 'EOF'
+from google.auth.oauthlib.flow import InstalledAppFlow
+import json
+
+SCOPES = [
+    'https://www.googleapis.com/auth/gmail',
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/docs',
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/presentations',
+]
+
+flow = InstalledAppFlow.from_client_secrets_file(
+    'path/to/downloaded/credentials.json', SCOPES)
+creds = flow.run_local_server(port=0)
+
+print(f"GOOGLE_REFRESH_TOKEN={creds.refresh_token}")
+print(f"GOOGLE_CLIENT_ID={creds.client_id}")
+print(f"GOOGLE_CLIENT_SECRET={creds.client_secret}")
+EOF

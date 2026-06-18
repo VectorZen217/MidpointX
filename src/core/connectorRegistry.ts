@@ -5,7 +5,7 @@ import { CredentialVault } from "./credentialVault";
 const CONFIG_PATH = path.resolve(process.cwd(), "src/workspace/connectors.json");
 const HEALTH_INTERVAL_MS = 5 * 60 * 1000;
 
-export type ConnectorCategory = "calendar" | "email" | "finance" | "tasks" | "communication" | "weather";
+export type ConnectorCategory = "calendar" | "email" | "finance" | "tasks" | "communication" | "weather" | "productivity";
 export type AuthType = "oauth2" | "apikey" | "basic" | "none";
 export type HealthStatus = "healthy" | "degraded" | "failed" | "disconnected";
 

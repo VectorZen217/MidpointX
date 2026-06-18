@@ -3,14 +3,14 @@ import { Plug, CheckCircle, AlertTriangle, XCircle, Plus, Trash2, RefreshCw } fr
 
 const CATEGORY_ICONS = {
   calendar: '📅', email: '📧', finance: '📈',
-  tasks: '✅', communication: '💬', weather: '🌤'
+  tasks: '✅', communication: '💬', weather: '🌤', productivity: '🗂️'
 };
 
 const AUTH_LABELS = {
-  oauth2: 'OAuth2 — Setup in Phase 2',
+  oauth2: 'OAuth2 — Microsoft account required',
   apikey: 'API Key',
   basic: 'Username/Password',
-  none: 'No Auth Required'
+  none: 'Uses .env credentials'
 };
 
 const StatusBadge = ({ status }) => {
@@ -56,10 +56,14 @@ const ConnectorForm = ({ connector, onSubmit, onCancel }) => {
   if (connector.authType === 'oauth2') {
     return (
       <div style={{ marginTop: 12, padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-          OAuth2 connectors will be available in Phase 2. The redirect URI handler is not yet implemented.
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}>
+          This connector requires a Microsoft OAuth2 app registration. Configure
+          <code style={{ margin: '0 4px', padding: '1px 4px', background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>MICROSOFT_CLIENT_ID</code>
+          and
+          <code style={{ margin: '0 4px', padding: '1px 4px', background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>MICROSOFT_CLIENT_SECRET</code>
+          in <code style={{ margin: '0 4px', padding: '1px 4px', background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>.env</code>, then restart.
         </p>
-        <button className="btn-secondary" onClick={onCancel} style={{ marginTop: 8 }}>Close</button>
+        <button className="btn-secondary" onClick={onCancel} style={{ marginTop: 4, fontSize: 12 }}>Close</button>
       </div>
     );
   }

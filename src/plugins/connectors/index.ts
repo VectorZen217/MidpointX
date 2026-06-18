@@ -4,6 +4,7 @@ import { AlphaVantageConnector } from "./alphaVantageConnector";
 import { OpenWeatherConnector } from "./openWeatherConnector";
 import { TodoistConnector } from "./todoistConnector";
 import { GoogleCalendarConnector } from "./googleCalendarConnector";
+import { GoogleWorkspaceConnector } from "./googleWorkspaceConnector";
 import { OutlookCalendarConnector } from "./outlookCalendarConnector";
 import { GmailConnector } from "./gmailConnector";
 import { OutlookMailConnector } from "./outlookMailConnector";
@@ -15,6 +16,7 @@ export function registerAllConnectors(): void {
   ConnectorRegistry.registerDefinition(new OpenWeatherConnector());
   ConnectorRegistry.registerDefinition(new TodoistConnector());
   ConnectorRegistry.registerDefinition(new GoogleCalendarConnector());
+  ConnectorRegistry.registerDefinition(new GoogleWorkspaceConnector());
   ConnectorRegistry.registerDefinition(new OutlookCalendarConnector());
   ConnectorRegistry.registerDefinition(new GmailConnector());
   ConnectorRegistry.registerDefinition(new OutlookMailConnector());
