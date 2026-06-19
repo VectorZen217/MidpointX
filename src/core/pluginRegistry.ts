@@ -189,24 +189,42 @@ export class PluginRegistry {
           return;
         }
 
-        // Check for placeholder tokens
+        // Explicit disable flag
+        if (serverConfig.disabled === true) {
+          console.warn(`⏩ [PluginRegistry] Skipping ${serverName}: disabled in config.`);
+          return;
+        }
+
+        // Check requiresEnv — skip if any declared env var is missing from process.env
+        const requiredVars: string[] = serverConfig.requiresEnv ?? [];
+        const missingVars = requiredVars.filter(v => !process.env[v]);
+        if (missingVars.length > 0) {
+          console.warn(`⏩ [PluginRegistry] Skipping ${serverName}: missing env var(s): ${missingVars.join(", ")}`);
+          return;
+        }
+
+        // Check for legacy placeholder tokens in env object
         const envEntries = Object.entries(serverConfig.env || {});
-        const hasPlaceholder = envEntries.some(([_k, v]) => 
-          String(v).includes("INSERT_YOUR") || 
-          String(v).includes("YOUR_") || 
-          String(v).includes("_HERE") ||
-          String(v).length === 0
-        );
-        
+        const hasPlaceholder = envEntries.some(([_k, v]) => {
+          const s = String(v);
+          // ${VAR} tokens are resolved below — only flag literal placeholders
+          return (s.includes("INSERT_YOUR") || s.includes("YOUR_") || s.includes("_HERE")) ||
+            (s.length === 0);
+        });
+
         if (hasPlaceholder) {
             console.warn(`⏩ [PluginRegistry] Skipping ${serverName}: Missing or placeholder API tokens detected.`);
             return;
         }
 
         try {
-          const resolvedArgs = serverConfig.args?.map((arg: string) => this.resolvePath(arg));
+          // Interpolate ${VAR} tokens in args and env values using process.env
+          const interpolate = (s: string): string =>
+            s.replace(/\$\{([^}]+)\}/g, (_, key) => process.env[key] ?? "");
+
+          const resolvedArgs = serverConfig.args?.map((arg: string) => interpolate(this.resolvePath(arg)));
           const resolvedEnv = Object.fromEntries(
-            Object.entries(serverConfig.env || {}).map(([k, v]) => [k, this.resolvePath(v as string)])
+            Object.entries(serverConfig.env || {}).map(([k, v]) => [k, interpolate(this.resolvePath(v as string))])
           );
 
           console.log(`🔌 [PluginRegistry] Attempting connection to global MCP server: ${serverName}`);

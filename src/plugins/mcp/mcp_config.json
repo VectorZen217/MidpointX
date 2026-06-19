@@ -59,7 +59,10 @@
         "-y",
         "@modelcontextprotocol/server-brave-search"
       ],
-      "env": {},
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "requiresEnv": ["BRAVE_API_KEY"],
       "source": "library"
     },
     "puppeteer": {
@@ -77,9 +80,11 @@
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/server-postgres"
+        "@modelcontextprotocol/server-postgres",
+        "${DATABASE_URL}"
       ],
       "env": {},
+      "requiresEnv": ["DATABASE_URL"],
       "source": "library"
     },
     "google-maps": {
@@ -89,15 +94,17 @@
         "-y",
         "@modelcontextprotocol/server-google-maps"
       ],
-      "env": {},
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "${GOOGLE_MAPS_API_KEY}"
+      },
+      "requiresEnv": ["GOOGLE_MAPS_API_KEY"],
       "source": "library"
     },
     "fetch": {
       "name": "Fetch",
-      "command": "npx",
+      "command": "uvx",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-fetch"
+        "mcp-server-fetch"
       ],
       "env": {},
       "source": "library"
