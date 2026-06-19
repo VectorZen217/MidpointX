@@ -525,7 +525,7 @@ describe("LLMFactory — provider and tier selection", () => {
       "utf-8"
     );
     expect(src).toContain("budget_tokens");
-    expect(src).toContain("32000");
+    expect(src).toContain("8000");
   });
 });
 

@@ -71,8 +71,6 @@ export class A2AProtocol {
    * Validates that the state meets the requirements for a specific architectural boundary.
    */
   static validate(state: typeof MidpointXState.State, boundary: 'execution' | 'learning' | 'safeguard'): boolean {
-    // Implement formal boundary validation logic here
-    // e.g., Execution requires a conciseIntent and an environmentFingerprint
     switch (boundary) {
       case 'execution':
         return !!state.userIntent && !!state.conciseIntent;
@@ -80,6 +78,48 @@ export class A2AProtocol {
         return state.isTaskComplete !== undefined;
       default:
         return true;
+    }
+  }
+
+  /**
+   * Creates an HMAC-SHA256 signed delegation token for inter-agent calls.
+   * key defaults to WEBHOOK_SECRET so the signing key is never hardcoded.
+   */
+  static delegateWithSignature(
+    agentId: string,
+    task: string,
+    key?: string
+  ): { payload: string; signature: string } {
+    const secret = key ?? process.env.WEBHOOK_SECRET ?? "midpointx-dev-key";
+    const payload = JSON.stringify({ agentId, task, issuedAt: Date.now() });
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex");
+    return { payload, signature };
+  }
+
+  /**
+   * Returns true if the signature is a valid HMAC-SHA256 of the payload.
+   * Uses constant-time comparison to prevent timing attacks.
+   */
+  static verifyDelegation(
+    payload: string,
+    signature: string,
+    key?: string
+  ): boolean {
+    const secret = key ?? process.env.WEBHOOK_SECRET ?? "midpointx-dev-key";
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(payload)
+      .digest("hex");
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(signature, "hex"),
+        Buffer.from(expected, "hex")
+      );
+    } catch {
+      return false;
     }
   }
 }

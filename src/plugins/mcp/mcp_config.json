@@ -91,6 +91,16 @@
       ],
       "env": {},
       "source": "library"
+    },
+    "fetch": {
+      "name": "Fetch",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ],
+      "env": {},
+      "source": "library"
     }
   }
 }

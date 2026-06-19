@@ -43,6 +43,27 @@ function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_am_access ON agent_memories(access_count DESC, last_accessed DESC);
   `);
   try { _db.exec("ALTER TABLE agent_memories ADD COLUMN embedding TEXT"); } catch {}
+
+  // FTS5 virtual table for O(log n) full-text search on key+value
+  _db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS agent_memories_fts
+    USING fts5(key, value, content=agent_memories, content_rowid=rowid);
+  `);
+  // Sync triggers — keep FTS index current as the base table changes
+  _db.exec(`
+    CREATE TRIGGER IF NOT EXISTS am_ai AFTER INSERT ON agent_memories BEGIN
+      INSERT INTO agent_memories_fts(rowid, key, value) VALUES (new.rowid, new.key, new.value);
+    END;
+    CREATE TRIGGER IF NOT EXISTS am_ad AFTER DELETE ON agent_memories BEGIN
+      INSERT INTO agent_memories_fts(agent_memories_fts, rowid, key, value)
+        VALUES ('delete', old.rowid, old.key, old.value);
+    END;
+    CREATE TRIGGER IF NOT EXISTS am_au AFTER UPDATE ON agent_memories BEGIN
+      INSERT INTO agent_memories_fts(agent_memories_fts, rowid, key, value)
+        VALUES ('delete', old.rowid, old.key, old.value);
+      INSERT INTO agent_memories_fts(rowid, key, value) VALUES (new.rowid, new.key, new.value);
+    END;
+  `);
   return _db;
 }
 
@@ -142,13 +163,26 @@ export const AgentMemory = {
     }
     const db = getDb();
     const now = Date.now();
-    const pattern = `%${query}%`;
-    const rows = db.prepare(`
-      SELECT * FROM agent_memories
-      WHERE key LIKE ? OR value LIKE ?
-      ORDER BY last_accessed DESC
-      LIMIT ?
-    `).all(pattern, pattern, limit) as Memory[];
+    // FTS5 MATCH — indexed, supports prefix search (query*); degrades to LIKE for in-memory test DBs
+    let rows: Memory[];
+    try {
+      const ftsIds = db.prepare(
+        "SELECT rowid FROM agent_memories_fts WHERE agent_memories_fts MATCH ? ORDER BY rank LIMIT ?"
+      ).all(`${query}*`, limit) as Array<{ rowid: number }>;
+      if (ftsIds.length === 0) {
+        rows = [];
+      } else {
+        const placeholders = ftsIds.map(() => "?").join(",");
+        rows = db.prepare(
+          `SELECT * FROM agent_memories WHERE rowid IN (${placeholders}) ORDER BY last_accessed DESC`
+        ).all(...ftsIds.map(r => r.rowid)) as Memory[];
+      }
+    } catch {
+      const pattern = `%${query}%`;
+      rows = db.prepare(
+        "SELECT * FROM agent_memories WHERE key LIKE ? OR value LIKE ? ORDER BY last_accessed DESC LIMIT ?"
+      ).all(pattern, pattern, limit) as Memory[];
+    }
 
     if (rows.length > 0) {
       const updateStmt = db.prepare(
