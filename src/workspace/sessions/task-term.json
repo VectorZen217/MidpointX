@@ -2,8 +2,8 @@
   "taskId": "task-term",
   "userId": "randy",
   "status": "COMPLETED",
-  "startedAt": "2026-06-24T19:24:42.788Z",
-  "expiresAt": "2026-06-24T19:54:42.788Z",
-  "lastHeartbeat": "2026-06-24T19:24:42.788Z",
+  "startedAt": "2026-06-24T19:37:01.285Z",
+  "expiresAt": "2026-06-24T20:07:01.285Z",
+  "lastHeartbeat": "2026-06-24T19:37:01.285Z",
   "stepCount": 0
 }

@@ -2,8 +2,8 @@
   "taskId": "task-fail",
   "userId": "randy",
   "status": "FAILED",
-  "startedAt": "2026-06-24T19:24:42.793Z",
-  "expiresAt": "2026-06-24T19:54:42.793Z",
-  "lastHeartbeat": "2026-06-24T19:24:42.793Z",
+  "startedAt": "2026-06-24T19:37:01.290Z",
+  "expiresAt": "2026-06-24T20:07:01.290Z",
+  "lastHeartbeat": "2026-06-24T19:37:01.290Z",
   "stepCount": 0
 }
