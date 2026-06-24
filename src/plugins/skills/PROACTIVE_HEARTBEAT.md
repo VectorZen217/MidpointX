@@ -1,3 +1,8 @@
+---
+name: PROACTIVE_HEARTBEAT
+description: Periodically check the agent's operational status and critical background processes to ensure the system is healthy and responsive.
+---
+
 # PROACTIVE_HEARTBEAT
 
 ## Intent

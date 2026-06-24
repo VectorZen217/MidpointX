@@ -2,8 +2,8 @@
   "taskId": "task-expired",
   "userId": "randy",
   "status": "TIMEOUT",
-  "startedAt": "2026-06-24T19:22:03.362Z",
-  "expiresAt": "2026-06-24T19:22:02.362Z",
-  "lastHeartbeat": "2026-06-24T19:22:03.362Z",
+  "startedAt": "2026-06-24T19:24:42.762Z",
+  "expiresAt": "2026-06-24T19:24:41.762Z",
+  "lastHeartbeat": "2026-06-24T19:24:42.762Z",
   "stepCount": 0
 }
