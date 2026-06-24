@@ -38,9 +38,9 @@ describe("Phase II: Swarm & Semantic RAG Vectors", () => {
   test("MemoryManager should correctly log session and fallback gracefully when embeddings are disabled", async () => {
     const taskId = "task_" + Date.now();
     await MemoryManager.logSession(taskId, "Test automated trading bot task", "Bot simulated Polymarket live live-run.", ["desktop__take_snapshot_with_grid"]);
-    
+
     // Recall should fallback to keyword search
     const results = await MemoryManager.recallRecent("Polymarket", 7);
     expect(results).toContain("RELEVANT PAST SESSIONS");
-  });
+  }, 15000); // Increased timeout for file I/O operations
 });

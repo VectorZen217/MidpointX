@@ -154,7 +154,9 @@ export const ProactiveScheduler = {
   },
 
   deleteSchedule(id: string): void {
-    getDb().prepare("DELETE FROM scheduled_goals WHERE id = ?").run(id);
+    const db = getDb();
+    db.prepare("DELETE FROM scheduled_goal_runs WHERE scheduled_goal_id = ?").run(id);
+    db.prepare("DELETE FROM scheduled_goals WHERE id = ?").run(id);
   },
 
   toggleSchedule(id: string, enabled: boolean): void {

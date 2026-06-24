@@ -34,14 +34,16 @@ describe("MidpointX State Management", () => {
       actionHistory: [],
       internalTurns: 0,
       strategicPlan: [],
-      planStatus: {}
+      planStatus: {},
+      conciseIntent: "test",
+      analysisResult: "test analysis"
     };
 
     const result = await selectionActor(initialState as any);
-    
+
     // The selectionActor should return an empty visualBuffer to prune state
     expect(result.visualBuffer).toEqual([]);
-  });
+  }, 15000); // Increased timeout for LLM + state processing
 
   test("Graph should support highFidelityContext injection", () => {
     // This is a structural test to ensure the state definition supports the field

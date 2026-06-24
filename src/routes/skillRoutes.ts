@@ -47,6 +47,15 @@ skillRoutes.put("/:slug", async (req, res) => {
   }
 });
 
+skillRoutes.post("/reload", async (_req, res) => {
+  try {
+    await PluginRegistry.reloadMDSkills();
+    res.json({ success: true, count: PluginRegistry.getMDSkills().length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 skillRoutes.delete("/:slug", async (req, res) => {
   try {
     const { slug } = req.params;

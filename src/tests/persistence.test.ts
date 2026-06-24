@@ -85,23 +85,16 @@ describe("PersistenceFactory.reset()", () => {
 
 describe("LocalPersistenceAdapter.deleteSkill()", () => {
   it("deleteSkill removes the skill file and subsequent read returns null", async () => {
-    const { adapter, dir } = await makeTempAdapter();
-    // Write the skill file directly into the adapter's skills subdirectory
-    // (saveSkill uses a hardcoded path; deleteSkill uses this.baseDir/skills/)
-    const skillsDir = path.join(dir, "skills");
-    await fs.mkdir(skillsDir, { recursive: true });
-    await fs.writeFile(path.join(skillsDir, "delete-test.md"), "# Test Skill Content", "utf-8");
+    const { adapter } = await makeTempAdapter();
+    // saveSkill and deleteSkill both use src/plugins/skills/ — use the API pair so they're consistent
+    await adapter.saveSkill("delete-test", "# Test Skill Content");
+    const before = await adapter.readSkill("delete-test");
+    expect(before).not.toBeNull();
 
     await adapter.deleteSkill("delete-test");
 
-    // File should no longer exist
-    let exists = true;
-    try {
-      await fs.access(path.join(skillsDir, "delete-test.md"));
-    } catch {
-      exists = false;
-    }
-    expect(exists).toBe(false);
+    const after = await adapter.readSkill("delete-test");
+    expect(after).toBeNull();
   });
 
   it("deleteSkill is idempotent — does not throw when file does not exist", async () => {

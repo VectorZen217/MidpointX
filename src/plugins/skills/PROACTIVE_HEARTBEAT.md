@@ -1,28 +1,22 @@
----
-name: PROACTIVE_HEARTBEAT
-description: Periodic proactive heartbeat — triggers self-health checks, memory pruning, and workspace integrity scans on a cron schedule to keep the agent in a healthy operational state.
-category: sentinel
-schedule: "0 * * * *"
----
+# PROACTIVE_HEARTBEAT
 
-# Logic Shift: PROACTIVE_HEARTBEAT
+## Intent
 
-## When to Use
-- When the proactive observer fires a cron trigger with skill type `PROACTIVE_HEARTBEAT`
-- Every hour to verify system health, prune stale memories, and log operational status
+Periodically check the agent's operational status and critical background processes to ensure the system is healthy and responsive. This skill acts as a self-health check.
 
-## Procedure
-1. Run a lightweight system health check (Node version, disk space, SQLite reachability)
-2. Recall the last 5 agent memories and verify the DB is readable
-3. Check that the checkpoints DB is present and not corrupted
-4. Log a structured heartbeat entry to `src/workspace/audit/`
-5. If any check fails, emit a NOTIFY assessment so the user is informed
+## Execution
 
-## Example Trigger
-```json
-{ "type": "cron", "skill": "PROACTIVE_HEARTBEAT", "data": {} }
-```
+1.  **Check Agent Process:** Verify that the MidpointX agent process is running.
+2.  **Check Critical Services:** (Optional, if defined) Verify status of key services like the scheduler or communication modules.
+3.  **Log Status:** Record the outcome of the checks.
+4.  **Alert on Failure:** If any check fails, trigger an alert to the operator.
 
-## Common Pitfalls
-- Do not launch heavy LLM tasks during heartbeat — keep it lightweight and non-blocking
-- If Docker is unavailable, log a warning but do not fail the heartbeat
+## Metrics
+
+-   Agent process status (running/stopped)
+-   (Optional) Status of critical services
+
+## Failure Handling
+
+-   If agent process is not running, attempt to restart it. If restart fails, escalate to operator.
+-   If critical services are down, attempt to restart them. If restart fails, escalate to operator.

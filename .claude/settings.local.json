@@ -25,7 +25,8 @@
       "Bash(not exist *)",
       "Bash(npm install *)",
       "Bash(npm list *)",
-      "PowerShell(& d:\\\\midpointx\\\\venv\\\\Scripts\\\\python.exe -c \"import google.auth.oauthlib; print\\('OK'\\)\" 2>&1)"
+      "PowerShell(& d:\\\\midpointx\\\\venv\\\\Scripts\\\\python.exe -c \"import google.auth.oauthlib; print\\('OK'\\)\" 2>&1)",
+      "Bash(npm test *)"
     ]
   }
 }

@@ -5,20 +5,7 @@ import { invokeWithResilience } from "../core/resilience";
 import { A2AProtocol } from "../core/protocol";
 import { WorkspaceLoader } from "../core/workspaceLoader";
 import { SwarmBus } from "../core/swarmBus";
-
-/**
- * Safely extracts plain text from LangChain response content.
- */
-function extractText(content: any): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((part: any) => part.type === "text")
-      .map((part: any) => part.text ?? "")
-      .join("");
-  }
-  return String(content);
-}
+import { extractText } from "./cognitiveNodes";
 
 /**
  * WORKER 1: ResearcherAgent
@@ -35,24 +22,39 @@ export async function researchWorkerNode(state: typeof MidpointXState.State) {
     parentId: state.taskId
   });
 
+  const { PluginRegistry } = await import("../core/pluginRegistry");
   const model = LLMFactory.getModel({ temperature: 0.1, tier: "worker" });
   const agentPersona = WorkspaceLoader.getAgentPersona();
+  const baseModel = model as any;
+
+  // Bind tools for research (fetch, file operations, searches)
+  const researchTools = PluginRegistry.getActiveTools()
+    .filter(t => t.name && (
+      t.name.includes("fetch") ||
+      t.name.includes("filesystem__read") ||
+      t.name.includes("search") ||
+      t.name.includes("file")
+    ))
+    .slice(0, 30);
+
+  const modelWithTools = baseModel.bindTools ? baseModel.bindTools(researchTools) : baseModel;
 
   const payload = [
     new SystemMessage(`You are the specialized MidpointX ResearcherAgent.\n${agentPersona}\n
-Your mandate is to gather information, search files, read documentation, and discover APIs.
-Output your research findings in a clean, highly structured Markdown report. Limit yourself strictly to investigation and research. Do not attempt to modify code or run tests.`),
+Your mandate is to gather information, search files, read documentation, and discover APIs using the tools at your disposal.
+Output your research findings in a clean, highly structured Markdown report. Limit yourself strictly to investigation and research. Do not attempt to modify code or run tests.
+CRITICAL: Use fetch, search, and file tools to gather REAL data. Do not generate placeholder information.`),
     new HumanMessage(`Sub-Goal to Investigate: ${state.workerSubGoal}\n\nCurrent Action History Context:\n${JSON.stringify(state.actionHistory.slice(-5))}`)
   ];
 
   SwarmBus.emit("swarm:agent_progress", {
     agentId,
-    step: "Invoking LLM",
-    message: "Analyzing task and gathering information...",
+    step: "Invoking LLM with tools",
+    message: "Executing research with tools enabled...",
     tokensUsed: 0
   });
 
-  const response = await invokeWithResilience(model, payload);
+  const response = await invokeWithResilience(modelWithTools, payload) as any;
   const textOutput = extractText(response.content);
   const tokensUsed = (response.usage_metadata?.input_tokens || 0) + (response.usage_metadata?.output_tokens || 0);
 
@@ -87,19 +89,34 @@ export async function developerWorkerNode(state: typeof MidpointXState.State) {
     parentId: state.taskId
   });
 
+  const { PluginRegistry } = await import("../core/pluginRegistry");
   const model = LLMFactory.getModel({ temperature: 0.2, tier: "worker" });
   const agentPersona = WorkspaceLoader.getAgentPersona();
+  const baseModel = model as any;
+
+  // Bind tools for development (file writes, code execution, compilation)
+  const devTools = PluginRegistry.getActiveTools()
+    .filter(t => t.name && (
+      t.name.includes("filesystem__write") ||
+      t.name.includes("execute_system_command") ||
+      t.name.includes("compile") ||
+      t.name.includes("test")
+    ))
+    .slice(0, 30);
+
+  const modelWithTools = baseModel.bindTools ? baseModel.bindTools(devTools) : baseModel;
 
   const payload = [
     new SystemMessage(`You are the specialized MidpointX DeveloperAgent.\n${agentPersona}\n
 Your mandate is to write clean, maintainable TypeScript/JavaScript code, perform surgical edits, refactor components, and design implementation patterns.
-Analyze the researcher's findings and user goals, and draft precise code updates or structural refactoring blocks. Focus exclusively on development tasks.`),
+You have access to file writing and execution tools. Use them to implement solutions based on the researcher's findings.
+CRITICAL: Do not just draft code — actually WRITE files and execute compilation to verify your work.`),
     new HumanMessage(`Sub-Goal to Implement: ${state.workerSubGoal}\n\nResearcher Input/Context:\n${state.workerOutput}\n\nCurrent Action History Context:\n${JSON.stringify(state.actionHistory.slice(-5))}`)
   ];
 
   SwarmBus.emit("swarm:agent_progress", {
     agentId,
-    step: "Invoking LLM",
+    step: "Invoking LLM with tools",
     message: "Synthesizing implementation from research output...",
     tokensUsed: 0
   });
@@ -113,7 +130,7 @@ Analyze the researcher's findings and user goals, and draft precise code updates
     });
   }
 
-  const response = await invokeWithResilience(model, payload);
+  const response = await invokeWithResilience(modelWithTools, payload) as any;
   const textOutput = extractText(response.content);
   const tokensUsed = (response.usage_metadata?.input_tokens || 0) + (response.usage_metadata?.output_tokens || 0);
 
@@ -148,19 +165,34 @@ export async function testerWorkerNode(state: typeof MidpointXState.State) {
     parentId: state.taskId
   });
 
+  const { PluginRegistry } = await import("../core/pluginRegistry");
   const model = LLMFactory.getModel({ temperature: 0.1, tier: "worker" });
   const agentPersona = WorkspaceLoader.getAgentPersona();
+  const baseModel = model as any;
+
+  // Bind tools for testing (execute commands, read files, run tests)
+  const testTools = PluginRegistry.getActiveTools()
+    .filter(t => t.name && (
+      t.name === "execute_system_command" ||
+      t.name.includes("filesystem__read") ||
+      t.name.includes("test") ||
+      t.name.includes("compile")
+    ))
+    .slice(0, 30);
+
+  const modelWithTools = baseModel.bindTools ? baseModel.bindTools(testTools) : baseModel;
 
   const payload = [
     new SystemMessage(`You are the specialized MidpointX TesterAgent.\n${agentPersona}\n
 Your mandate is to run test suites, check linter output, execute tsc type checking, audit security boundaries, and evaluate system stability.
-Identify edge cases, failure scenarios, and verify builds based on developer outputs.`),
+You have access to execution tools. Use them to verify the developer's work by running tests, type checks, and lint analysis.
+CRITICAL: Actually RUN tests and verification commands. Do not just review code.`),
     new HumanMessage(`Sub-Goal to Verify: ${state.workerSubGoal}\n\nDeveloper Output to Verify:\n${state.workerOutput}\n\nCompiler Trace Context:\n${state.compilerTrace || "No trace active"}`)
   ];
 
   SwarmBus.emit("swarm:agent_progress", {
     agentId,
-    step: "Invoking LLM",
+    step: "Invoking LLM with tools",
     message: "Verifying developer output for correctness...",
     tokensUsed: 0
   });
@@ -174,7 +206,7 @@ Identify edge cases, failure scenarios, and verify builds based on developer out
     });
   }
 
-  const response = await invokeWithResilience(model, payload);
+  const response = await invokeWithResilience(modelWithTools, payload) as any;
   const textOutput = extractText(response.content);
   const tokensUsed = (response.usage_metadata?.input_tokens || 0) + (response.usage_metadata?.output_tokens || 0);
 

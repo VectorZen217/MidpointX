@@ -95,7 +95,8 @@ export class LocalPersistenceAdapter implements PersistenceAdapter {
   }
 
   async deleteSkill(slug: string): Promise<void> {
-    const filePath = path.join(this.baseDir, "skills", `${slug}.md`);
+    const skillDir = path.resolve(__dirname, "../../src/plugins/skills");
+    const filePath = path.join(skillDir, `${slug}.md`);
     try {
       await fs.unlink(filePath);
     } catch (err: any) {

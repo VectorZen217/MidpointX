@@ -34,16 +34,6 @@
     "successCount": 2,
     "lastUsed": "2026-05-14T22:39:04.530Z"
   },
-  "FILE_BROWSER_001": {
-    "usageCount": 1,
-    "successCount": 1,
-    "lastUsed": "2026-05-19T20:01:46.832Z"
-  },
-  "THEOREM_AUDIT_CHAIN_VERIFY_01": {
-    "usageCount": 1,
-    "successCount": 1,
-    "lastUsed": "2026-05-24T07:00:37.996Z"
-  },
   "autonomous-researcher": {
     "usageCount": 11,
     "successCount": 11,

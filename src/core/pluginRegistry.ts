@@ -630,8 +630,12 @@ export class PluginRegistry {
     executors: Map<string, (args: unknown) => Promise<unknown>>
   ): void {
     this.unregisterConnectorTools(connectorId);
-    this.activeTools.push(...tools);
-    this.connectorToolIds.set(connectorId, tools.map(t => t.name));
+    const sanitizedTools = tools.map(t => ({
+      ...t,
+      parameters: t.parameters ? this.sanitizeSchema(t.parameters) : t.parameters,
+    }));
+    this.activeTools.push(...sanitizedTools);
+    this.connectorToolIds.set(connectorId, sanitizedTools.map(t => t.name));
     for (const [name, fn] of executors) {
       this.connectorToolExecutors.set(name, fn);
     }

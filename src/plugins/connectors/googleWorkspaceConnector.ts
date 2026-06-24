@@ -73,7 +73,7 @@ export class GoogleWorkspaceConnector implements IConnector {
       {
         name: "append_to_sheet",
         description: "Append rows to a Google Sheets spreadsheet",
-        inputSchema: { type: "object", properties: { sheet_id: { type: "string" }, range: { type: "string" }, values: { type: "array", description: "2D array of values to append" } }, required: ["sheet_id", "range", "values"] },
+        inputSchema: { type: "object", properties: { sheet_id: { type: "string" }, range: { type: "string" }, values: { type: "array", description: "2D array of values to append", items: { type: "array", items: { type: "string" } } } }, required: ["sheet_id", "range", "values"] },
         execute: async ({ sheet_id, range, values }: Record<string, unknown>) => {
           const token = await getGoogleAccessToken();
           const res = await fetch(
@@ -82,6 +82,81 @@ export class GoogleWorkspaceConnector implements IConnector {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
               body: JSON.stringify({ values })
+            }
+          );
+          return await res.json();
+        }
+      },
+      {
+        name: "upload_file",
+        description: "Upload a file (e.g. HTML, text, PDF) to Google Drive",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Filename including extension (e.g. report.html)" },
+            content: { type: "string", description: "File content as a UTF-8 string" },
+            mime_type: { type: "string", description: "MIME type (e.g. text/html, text/plain)" },
+            folder_id: { type: "string", description: "Parent folder ID (optional, defaults to My Drive root)" }
+          },
+          required: ["name", "content", "mime_type"]
+        },
+        execute: async ({ name, content, mime_type, folder_id }: Record<string, unknown>) => {
+          const token = await getGoogleAccessToken();
+          const metadata: Record<string, unknown> = {
+            name,
+            mimeType: mime_type,
+            ...(folder_id ? { parents: [folder_id] } : {})
+          };
+          const boundary = "boundary_midpointx";
+          const body = [
+            `--${boundary}`,
+            "Content-Type: application/json; charset=UTF-8",
+            "",
+            JSON.stringify(metadata),
+            `--${boundary}`,
+            `Content-Type: ${mime_type}`,
+            "",
+            content as string,
+            `--${boundary}--`
+          ].join("\r\n");
+          const res = await fetch(
+            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": `multipart/related; boundary=${boundary}`
+              },
+              body
+            }
+          );
+          return await res.json();
+        }
+      },
+      {
+        name: "create_folder",
+        description: "Create a new folder in Google Drive",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Folder name" },
+            parent_folder_id: { type: "string", description: "Parent folder ID (optional, defaults to root)" }
+          },
+          required: ["name"]
+        },
+        execute: async ({ name, parent_folder_id }: Record<string, unknown>) => {
+          const token = await getGoogleAccessToken();
+          const metadata: Record<string, unknown> = {
+            name,
+            mimeType: "application/vnd.google-apps.folder",
+            ...(parent_folder_id ? { parents: [parent_folder_id] } : {})
+          };
+          const res = await fetch(
+            "https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink",
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify(metadata)
             }
           );
           return await res.json();

@@ -76,6 +76,11 @@ export const MCP_SERVER_LIBRARY: MCPServerLibraryEntry[] = [
     command: "npx", args: ["-y", "@modelcontextprotocol/server-postgres"],
     defaultEnv: { POSTGRES_CONNECTION_STRING: "" },
     configFields: [{ key: "POSTGRES_CONNECTION_STRING", label: "Connection String", placeholder: "postgresql://user:pass@host/db" }]
+  },
+  {
+    id: "fetch", name: "Fetch", description: "HTTP fetch utility — retrieve any URL as text or JSON",
+    command: "uvx", args: ["mcp-server-fetch"],
+    defaultEnv: {}, configFields: []
   }
 ];
 

@@ -1,18 +1,17 @@
-﻿---
+---
 name: THEOREM_WEB_01
-description: web-scraping, information-gathering, marketing-strategy
-category: domain
+description: research, report generation, cloud storage
 ---
 
 # Logic Shift: THEOREM_WEB_01
-Trace ID: TELEGRAM-1780074420446
-Learned At: 2026-05-29T17:07:12.555Z
+Trace ID: TELEGRAM-1781894935387
+Learned At: 2026-06-19T18:49:56.272Z
 
 ## Justification
-The standard approach of directly analyzing a website failed because the website itself contained no actionable information. Relying solely on the provided URL led to an incomplete task. Initiating a broader search proactively addresses this data deficiency, enabling the agent to fulfill the user's request more effectively.
+The standard approach of performing web research, creating the report locally, and then uploading it to cloud storage is effective. However, codifying this sequence as a theorem reinforces the optimal workflow for this common multi-step task, ensuring consistency and efficiency in future similar requests. It highlights the distinct phases: information retrieval, content creation, and final delivery.
 
 ## Discovered Pattern
-When a website provides minimal or no content, and a marketing plan is requested, the standard approach of analyzing the website directly is insufficient. A broader web search should be initiated to gather contextual information about the business before attempting to create a marketing plan.
+Researching a topic, generating a detailed report in a specific format (e.g., HTML), and saving it to a cloud storage service (e.g., Google Drive).
 
 ## Optimized Approach
-If a target website yields insufficient information for a requested task (e.g., marketing plan, competitive analysis), automatically perform a broader web search using the business name and relevant keywords before proceeding. This ensures a more comprehensive understanding and a higher quality output.
+When a user requests research on a topic, followed by report generation in a specific format and saving to cloud storage, the following sequence should be used: 1. Perform web research using a search tool to gather comprehensive information. 2. Synthesize the gathered information into the requested format (e.g., HTML) locally. 3. Upload the generated report directly to the specified cloud storage service (e.g., Google Drive) using the appropriate integration tool. This ensures all components of the request are addressed sequentially and efficiently.

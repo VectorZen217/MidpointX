@@ -1,18 +1,17 @@
-﻿---
+---
 name: THEOREM_SKILL_01
-description: skill verification, proactive planning, error prevention
-category: meta
+description: skill management, proactive maintenance, cron automation
 ---
 
 # Logic Shift: THEOREM_SKILL_01
-Trace ID: TELEGRAM-1779729592945
-Learned At: 2026-05-25T17:20:22.750Z
+Trace ID: PROACTIVE_PROACTIVE_HEARTBEAT-1782140400116
+Learned At: 2026-06-22T15:01:47.558Z
 
 ## Justification
-The standard approach would be to directly attempt to use the skill, which could lead to a 'skill not found' error and halt progress. This theorem provides a proactive verification step, ensuring that the agent only attempts to use confirmed and capable skills, thereby preventing wasted execution cycles and maintaining plan momentum.
+The standard approach of simply 'reading the skill' is insufficient. This theorem codifies a more robust process that includes not only reading the skill's state but also actively performing its health checks and confirming its readiness. This ensures that proactive skills are not just running, but are actively maintaining system health and are prepared for their next execution cycle, preventing potential failures due to stale data or unaddressed integrity issues.
 
 ## Discovered Pattern
-Agent needs to use a specific skill (e.g., 'autonomous-researcher') but its existence or capabilities are unconfirmed.
+Executing a proactive heartbeat or health check for a background skill triggered by a cron job.
 
 ## Optimized Approach
-Before attempting to use an unconfirmed skill, first verify its existence and capabilities using a meta-skill or by querying the skill registry. If the skill does not exist or is not suitable, identify and propose alternative tools or skills.
+When a cron-triggered proactive skill (like PROACTIVE_HEARTBEAT) is executed, the primary action should be to read the skill's current configuration and logic, followed by performing its defined health checks (e.g., memory pruning, workspace integrity scans). If the skill's logic requires updates or confirmation of readiness, these actions should be performed and the updated state logged. The final step is to confirm the skill's readiness for the next scheduled trigger.

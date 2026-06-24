@@ -1,6 +1,6 @@
 ---
 name: google-drive-organizer
-description: Manages, organizes, structures, and modifies files and folders within a user's Google Drive with core logical framework for identifying files, creating folder structures, and moving files systematically.
+description: Manages, organizes, and uploads files and folders within a user's Google Drive using the google_workspace connector tools.
 category: domain
 ---
 
@@ -8,88 +8,81 @@ category: domain
 
 ## Description
 
-This skill enables an AI agent to manage, organize, structure, and modify files and folders within a user's Google Drive. It provides the core logical framework for identifying files, creating folder structures, and moving files systematically.
+This skill enables an AI agent to manage, organize, and upload files and folders in a user's Google Drive. Use it to save reports, create folder structures, and search for existing files.
 
-## Core Capabilities
+## Available Tools
 
-1. **Directory Discovery**: Analyze existing files and folder structures to prevent duplicates.  
-2. **Folder Creation**: Establish new directories with correct hierarchical parent-child relationships.  
-3. **File Migration**: Move single or multiple files into designated target folders.  
-4. **Fuzzy Search & Match**: Locate files and folders using name-based queries or metadata.
+All tools are accessed with the `google_workspace__` prefix. These are the real registered tool names:
 
-## Tool Definitions
+| Tool | Purpose |
+|---|---|
+| `google_workspace__upload_file` | Upload a file (HTML, text, etc.) to Drive |
+| `google_workspace__create_folder` | Create a new folder in Drive |
+| `google_workspace__search_drive` | Search files and folders by name or content |
+| `google_workspace__list_drive_files` | List files in a folder (defaults to root) |
+| `google_workspace__get_doc` | Read a Google Docs document by ID |
+| `google_workspace__get_spreadsheet` | Read a Google Sheets spreadsheet by ID |
+| `google_workspace__append_to_sheet` | Append rows to a Google Sheets spreadsheet |
 
-The agent must have access to the following tools (or API endpoints wrapped by these schemas) to execute this skill:
+## Tool Schemas
 
-### 1. list_drive_contents
+### google_workspace__upload_file
 
-* **Purpose**: Retrieve a list of files and folders in a specific directory.  
-* **Parameters**:  
-  * folder_id (string, optional): The ID of the folder to query. Defaults to 'root'.  
-  * include_trashed (boolean, optional): Whether to include files in the trash. Defaults to false.
+Upload any UTF-8 file content to Google Drive. Returns `id`, `name`, and `webViewLink`.
 
-### 2. search_drive_files
+* **name** (string, required): Filename with extension, e.g. `report.html`
+* **content** (string, required): Full file content as a UTF-8 string
+* **mime_type** (string, required): MIME type, e.g. `text/html`, `text/plain`, `text/csv`
+* **folder_id** (string, optional): Drive folder ID to place the file in; omit for My Drive root
 
-* **Purpose**: Search files or folders by name, type, or parent folder.  
-* **Parameters**:  
-  * query (string, required): The search string (e.g., name contains 'Invoice').  
-  * mime_type (string, optional): Filter by file type (e.g., application/vnd.google-apps.folder for folders).
+### google_workspace__create_folder
 
-### 3. create_drive_folder
+Create a new folder. Returns `id`, `name`, and `webViewLink`.
 
-* **Purpose**: Create a new folder.  
-* **Parameters**:  
-  * folder_name (string, required): The name of the new folder.  
-  * parent_folder_id (string, optional): The ID of the parent folder. Defaults to 'root'.
+* **name** (string, required): Folder name
+* **parent_folder_id** (string, optional): Parent folder ID; omit for root
 
-### 4. move_drive_file
+### google_workspace__search_drive
 
-* **Purpose**: Move a file or folder to a new location.  
-* **Parameters**:  
-  * file_id (string, required): The ID of the file to move.  
-  * target_folder_id (string, required): The ID of the destination folder.  
-  * current_parent_id (string, optional): The ID of the current parent folder to remove the file from.
+Search files or folders by Drive query syntax.
 
-## Execution Protocol & Rules
+* **query** (string, required): Drive query string, e.g. `name contains 'Report'` or `mimeType = 'application/vnd.google-apps.folder'`
+* **limit** (number, optional): Max results to return (default 10)
 
-When asked to organize files, you must follow this strict sequence to prevent data loss or duplicate folders:
+### google_workspace__list_drive_files
 
-### Step 1: Scan and Verify
+List files in a folder.
 
-* **Do not assume paths exist**. Always search for the target folder name using search_drive_files before creating a new one.  
-* If a folder with the exact name already exists in the destination parent folder, retrieve its ID instead of generating a duplicate.
+* **limit** (number, optional): Max results (default 20)
+* **folder_id** (string, optional): Folder ID to list; omit for root
 
-### Step 2: Create Missing Nodes
+## Execution Protocol
 
-* If the required folder structure does not exist, build it from the top down.  
-* Always save the returned IDs of newly created folders to use as parent IDs for nested folders or files.
+### Saving a File to Drive
 
-### Step 3: Relocate Files Safely
+1. **(Optional) Create a folder** if one doesn't exist yet:
+   - Call `google_workspace__search_drive` with `query="name = 'FolderName' and mimeType = 'application/vnd.google-apps.folder'"` to check.
+   - If not found, call `google_workspace__create_folder` to create it and capture the returned `id`.
+2. **Upload the file**:
+   - Call `google_workspace__upload_file` with the `name`, `content`, `mime_type`, and optionally `folder_id`.
+   - Report the returned `webViewLink` to the user so they can open it directly.
 
-* When moving a file, you must add the new target_folder_id and remove the file from its previous parent folder to avoid creating multiple pointer links to the same file.
+### Example: Research → HTML Report → Save to Drive
 
-## Example Agent Workflows
+*User: "Research topic X, write an HTML report, and save it to Google Drive."*
 
-### Scenario A: Create a nested structure and move a file
+1. Research the topic using web/browser tools.
+2. Compose the full HTML string in memory.
+3. Call `google_workspace__upload_file`:
+   ```
+   name: "sioux-indians-report.html"
+   content: "<html>...</html>"
+   mime_type: "text/html"
+   ```
+4. Return the `webViewLink` from the response: "Your report has been saved to Drive: [link]"
 
-*User: "Create a folder called 'Q3 Reports' inside my 'Finance' folder, then move 'sales_draft.xlsx' into it."*
+## Error Handling
 
-1. **Search for 'Finance'**:  
-   * Call search_drive_files(query="name = 'Finance' and mimeType = 'application/vnd.google-apps.folder'").  
-   * *Result*: Found ID folder_finance_123.  
-2. **Verify 'Q3 Reports' inside 'Finance'**:  
-   * Call search_drive_files(query="name = 'Q3 Reports' and 'folder_finance_123' in parents").  
-   * *Result*: No folder found.  
-3. **Create 'Q3 Reports'**:  
-   * Call create_drive_folder(folder_name="Q3 Reports", parent_folder_id="folder_finance_123").  
-   * *Result*: Created with ID folder_q3_999.  
-4. **Find 'sales_draft.xlsx'**:  
-   * Call search_drive_files(query="name = 'sales_draft.xlsx'").  
-   * *Result*: Found ID file_xlsx_456 with current parent folder_root_000.  
-5. **Move the file**:  
-   * Call move_drive_file(file_id="file_xlsx_456", target_folder_id="folder_q3_999", current_parent_id="folder_root_000").
-
-## Error Handling Guidelines
-
-* **Permissions issues**: If a write command fails with a permissions error, report the specific file or folder ID that blocked the operation and ask the user to verify their Drive permissions.  
-* **Rate Limits**: If Google Drive returns a rate limit error (HTTP 403 / 429), pause execution, implement exponential backoff, and retry.
+* **401 Unauthorized**: Google OAuth credentials are missing or expired. Ask the user to verify `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REFRESH_TOKEN` in `.env`.
+* **403 Forbidden**: The OAuth scope may not include Drive write access. The refresh token must have been granted the `https://www.googleapis.com/auth/drive.file` scope.
+* **Rate limits (429)**: Retry with exponential backoff.
