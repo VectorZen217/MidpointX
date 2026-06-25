@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/assets/midpointx-logo.png" alt="MidpointX Logo" width="800">
+  <img src="./docs/midpointx-logo.png" alt="MidpointX Logo" width="800">
 </p>
 
 <p align="center">
