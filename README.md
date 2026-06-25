@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="./midpointx-logo.png" alt="MidpointX Logo" width="800">
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white" alt="Node.js">
   <img src="https://img.shields.io/badge/LangGraph-1.2-FF6B35?logo=langchain&logoColor=white" alt="LangGraph">
